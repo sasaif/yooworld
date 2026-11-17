@@ -1,14 +1,14 @@
 import { useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
-import { BACK_WALL, ITEMS, LEFT_WALL, NX, NZ, PALETTE, ROOM_D, ROOM_W, S, TILE, type Dir, type Item } from './layout';
+import { BACK_WALL, ITEMS, LEFT_WALL, NX, NZ, PALETTE, ROOM_D, ROOM_W, S, TILE, type Dir, type Item } from '../data/layout';
 
 const URL = (m: string) => `/models/furniture/${m}.glb`;
 const ALL = Array.from(new Set([...ITEMS.map((i) => i.m), ...BACK_WALL, ...LEFT_WALL]));
 ALL.forEach((m) => useGLTF.preload(URL(m)));
 const YAW: Record<Dir, number> = { S: 0, E: Math.PI / 2, N: Math.PI, W: -Math.PI / 2 };
 
-export interface Seat { id: string; pos: THREE.Vector3; yaw: number; height: number; front: THREE.Vector3 }
+import type { Seat } from '../game/world';
 export interface RoomInfo { boxes: THREE.Box3[]; seats: Seat[] }
 
 const matCache = new Map<string, THREE.Material>();
@@ -19,8 +19,8 @@ function warm(root: THREE.Object3D, wallTint?: string) {
     const src = m.material as THREE.MeshStandardMaterial; const key = (wallTint ?? '') + src.name;
     let mat = matCache.get(key) as THREE.MeshStandardMaterial | undefined;
     if (!mat) {
-      mat = src.clone(); const c = wallTint && src.name === '_defaultMat' ? wallTint : PALETTE[src.name];
-      if (c) mat.color.set(c); mat.roughness = 0.8; mat.metalness = 0; matCache.set(key, mat);
+      const c = wallTint && src.name === '_defaultMat' ? wallTint : PALETTE[src.name];
+      mat = new THREE.MeshLambertMaterial({ color: c ?? src.color, name: src.name, transparent: src.transparent, opacity: src.opacity }) as unknown as THREE.MeshStandardMaterial; matCache.set(key, mat);
     }
     m.material = mat;
   });
@@ -79,22 +79,22 @@ export function Room({ onReady, onFloor }: { onReady: (r: RoomInfo) => void; onF
       const yaw = g.rotation.y; const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
       const depth = Math.abs(fwd.x) > 0.5 ? b.max.x - b.min.x : b.max.z - b.min.z;
       const ctr = b.getCenter(new THREE.Vector3()).setY(0);
-      info.seats.push({ id: it.id!, yaw, height: 0.27 * S, pos: ctr.clone().addScaledVector(fwd, depth * 0.08), front: ctr.clone().addScaledVector(fwd, depth / 2 + 0.25) });
+      info.seats.push({ id: it.id!, yaw, pos: ctr.clone().addScaledVector(fwd, depth * 0.08), front: ctr.clone().addScaledVector(fwd, depth / 2 + 0.25) });
     }
     if (++n === ITEMS.length) onReady(info);
   };
   return (
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[ROOM_W / 2, 0, ROOM_D / 2]} receiveShadow
-        onPointerDown={(e) => { e.stopPropagation(); onFloor(e.point.clone()); }}>
+        onClick={(e) => { if (e.delta > 8) return; e.stopPropagation(); onFloor(e.point.clone()); }}>
         <planeGeometry args={[ROOM_W, ROOM_D]} />
-        <meshStandardMaterial map={tex} roughness={0.75} />
+        <meshLambertMaterial map={tex} />
       </mesh>
       {/* floor slab edge */}
-      <mesh position={[ROOM_W / 2, -0.066, ROOM_D / 2]} receiveShadow><boxGeometry args={[ROOM_W + 0.12, 0.12, ROOM_D + 0.12]} /><meshStandardMaterial color="#7a5a8c" /></mesh>
+      <mesh position={[ROOM_W / 2, -0.066, ROOM_D / 2]} receiveShadow><boxGeometry args={[ROOM_W + 0.12, 0.12, ROOM_D + 0.12]} /><meshLambertMaterial color="#7a5a8c" /></mesh>
       {/* skirting */}
-      <mesh position={[ROOM_W / 2, 0.04, 0.012]}><boxGeometry args={[ROOM_W, 0.08, 0.02]} /><meshStandardMaterial color="#fff4ea" /></mesh>
-      <mesh position={[0.012, 0.04, ROOM_D / 2]}><boxGeometry args={[0.02, 0.08, ROOM_D]} /><meshStandardMaterial color="#fff4ea" /></mesh>
+      <mesh position={[ROOM_W / 2, 0.04, 0.012]}><boxGeometry args={[ROOM_W, 0.08, 0.02]} /><meshLambertMaterial color="#fff4ea" /></mesh>
+      <mesh position={[0.012, 0.04, ROOM_D / 2]}><boxGeometry args={[0.02, 0.08, ROOM_D]} /><meshLambertMaterial color="#fff4ea" /></mesh>
       <WallRow pieces={BACK_WALL.slice(0, NX)} side="back" tint="#f6d6cf" />
       <WallRow pieces={LEFT_WALL.slice(0, NZ)} side="left" tint="#e7d8f3" />
       {ITEMS.map((it, i) => <Placed key={i} it={it} onBox={onBox} />)}
