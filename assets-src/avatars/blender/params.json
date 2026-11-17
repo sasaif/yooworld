@@ -1,0 +1,162 @@
+{
+"delete": [
+169,
+170,
+171,
+172,
+49,
+53,
+55,
+56,
+57,
+173,
+174,
+177,
+58,
+59,
+48,
+52
+],
+"head_center": [
+0,
+0,
+0.69
+],
+"front_w0": 0.2,
+"front_w1": 0.75,
+"el_lo": 10,
+"el_new_lo": 16,
+"el_hi": 65,
+"vol_side": 0.03,
+"vol_top": 0.012,
+"vol_el0": 30,
+"vol_el1": 70,
+"side_el": -5,
+"side_pull": 0.0,
+"quiff_pivot": [
+0,
+0.13,
+0.84
+],
+"quiff_lean": 35,
+"quiff_len": 1.0,
+"quiff_depth": 1.0,
+"quiff_sweep": 0.03,
+"quiff_shift": 0.0,
+"brow_thick": 1.5,
+"brow_len": 1.0,
+"brow_dz": -0.004,
+"lash_scale": 0.45,
+"lash_w": 0.85,
+"render_head": 1,
+"smooth_it": 4,
+"q_el": 50,
+"q_elw": 18,
+"q_az": -12,
+"q_azw": 45,
+"q_amp": 0.055,
+"q_twist": 18,
+"q_lift": 6,
+"back_slim": 0.012,
+"hl_asym": 10,
+"leg_z0": 0.1,
+"leg_z1": 0.274,
+"leg_k": 1.19,
+"shoulder_dx": 0.008,
+"torso_z0": 0.26,
+"torso_z1": 0.48,
+"torso_sx": 0.06,
+"hem_tol": 0.012,
+"pant_levels": [
+[
+0.115,
+0.97
+],
+[
+0.075,
+0.9
+],
+[
+0.06,
+0.78
+]
+],
+"pant_uv": [
+0.03,
+0.76,
+0.1,
+0.83
+],
+"hair_col": [
+0.06,
+0.035,
+0.03
+],
+"hl_col": [
+0.95,
+0.22,
+0.55
+],
+"highlights": 1,
+"hl_az": [
+-28,
+8,
+30
+],
+"hl_w": 5,
+"hl_el0": 30,
+"pant_prof": [
+[
+-0.15,
+1.04
+],
+[
+0.0,
+1.02
+],
+[
+0.45,
+0.92
+],
+[
+0.85,
+0.8
+],
+[
+0.93,
+0.86
+],
+[
+1.0,
+0.84
+],
+[
+1.3,
+0.7
+]
+],
+"notch": 8,
+"notch_w": 14,
+"lock": 0,
+"lock_el": [
+14,
+42
+],
+"lock_az": [
+-30,
+22
+],
+"lock_off": 0.006,
+"lock_droop": 9,
+"lock_sweep": 14,
+"flick_x": 0.14,
+"flick_k": 0.45,
+"flick_zc": 0.66,
+"seam_x": 0.025,
+"seam_merge": 0.004,
+"hairline_fix": 1,
+"hf_base": 16,
+"hf_asym": 10,
+"hf_emax": 62,
+"only_close": 0
+}

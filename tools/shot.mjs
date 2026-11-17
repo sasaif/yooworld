@@ -1,14 +1,22 @@
 import { chromium } from 'playwright-core';
-// usage: node tools/shot.mjs overview,close,walk [outdir]
-const modes = (process.argv[2] ?? 'overview').split(',');
-const out = process.argv[3] ?? '../shots';
+// usage: node tools/shot.mjs mode[@mobile][,mode2...] [outdir]   (dev server on :5202)
+//   mode = overview|close|walk|sit|mobile|ui ; '@mobile' = 390x844 touch viewport
+const jobs = (process.argv[2] ?? 'overview').split(',');
+const out = process.argv[3] ?? '/workspace/yooville/yooworld/shots';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-for (const m of modes) {
-  const p = await b.newPage({ viewport: { width: 1400, height: 900 } });
-  const logs = []; p.on('console', (x) => { if (x.type() === 'error' || x.type() === 'warning') logs.push(x.text().slice(0, 200)); }); p.on('response', (r) => { if (r.status() >= 400) logs.push('HTTP' + r.status() + ' ' + r.url()); }); p.on('pageerror', (e) => logs.push('PAGEERR ' + e.message));
-  const url = m === 'ui' ? 'http://localhost:5201/' : 'http://localhost:5201/?shot=' + m;
+for (const job of jobs) {
+  const [m, dev] = job.split('@'); const mobile = dev === 'mobile';
+  const ctx = await b.newContext(mobile ? { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1400, height: 900 } });
+  const p = await ctx.newPage();
+  const logs = []; p.on('console', (x) => { if (x.type() === 'error' || x.type() === 'warning') logs.push(x.text().slice(0, 200)); }); p.on('pageerror', (e) => logs.push('PAGEERR ' + e.message));
+  const extra = process.env.EXTRA ?? '';
+  const url = m.startsWith('ui') ? `http://localhost:5202/?${extra}` : `http://localhost:5202/?shot=${m}&${extra}`;
   await p.goto(url, { timeout: 120000 });
-  if (m === 'ui') await p.waitForTimeout(15000); else { try { await p.waitForFunction(() => window.__ready === true, null, { timeout: 180000 }); } catch { console.log('TIMEOUT', m); } }
-  await p.screenshot({ path: `${out}/${m}.png` }); console.log('shot', m, logs.slice(0, 6).join(' | ')); await p.close();
+  if (m.startsWith('ui')) { await p.waitForTimeout(Number(process.env.WAIT ?? 14000)); if (process.env.ACT) { const fn = (await import(process.env.ACT)).default; await fn(p); } }
+  else { try { await p.waitForFunction(() => window.__ready === true, null, { timeout: 180000 }); } catch { console.log('TIMEOUT', m); } }
+  const name = (process.env.NAME ?? m) + (mobile ? '_mobile' : '');
+  await p.screenshot({ path: `${out}/${name}.png` });
+  const info = await p.evaluate(() => window.__info ?? null);
+  console.log('shot', name, info ? JSON.stringify(info) : '', logs.slice(0, 6).join(' | ')); await ctx.close();
 }
 await b.close();
