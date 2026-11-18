@@ -6,44 +6,78 @@ import { ANIM_LIBRARY, type AvatarDef, type ClipKey } from '../data/avatars';
 import type { Look } from '../fashion/types';
 import { useCustomAvatar } from './avatar/custom/useCustomAvatar';
 import { LOCO, stepMover } from '../game/character/locomotion';
+import { locoBlend } from '../game/movement/animBlend';
+import { driveCharacter } from '../game/movement/playerMotion';
+import { world } from '../game/world';
 import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
 
 useGLTF.preload(ANIM_LIBRARY);
 
-export function Character({ c, def, look, selected, onSelect }: { c: CharState; def: AvatarDef; look: Look; selected: boolean; onSelect: () => void }) {
+const LOCO_KEYS = ['idle', 'walk', 'run'] as const;
+type LocoKey = typeof LOCO_KEYS[number];
+const camDir = new THREE.Vector3();
+/** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
+export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string }> = {};
+
+/** `controlled` = this is the player's avatar: the analog stick / keyboard may drive it. */
+export function Character({ c, def, look, selected, onSelect, controlled = false }: { c: CharState; def: AvatarDef; look: Look; selected: boolean; onSelect: () => void; controlled?: boolean }) {
   const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const bubble = useRef<HTMLDivElement>(null);
   const built = useCustomAvatar(def, look);
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
   const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
   const dance = useRef(0);
-  const cur = useRef<ClipKey>('idle');
+  // 'loco' = idle/walk/run blended by the actual ground speed; other clips (sit, stand, emote) cross-fade as before
+  const cur = useRef<ClipKey | 'loco'>('idle');
+  const lw = useRef<Record<LocoKey, number>>({ idle: 1, walk: 0, run: 0 });
   const play = (k: ClipKey, fade = 0.25) => {
-    if (cur.current === k) return; const prev = built.actions[cur.current]; const next = built.actions[k];
-    next.reset().setEffectiveWeight(1).fadeIn(fade).play(); prev.fadeOut(fade); cur.current = k;
+    if (cur.current === k) return; const next = built.actions[k];
+    next.reset().setEffectiveWeight(1).fadeIn(fade).play();
+    if (cur.current === 'loco') for (const lk of LOCO_KEYS) built.actions[lk].fadeOut(fade); else built.actions[cur.current].fadeOut(fade);
+    cur.current = k;
   };
-  useEffect(() => { built.actions.idle.play(); return () => { built.mixer.stopAllAction(); }; }, [built]);
+  const loco = (speed: number, dt: number) => {
+    if (cur.current !== 'loco') {
+      const prev = cur.current; const w = lw.current;
+      if (prev === 'idle' || prev === 'walk' || prev === 'run') { for (const lk of LOCO_KEYS) w[lk] = lk === prev ? built.actions[lk].getEffectiveWeight() : 0; }
+      else { built.actions[prev].fadeOut(0.25); for (const lk of LOCO_KEYS) w[lk] = 0; }
+      for (const lk of LOCO_KEYS) { const a = built.actions[lk]; a.stopFading(); if (!a.enabled || !a.isRunning()) a.reset().play(); a.setEffectiveWeight(w[lk]); }
+      cur.current = 'loco';
+    }
+    const vW = LOCO.walk * def.scale, vR = LOCO.run * def.scale; // stride grows with the avatar scale
+    const b = locoBlend(speed, vW, vR); const k = 1 - Math.exp(-dt * 10); const w = lw.current;
+    w.idle += (b.idle - w.idle) * k; w.walk += (b.walk - w.walk) * k; w.run += (b.run - w.run) * k;
+    const A = built.actions;
+    A.idle.setEffectiveWeight(w.idle); A.walk.setEffectiveWeight(w.walk); A.run.setEffectiveWeight(w.run);
+    // playback rate = actual speed / the clip's natural speed (never faster than the body moves)
+    A.walk.timeScale = b.walkTS; A.run.timeScale = b.runTS;
+    animDebug[c.id] = { speed, idle: w.idle, walk: w.walk, run: w.run, walkTS: b.walkTS, runTS: b.runTS, clip: 'loco' };
+  };
+  useEffect(() => { built.actions.idle.play(); cur.current = 'idle'; return () => { built.mixer.stopAllAction(); }; }, [built]);
 
-  useFrame((_, dtRaw) => {
+  useFrame((state, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05); const s = c;
+    // analog stick / keyboard (player's avatar only): may stand the avatar up, then drives it
+    let driven = false;
+    if (controlled) { state.camera.getWorldDirection(camDir); driven = driveCharacter(s, Math.min(dtRaw, 0.1), camDir, world.nav); }
     if (s.mode === 'standing') {
       play('stand', 0.15);
       const a = built.actions.stand;
       if (a.time >= a.getClip().duration - 0.05) { if (s.sitOn) s.pos.copy(s.sitOn.front).setY(0); s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
     } else if (s.mode !== 'sitting') {
-      const moving = stepMover(s, dt);
+      const moving = driven ? s.speed > 0.005 : stepMover(s, dt);
       if (moving) {
         s.mode = 'walk';
-        const run = s.speed > (LOCO.walk + LOCO.run) / 2;
-        play(run ? 'run' : 'walk', 0.2);
-        // stride grows with the avatar scale: play the cycle slower so feet don't slide
-        built.actions[run ? 'run' : 'walk'].timeScale = THREE.MathUtils.clamp(s.speed / ((run ? LOCO.run : LOCO.walk) * def.scale), 0.45, 1.3);
-      } else if (s.pendingSeat) {
+        loco(s.speed, dt);
+      } else if (!driven && s.pendingSeat) {
         const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting'; s.yaw = seat.yaw;
         const fwd = new THREE.Vector3(Math.sin(seat.yaw), 0, Math.cos(seat.yaw));
         s.pos.copy(seat.pos).addScaledVector(fwd, def.sitForward * def.scale); s.pos.y = 0.04 - (def.scale - 1) * 0.22; // hips stay on the cushion
         play('sit', 0.25);
-      } else { if (s.pendingEmote) { s.pendingEmote = false; s.emote = true; } s.mode = s.emote ? 'emote' : 'idle'; play(s.emote ? 'emote' : 'idle', 0.3); }
+      } else {
+        if (s.pendingEmote) { s.pendingEmote = false; s.emote = true; } s.mode = s.emote ? 'emote' : 'idle';
+        if (s.emote) play('emote', 0.3); else loco(0, dt);
+      }
     }
     built.mixer.update(dt);
     // face: blink, smile, grin while dancing, lip flap while a bubble is shown

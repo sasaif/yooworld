@@ -27,6 +27,10 @@ import { TravelFade } from '../ui/TravelFade';
 import { VARIANT } from './variant';
 import { camStore, camViewFollow, camViewZoomMul } from './camView';
 import { startLocation } from './startLocation';
+import { VirtualJoystick, wantsJoystick } from '../input/joystick/VirtualJoystick';
+import { installGlobalInput, setInputEnabled } from '../input/joystick/joystickState';
+import { motion } from '../game/movement/playerMotion';
+import { installMoveDebug } from '../game/movement/debug';
 
 const LIEU_KEY = 'yw.lieuDefaultUsed';
 function startAt() {
@@ -42,17 +46,29 @@ world.chars.f = makeChar('f', 'Juanita', 3.0, 2.85, 0.5);
 world.chars.m = makeChar('m', 'Juan', 3.7, 2.85, -0.3);
 const small = Math.min(innerWidth, innerHeight) < 600;
 const ROOM = { w: W, d: D, wallH: WALL_H };
+const JOY = !SHOT && wantsJoystick();
+installGlobalInput({ keyboard: !SHOT });
+installMoveDebug();
+// stick engaged: close the tap menu, re-attach the camera follow, stop a dance (same as a tap on the floor)
+motion.onEngage = (c) => {
+  if (game.s.menuItem) game.store.set({ menuItem: null });
+  window.dispatchEvent(new Event('yw:follow'));
+  if (c.emote) game.toggleEmote();
+};
 
 export default function App() {
   const ready = useStore(game.store, (s) => s.ready); const active = useStore(game.store, (s) => s.activeChar);
   const placing = useStore(game.store, (s) => !!s.placing); const loc = useStore(game.store, (s) => s.location);
   const view = useStore(camStore, (s) => s.view);
   const looks = useStore(fashion.store, (s) => s.looks); const studio = useStore(fashion.store, (s) => !!s.studio);
+  const mode = useStore(game.store, (s) => s.mode); const panel = useStore(game.store, (s) => s.panel); const moving = useStore(game.store, (s) => !!s.transition);
+  const joyHidden = !ready || studio || mode === 'edit' || moving;
+  useEffect(() => { setInputEnabled(!joyHidden); }, [joyHidden]);
   useActivityRewards();
   useEffect(() => { game.init({ startAt: SHOT ? null : startAt() }).then(() => {
     const p = game.s.profile!; world.chars[game.s.activeChar].name = p.name;
     if (SHOT?.startsWith('beach')) game.travel('beach');
-    if (SHOT) setTimeout(runShotScript, 300); else say(game.s.activeChar, 'Touche le sol pour marcher !', 5000);
+    if (SHOT) setTimeout(runShotScript, 300); else say(game.s.activeChar, JOY ? 'Utilise le joystick pour marcher !' : 'Touche le sol pour marcher !', 5000);
   }); }, []);
   const beach = loc === 'beach';
   if (THUMBS) return <ThumbStage />;
@@ -67,7 +83,7 @@ export default function App() {
           {ready && !beach && <ApartmentView />}
           {ready && beach && <BeachView />}
           {ready && Object.values(AVATARS).map((a) => (
-            <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
+            <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
           ))}
         </Suspense>
         <Stats />
@@ -76,6 +92,7 @@ export default function App() {
           follow={SHOT ? undefined : () => world.chars[game.s.activeChar]?.pos ?? null} />
       </Canvas>
       {(!SHOT || SHOT.startsWith('ui')) && <Hud />}
+      {JOY && <VirtualJoystick hidden={joyHidden} panelOpen={!!panel} />}
       <TravelFade />
       {studio && <FashionStudio />}
       {!SHOT && <RotateOverlay />}
