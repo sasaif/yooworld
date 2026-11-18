@@ -33,6 +33,9 @@ async function stickTo(d, a, id = 1, steps = 4) {
   const tx = joy.cx + Math.cos(a * Math.PI / 180) * d * joy.R, ty = joy.cy - Math.sin(a * Math.PI / 180) * d * joy.R;
   if (!touches.has(id)) await down(id, joy.cx, joy.cy);
   const from = touches.get(id); for (let i = 1; i <= steps; i++) await moveT(id, from.x + (tx - from.x) * i / steps, from.y + (ty - from.y) * i / steps);
+  // Chrome delivers touch/pointer moves aligned to the next rendered frame: on a 5 fps renderer the last move can land
+  // ~0.3 s after CDP returns. Wait until the game's stick actually reads the requested displacement.
+  await p.waitForFunction((m) => Math.abs(window.__move().stick.mag - m) < 0.011, Math.min(1, d), { timeout: 3000, polling: 50 }).catch(() => {});
 }
 const mv = () => p.evaluate(() => window.__move());
 const sampler = () => p.evaluate(() => { window.__samples = []; if (window.__sampling) return; window.__sampling = true; const f = () => { const m = window.__move(); window.__samples.push({ t: performance.now(), sim: m.simTime, x: m.pos[0], z: m.pos[1], speed: m.speed, v: Math.hypot(m.vel[0], m.vel[1]), mode: m.mode, d: m.d, act: m.stick.active, fr: m.frames, bl: m.blocked, yaw: m.yaw, anim: m.anim && { w: m.anim.walk, r: m.anim.run, i: m.anim.idle, wts: m.anim.walkTS, rts: m.anim.runTS, s: m.anim.speed } }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
@@ -214,7 +217,8 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
   const m1 = await mv(); await up(3); await up(2); await p.waitForTimeout(400); const z1 = (await camState()).zoom; const m2 = await mv(); await up(1); await p.waitForTimeout(300);
   const ss = await samples(); const moved = Math.hypot(ss.at(-1).x - ss[0].x, ss.at(-1).z - ss[0].z);
   ok(z1 > z0 * 1.1, `pinch-zoom with two other fingers while the joystick is held: zoom ${z0.toFixed(0)} → ${z1.toFixed(0)}`);
-  ok(m1.stick.active && m1.stick.pointerId === m0.stick.pointerId && Math.abs(m1.d - m0.d) < 0.02 && m2.stick.active && moved > 0.4, `joystick unaffected by the pinch (same pointer, d ${m0.d.toFixed(2)} → ${m1.d.toFixed(2)}, avatar kept walking ${moved.toFixed(2)} m)`);
+    // compare the stick's own magnitude (updated on every pointer event); the controller's d is only refreshed per rendered frame
+  ok(m1.stick.active && m1.stick.pointerId === m0.stick.pointerId && Math.abs(m0.stick.mag - 0.6) < 0.02 && Math.abs(m1.stick.mag - m0.stick.mag) < 0.02 && m2.stick.active && moved > 0.4, `joystick unaffected by the pinch (same pointer, d ${m0.stick.mag.toFixed(2)} → ${m1.stick.mag.toFixed(2)}, avatar kept walking ${moved.toFixed(2)} m)`, { ctrlD: [m0.d, m1.d].map((v) => +v.toFixed(2)) });
   await p.evaluate(() => window.dispatchEvent(new Event('yw:follow')));
   // single finger on the scene still pans; the joystick is not involved
   const c2 = await camState(); await p.mouse.wheel(0, 0); ok(Math.abs(c2.az - c0.az) < 0.2, 'camera rotation range intact');
@@ -226,8 +230,14 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
   await p.evaluate(() => window.game.walkTo(new window.__cam.position.constructor(5.2, 0, 4.2)));
   const pth = (await mv()).path; await stickTo(1, 45); await p.waitForTimeout(250); const m = await mv(); await up(1); await p.waitForTimeout(500);
   ok(pth > 0 && m.path === 0 && m.mode === 'walk', `joystick interrupts a tap-to-move path (path ${pth} → ${m.path} waypoints)`);
-  const tapOk = await p.evaluate(() => window.game.walkTo(new window.__cam.position.constructor(3, 0, 3))); await p.waitForTimeout(300);
-  ok(tapOk && (await mv()).mode === 'walk', 'tap-to-move still works after the joystick is released');
+  // tap a free floor spot ≥ 1.5 m away (a fixed spot could be where the avatar already stands), then check it walks there
+  const pre = await mv(); const tgt = await p.evaluate(([x0, z0]) => { const n = window.__world.nav; let best = null;
+    for (let j = 1; j < n.nz - 1; j++) for (let i = 1; i < n.nx - 1; i++) { if (![[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => n.free(i + a, j + b))) continue; const x = (i + 0.5) * n.cell, z = (j + 0.5) * n.cell, dd = Math.hypot(x - x0, z - z0); if (dd >= 1.5 && (!best || dd < best[2])) best = [x, z, dd]; }
+    return best; }, pre.pos);
+  const tapOk = await p.evaluate(([x, z]) => window.game.walkTo(new window.__cam.position.constructor(x, 0, z)), tgt); let tm = await mv(); const tT = Date.now();
+  while (Date.now() - tT < 3000 && Math.hypot(tm.pos[0] - pre.pos[0], tm.pos[1] - pre.pos[1]) < 0.3) { await p.waitForTimeout(100); tm = await mv(); }
+  const tapMoved = Math.hypot(tm.pos[0] - pre.pos[0], tm.pos[1] - pre.pos[1]);
+  ok(tapOk && tapMoved >= 0.3, `tap-to-move still works after the joystick is released (walking to a spot ${tgt[2].toFixed(1)} m away, ${tapMoved.toFixed(2)} m covered after ${Date.now() - tT} ms)`, { tapOk, mode: tm.mode, path: tm.path });
   await p.waitForTimeout(2500);
   // sit on a sofa then push the stick
   const sofa = await p.evaluate(() => window.game.s.apartment.items.find((i) => window.game.cat[i.defId].interaction === 'sit')?.uid);

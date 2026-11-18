@@ -46,3 +46,13 @@ export function stepMover(m: Mover, dt: number): boolean {
   m.pos.addScaledVector(dir, Math.min(dist, m.speed * dt));
   return true;
 }
+
+/** Max tick of the path follower: longer frames are split into sub-steps (identical path following at any frame rate). */
+export const LOCO_STEP = 0.05;
+/** Advance a whole frame (≤ 0.25 s, clamped by the caller) in ≤ LOCO_STEP sub-steps. Returns true while moving. */
+export function stepMoverSub(m: Mover, dt: number): boolean {
+  if (dt <= LOCO_STEP) return stepMover(m, dt);
+  const n = Math.ceil(dt / LOCO_STEP), h = dt / n; let moving = false;
+  for (let k = 0; k < n; k++) { moving = stepMover(m, h); if (!moving && !m.path.length) break; }
+  return moving;
+}

@@ -5,7 +5,7 @@ import { Html, useGLTF } from '@react-three/drei';
 import { ANIM_LIBRARY, type AvatarDef, type ClipKey } from '../data/avatars';
 import type { Look } from '../fashion/types';
 import { useCustomAvatar } from './avatar/custom/useCustomAvatar';
-import { LOCO, stepMover } from '../game/character/locomotion';
+import { LOCO, stepMoverSub } from '../game/character/locomotion';
 import { locoBlend } from '../game/movement/animBlend';
 import { driveCharacter } from '../game/movement/playerMotion';
 import { world } from '../game/world';
@@ -56,7 +56,10 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
   useEffect(() => { built.actions.idle.play(); cur.current = 'idle'; return () => { built.mixer.stopAllAction(); }; }, [built]);
 
   useFrame((state, dtRaw) => {
-    const dt = Math.min(dtRaw, 0.05); const s = c;
+    // same frame-time clamp as the analog controller (0.25 s): on a slow device (< 20 fps) the clips and the tap-to-move
+    // walk used to be clamped to 0.05 s per frame, i.e. they ran slower than real time (at 5 fps: 25 % speed, feet sliding
+    // behind the joystick-driven body). Tap-to-move is sub-stepped at ≤ 0.05 s so its path following is unchanged.
+    const dt = Math.min(Math.max(dtRaw, 0), 0.25); const s = c;
     // analog stick / keyboard (player's avatar only): may stand the avatar up, then drives it
     let driven = false;
     if (controlled) { state.camera.getWorldDirection(camDir); driven = driveCharacter(s, dtRaw, camDir, world.nav); } // the controller clamps dt itself
@@ -65,7 +68,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       const a = built.actions.stand;
       if (a.time >= a.getClip().duration - 0.05) { if (s.sitOn) s.pos.copy(s.sitOn.front).setY(0); s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
     } else if (s.mode !== 'sitting') {
-      const moving = driven ? s.speed > 0.005 : stepMover(s, dt);
+      const moving = driven ? s.speed > 0.005 : stepMoverSub(s, dt);
       if (moving) {
         s.mode = 'walk';
         loco(s.speed, dt);

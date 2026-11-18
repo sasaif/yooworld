@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { LOCO, stepMover, type Mover } from '../src/game/character/locomotion';
+import { LOCO, stepMover, stepMoverSub, type Mover } from '../src/game/character/locomotion';
 import { NavGrid } from '../src/game/nav/NavGrid';
 
 const mover = (x = 0, z = 0): Mover => ({ pos: new THREE.Vector3(x, 0, z), yaw: 0, speed: 0, path: [], running: false });
@@ -38,5 +38,10 @@ describe('NavGrid', () => {
   it('returns [] when unreachable', () => {
     const g = new NavGrid(4, 4, 0.2); g.blockBox(1.5, 0, 2.5, 4, 0.2);
     expect(g.path(new THREE.Vector3(0.5, 0, 0.5), new THREE.Vector3(3.5, 0, 0.5))).toEqual([]);
+  });
+  it('tap-to-move covers the same distance per second at 5 fps as at 60 fps (frames sub-stepped)', () => {
+    const at = (fps: number) => { const m = mover(); m.path = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(1, 0, 3)]; let t = 0; while (t < 1.2) { stepMoverSub(m, 1 / fps); t += 1 / fps; } return m; };
+    const a = at(60), b = at(5); expect(b.pos.distanceTo(a.pos)).toBeLessThan(0.03); expect(a.pos.length()).toBeGreaterThan(0.7);
+    const c = mover(); c.path = [new THREE.Vector3(0.5, 0, 0)]; for (let k = 0; k < 20; k++) stepMoverSub(c, 0.25); expect(c.pos.x).toBeCloseTo(0.5, 9); expect(c.speed).toBe(0);
   });
 });
