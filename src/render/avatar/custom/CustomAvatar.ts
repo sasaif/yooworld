@@ -66,7 +66,7 @@ export function buildCustomAvatar(src: Prepared, fem: Prepared, mal: Prepared, l
     if (spec.shoes.shaft) { const g = buildLegShell(src, spec.shoes.shaft); const m = new THREE.SkinnedMesh(g, new THREE.MeshLambertMaterial({ color: new THREE.Color(spec.shoes.color).multiplyScalar(0.92) })); m.bind(bm.skeleton, bm.bindMatrix); bm.parent!.add(m); live.push(m); ownGeo.push(g); ownMat.push(m.material as THREE.Material); m.frustumCulled = false; m.castShadow = true; }
     for (const a of spec.acc) {
       const b = buildAccessory(a.model, a.color, a.color2, src, fem, hb.under); if (!b) continue; ownGeo.push(b.solid);
-      add(attach(b.bone), new THREE.Mesh(b.solid, b.textured ? bagMat : accMat));
+      add(attach(b.bone), Object.assign(new THREE.Mesh(b.solid, b.textured ? bagMat : accMat), { name: 'acc_' + a.model }));
       if (b.lens) { ownGeo.push(b.lens.geo); const lm = new THREE.MeshPhongMaterial({ color: b.lens.color, transparent: true, opacity: b.lens.opacity, shininess: 90, side: THREE.DoubleSide, depthWrite: false }); ownMat.push(lm); add(attach(b.bone), new THREE.Mesh(b.lens.geo, lm)); }
     }
   }

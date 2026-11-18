@@ -41,8 +41,20 @@ await p.evaluate(() => {
   /** exact skinned vertices (subsampled) of an avatar: lowest point + hips bone + head bone + group pitch */
   window.__body = (id) => { const o = window.__avatarObj(id); o.updateWorldMatrix(true, true); let lo = Infinity; const bones = {}; const v = new V();
     o.traverse((m) => { if (m.isBone && /^(Hips|Head)$/.test(m.name)) bones[m.name] = m.getWorldPosition(new V()).toArray();
-      if (m.isSkinnedMesh && !/outline/.test(m.name)) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 3) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); if (v.y < lo) lo = v.y; } } });
+      let vis = true; for (let q = m; q; q = q.parent) if (!q.visible) vis = false;
+      if (vis && m.isSkinnedMesh && !/outline/.test(m.name)) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 3) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); if (v.y < lo) lo = v.y; } } });
     return { lo, hips: bones.Hips, head: bones.Head, pitch: o.parent.rotation.x }; };
+  /** seated pose metrics: lowest visible vertex over the seat surface, pelvis, knee angles, thigh slope, sole height */
+  window.__seatPose = (id, uid, yaw, seatH, front) => { const o = window.__avatarObj(id); o.updateWorldMatrix(true, true); const it = window.__itemPoints().find((x) => x.uid === uid); const v = new V(); const B = {};
+    o.traverse((m) => { if (m.isBone && !B[m.name]) B[m.name] = m.getWorldPosition(new V()); });
+    const loc = (p) => { const dx = p.x - it.x, dz = p.z - it.z; return [dx * Math.cos(yaw) - dz * Math.sin(yaw), dx * Math.sin(yaw) + dz * Math.cos(yaw)]; };
+    const hl = loc(B.Hips); let under = Infinity, sole = Infinity;
+    o.traverse((m) => { if (!m.isMesh || /outline/.test(m.name)) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const pos = m.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += 2) { if (m.isSkinnedMesh) m.getVertexPosition(i, v); else v.fromBufferAttribute(pos, i); v.applyMatrix4(m.matrixWorld); if (v.y < sole) sole = v.y;
+        const [lx, lz] = loc(v); if (Math.abs(lx - hl[0]) < 0.15 && lz < front - 0.01 && lz > hl[1] - 0.15 && v.y > seatH - 0.15 && v.y < under) under = v.y; } });
+    const ang = (a, b, c) => { const u = a.clone().sub(b).normalize(), w = c.clone().sub(b).normalize(); return Math.round(Math.acos(Math.max(-1, Math.min(1, u.dot(w)))) * 180 / Math.PI); };
+    const th = B.LeftLeg.clone().sub(B.LeftUpLeg); const thigh = Math.round(Math.abs(Math.atan2(th.y, Math.hypot(th.x, th.z))) * 180 / Math.PI);
+    return { under: +(under - seatH).toFixed(3), pelvis: +(B.Hips.y - seatH).toFixed(3), hipsLocal: hl.map((x) => +x.toFixed(3)), knee: [ang(B.LeftUpLeg, B.LeftLeg, B.LeftFoot), ang(B.RightUpLeg, B.RightLeg, B.RightFoot)], thigh, sole: +sole.toFixed(3), kneeY: +Math.min(B.LeftLeg.y, B.RightLeg.y).toFixed(3) }; };
 });
 async function waitMode(mode, ms = 60000) { try { await p.waitForFunction((m) => window.__world.chars[window.game.s.activeChar].mode === m, mode, { timeout: ms, polling: 100 }); return true; } catch { return false; } }
 const clickVue = () => p.evaluate(() => { const b = [...document.querySelectorAll('.hud-top button')].find((x) => /Vue/.test(x.textContent)); b?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
@@ -98,9 +110,11 @@ if (!SEATS_ONLY) {
 // ---------- D. seats & bed (anchors) ----------
 await p.evaluate(() => { const g = window.game; const apt = g.s.apartment; g['setLayout']({ ...apt, items: [...apt.items, { uid: 't_stool', defId: 'stoolBar', x: 10, z: 12, rot: 0 }, { uid: 't_desk', defId: 'chairDesk', x: 14, z: 12, rot: 2 }] }, 'place', {}); });
 await p.waitForTimeout(1500);
+/** local z of the front edge of each seat surface (tools/seat_heights.py profiles) */
+const SEAT_FRONT = { loungeSofa: 0.246, loungeChair: 0.246, chair: 0.12, chairDesk: 0.189, stoolBar: 0.138, bedDouble: 0.675 };
 const hasLie = await p.evaluate(() => !!window.game.cat.bedDouble.seat?.lie);
 fs.mkdirSync(`${SHOTS}/seats`, { recursive: true });
-for (const [def, act] of [['loungeSofa', 'sit'], ['chair', 'sit'], ['stoolBar', 'sit'], ['chairDesk', 'sit'], ['bedDouble', 'sit'], ['bedDouble', 'lie']]) {
+for (const [def, act] of [['loungeSofa', 'sit'], ['loungeChair', 'sit'], ['chair', 'sit'], ['stoolBar', 'sit'], ['chairDesk', 'sit'], ['bedDouble', 'sit'], ['bedDouble', 'lie']]) {
   if (act === 'lie' && !hasLie) { console.log('SKIP lie (build without lying)'); continue; }
   const r = await p.evaluate(([def, act]) => { const g = window.game; const it = g.s.apartment.items.find((i) => i.defId === def); const c = window.__world.chars[g.s.activeChar];
     c.pos.set(3.3, 0, 2.9); c.mode = 'idle'; c.path = []; c.sitOn = undefined; c.pendingSeat = undefined; g.interact(it.uid, act); window.dispatchEvent(new Event('yw:follow'));
@@ -110,17 +124,23 @@ for (const [def, act] of [['loungeSofa', 'sit'], ['chair', 'sit'], ['stoolBar', 
   console.log('   ', def, act, JSON.stringify(await p.evaluate(() => { const c = window.__world.chars[window.game.s.activeChar]; return { mode: c.mode, pos: c.pos.toArray().map((v) => +v.toFixed(2)), seat: c.sitOn?.id }; })));
   const body = await p.evaluate(() => window.__body(window.game.s.activeChar));
   const center = await p.evaluate((uid) => window.__itemPoints().find((x) => x.uid === uid), r.uid);
-  const seatH = r.seatH ?? { loungeSofa: 0.276, chair: 0.288, stoolBar: 0.522, chairDesk: 0.28, bedDouble: 0.3 }[def];
+  const seatH = r.seatH ?? { loungeChair: 0.276, loungeSofa: 0.276, chair: 0.288, stoolBar: 0.522, chairDesk: 0.28, bedDouble: 0.3 }[def];
   if (act === 'sit') {
-    const dh = body.hips[1] - seatH; const dx = body.hips[0] - center.x, dz = body.hips[2] - center.z;
-    // hips in the furniture's own frame (x across, z forward): must be inside its footprint
-    const lx = dx * Math.cos(r.yaw) - dz * Math.sin(r.yaw), lz = dx * Math.sin(r.yaw) + dz * Math.cos(r.yaw);
-    ok(sat && dh > 0.025 && dh < 0.07, `D ${def} sit: hips rest on the real cushion height (${seatH} m)`, { hipsAboveSeat: +dh.toFixed(3) });
-    ok(Math.abs(lx) <= center.w / 2 + 0.01 && Math.abs(lz) <= center.d / 2 + 0.01, `D ${def} sit: hips are over the furniture, not in front of it`, { hipsLocal: [+lx.toFixed(3), +lz.toFixed(3)], half: [center.w / 2, center.d / 2] });
+    // real seated pose (procedural layer on the skeleton): measured on the exact skinned vertices + bones
+    const q = await p.evaluate(([id, uid, yaw, seatH, front]) => window.__seatPose(id, uid, yaw, seatH, front), [await p.evaluate(() => window.game.s.activeChar), r.uid, r.yaw, seatH, SEAT_FRONT[def]]);
+    ok(sat && q.under >= -0.025 && q.under <= 0.02, `D ${def} sit: body rests ON the seat (lowest point over the cushion ${seatH} m: −2.5/+2 cm)`, { under: q.under, pelvisAboveSeat: q.pelvis });
+    ok(q.hipsLocal[1] <= SEAT_FRONT[def] && q.hipsLocal[1] >= -center.d / 2 && Math.abs(q.hipsLocal[0]) <= center.w / 2, `D ${def} sit: pelvis is over the seat, not in front of it`, { hipsLocal: q.hipsLocal, front: SEAT_FRONT[def] });
+    ok(q.knee[0] >= 70 && q.knee[0] <= 120 && q.knee[1] >= 70 && q.knee[1] <= 120, `D ${def} sit: knees really bent (70–120°, standing ≈ 170°)`, { knee: q.knee });
+    ok(q.thigh <= 25, `D ${def} sit: thighs about horizontal (≤ 25° from horizontal)`, { thighDeg: q.thigh });
+    ok(q.sole > 0.005 && q.sole < q.kneeY - 0.05, `D ${def} sit: feet hang below the knees, never through the floor`, { soleY: q.sole, kneeY: q.kneeY });
   } else {
     ok(sat && body.lo >= seatH - 0.015 && body.lo <= seatH + 0.05, 'D bed lie: lying ON the mattress (lowest body point within −1.5/+5 cm of the mattress top)', { lowest: +body.lo.toFixed(3), mattress: seatH });
     const towardsBoard = ((body.head[0] - body.hips[0]) * Math.sin(r.yaw) + (body.head[2] - body.hips[2]) * Math.cos(r.yaw)) < 0;
     ok(towardsBoard && body.pitch < -1.0, 'D bed lie: on the back, head towards the headboard', { pitch: +body.pitch.toFixed(2) });
+    const lp = await p.evaluate(() => { const o = window.__avatarObj(window.game.s.activeChar); o.updateWorldMatrix(true, true); const B = {}; o.traverse((m) => { if (m.isBone && !B[m.name]) B[m.name] = m.getWorldPosition(new window.__cam.position.constructor()); });
+      const ang = (a, b, c) => { const u = a.clone().sub(b).normalize(), w = c.clone().sub(b).normalize(); return Math.round(Math.acos(Math.max(-1, Math.min(1, u.dot(w)))) * 180 / Math.PI); };
+      const bag = o.getObjectByName('acc_backpack'); return { knee: [ang(B.LeftUpLeg, B.LeftLeg, B.LeftFoot), ang(B.RightUpLeg, B.RightLeg, B.RightFoot)], bagVisible: bag ? bag.visible : null }; });
+    ok(lp.knee[0] >= 150 && lp.knee[1] >= 150 && lp.bagVisible !== true, 'D bed lie: legs stretched out (knees ≥ 150°), backpack put aside while lying', lp);
   }
   const [sx, sy] = await p.evaluate((c) => window.__scr(c.x, 0.35, c.z), center); const cw = Math.min(dev.w, 320), ch = Math.min(dev.h, 240);
   await p.screenshot({ path: `${SHOTS}/seats/${devName}_${def}_${act}.png`, clip: { x: Math.max(0, Math.min(dev.w - cw, sx - cw / 2)), y: Math.max(0, Math.min(dev.h - ch, sy - ch * 0.6)), width: cw, height: ch } });

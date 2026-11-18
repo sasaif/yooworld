@@ -11,15 +11,16 @@ import { driveCharacter } from '../game/movement/playerMotion';
 import { world } from '../game/world';
 import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
-import { LIE_PITCH, lieRoot, sitRoot } from '../game/interact/anchors';
+import { LIE_PITCH, lieRoot, posedRoot, posedSeat, sitHip, sitRoot } from '../game/interact/anchors';
+import { SitPose, SIT_STYLES } from './avatar/sitPose';
 
 useGLTF.preload(ANIM_LIBRARY);
 
 const LOCO_KEYS = ['idle', 'walk', 'run'] as const;
 type LocoKey = typeof LOCO_KEYS[number];
-const camDir = new THREE.Vector3();
+const camDir = new THREE.Vector3(); const lieQ = new THREE.Quaternion();
 const ease = (t: number) => t * t * (3 - 2 * t);
-const SIT_IN = 0.45, LIE_IN = 0.6, LIE_OUT = 0.5; // s: blend onto a seat / into and out of the lying pose
+const SIT_IN = 0.5, SIT_OUT = 0.45, LIE_IN = 0.6, LIE_OUT = 0.5; // s: blend onto a seat / into and out of the lying pose
 /** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
 export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string }> = {};
 
@@ -32,7 +33,9 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
   const dance = useRef(0);
   const blob = useRef<THREE.Mesh>(null); const ring = useRef<THREE.Mesh>(null);
   /** seat / bed blend: root goes from `from` to `to` (and the body tilts onto its back when lying), t in s */
-  const pose = useRef({ from: new THREE.Vector3(), to: new THREE.Vector3(), t: 0, dur: 0, lie: false, pitch: 0, out: false });
+  const pose = useRef({ from: new THREE.Vector3(), to: new THREE.Vector3(), t: 0, dur: 0, lie: false, pitch: 0, out: false, w: 0, hip: new THREE.Vector3(), bagHidden: false });
+  /** procedural seated pose layer on this avatar's skeleton (chairs, stools, sofas, bed edge) */
+  const sit = useMemo(() => new SitPose(built.holder), [built]);
   // 'loco' = idle/walk/run blended by the actual ground speed; other clips (sit, stand, emote) cross-fade as before
   const cur = useRef<ClipKey | 'loco'>('idle');
   const lw = useRef<Record<LocoKey, number>>({ idle: 1, walk: 0, run: 0 });
@@ -76,6 +79,11 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         if (!P.out) { P.out = true; P.from.copy(s.pos); P.to.copy(s.sitOn.front).setY(0); P.t = 0; P.dur = LIE_OUT; }
         P.t += dt; const e = ease(Math.min(1, P.t / P.dur)); s.pos.lerpVectors(P.from, P.to, e); P.pitch = LIE_PITCH * (1 - e); loco(0, dt);
         if (P.t >= P.dur) { P.out = false; P.pitch = 0; s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
+      } else if (P.w > 0) {
+        // procedural seat: unfold the legs while sliding back to the front of the seat (idle base)
+        if (!P.out) { P.out = true; P.from.copy(s.pos); P.to.copy(s.sitOn!.front).setY(0); P.t = 0; P.dur = SIT_OUT; }
+        P.t += dt; const e = ease(Math.min(1, P.t / P.dur)); s.pos.lerpVectors(P.from, P.to, e); P.w = 1 - e; loco(0, dt);
+        if (P.t >= P.dur) { P.out = false; P.w = 0; s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
       } else {
         play('stand', 0.15);
         const a = built.actions.stand; const k = Math.min(1, a.time / Math.max(0.01, a.getClip().duration - 0.05));
@@ -83,8 +91,8 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         if (a.time >= a.getClip().duration - 0.05) { if (s.sitOn) s.pos.copy(s.sitOn.front).setY(0); s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
       }
     } else if (s.mode === 'sitting') {
-      if (P.t < P.dur) { P.t += dt; const e = ease(Math.min(1, P.t / P.dur)); s.pos.lerpVectors(P.from, P.to, e); if (P.lie) P.pitch = LIE_PITCH * e; }
-      if (s.sitOn?.pose === 'lie') loco(0, dt); // breathing idle, lying on the back
+      if (P.t < P.dur) { P.t += dt; const e = ease(Math.min(1, P.t / P.dur)); s.pos.lerpVectors(P.from, P.to, e); if (P.lie) P.pitch = LIE_PITCH * e; else if (P.w > 0 || (s.sitOn && posedSeat(s.sitOn))) P.w = Math.max(0.001, e); }
+      if (s.sitOn?.pose === 'lie' || P.w > 0) loco(0, dt); // breathing idle (lying on the back / base of the seated pose)
     } else {
       const moving = driven ? s.speed > 0.005 : stepMoverSub(s, dt);
       if (moving) {
@@ -93,8 +101,11 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       } else if (!driven && s.pendingSeat) {
         const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting'; s.yaw = seat.yaw; P.out = false;
         if (seat.pose === 'lie') { P.lie = true; P.from.copy(s.pos); lieRoot(seat, def.scale, P.to); P.t = 0; P.dur = LIE_IN; loco(0, dt); }
-        else {
-          // measured anchor: hips on the real cushion height of this seat (chair, stool, sofa, bed edge)
+        else if (posedSeat(seat)) {
+          // real seated pose: pelvis planted on the measured seat point, legs/arms bent by the SitPose layer
+          P.lie = false; P.out = false; sitHip(seat, P.hip); P.from.copy(s.pos); posedRoot(seat, P.to); P.t = 0; P.dur = SIT_IN; P.w = 0.001; loco(0, dt);
+        } else {
+          // legacy seats (Yoo Plage loungers): SitDown clip + root lift
           P.lie = false; sitRoot(seat, def.scale, def.sitForward, P.to); P.from.copy(P.to); P.from.y = Math.min(P.to.y, 0.02); s.pos.copy(P.from);
           P.t = 0; P.dur = SIT_IN; play('sit', 0.25);
         }
@@ -103,7 +114,13 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         if (s.emote) play('emote', 0.3); else loco(0, dt);
       }
     }
+    if (s.mode !== 'sitting' && s.mode !== 'standing') { P.pitch = 0; P.w = 0; }
+    outer.current.position.copy(s.pos); outer.current.rotation.set(P.pitch, s.yaw, 0, 'YXZ');
     built.mixer.update(dt);
+    if (P.w > 0 && s.sitOn) sit.apply(P.w, P.hip, s.sitOn.yaw, SIT_STYLES[s.sitOn.kind ?? 'chair']);
+    else if (P.pitch < 0) { outer.current.updateWorldMatrix(true, false); sit.applyLie(P.pitch / LIE_PITCH, outer.current.getWorldQuaternion(lieQ)); }
+    // lying on the back: the backpack is put aside (it would hold the body up off the mattress)
+    if (P.pitch < -0.6 || P.bagHidden) { const flatNow = P.pitch < -0.6; const bag = built.holder.getObjectByName('acc_backpack'); if (bag) bag.visible = !flatNow; P.bagHidden = flatNow; }
     // face: blink, smile, grin while dancing, lip flap while a bubble is shown
     const talking = !!s.say && s.say.until > performance.now();
     const w = face.anim.update(dt, { emote: s.mode === 'emote', talking, sitting: s.mode === 'sitting', walking: s.mode === 'walk' });
@@ -114,11 +131,9 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     built.holder.position.y = Math.abs(Math.sin(beat)) * 0.035 * k;
     built.holder.rotation.z = Math.sin(beat) * 0.07 * k;
     built.holder.rotation.y = (def.facing === 'negZ' ? Math.PI : 0) + Math.sin(beat / 2) * 0.35 * k;
-    if (s.mode !== 'sitting' && s.mode !== 'standing') P.pitch = 0;
-    outer.current.position.copy(s.pos); outer.current.rotation.set(P.pitch, s.yaw, 0, 'YXZ');
     const flat = P.pitch < -0.2; if (blob.current) blob.current.visible = !flat; if (ring.current) ring.current.visible = !flat;
     // name tag: above the head, also when lying (the group is tilted, so lift it along the body instead)
-    const kt = Math.min(1, dt * 6); tag.current.position.y += ((flat ? 0.9 : s.mode === 'sitting' ? 0.95 : 1.14) - tag.current.position.y) * kt;
+    const kt = Math.min(1, dt * 6); tag.current.position.y += ((flat ? 0.9 : P.w > 0 ? 1.14 - P.w * (0.26 - (P.hip.y - s.pos.y) / def.scale) : s.mode === 'sitting' ? 0.95 : 1.14) - tag.current.position.y) * kt;
     tag.current.position.z += ((flat ? 0.4 : 0) - tag.current.position.z) * kt;
     if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
   });

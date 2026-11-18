@@ -14,7 +14,7 @@ export const HIP_H = 0.2737, HIP_FWD = 0.006, BUTT = 0.045;
  *  the mattress or floats the body. Calibrated on the in-game vertex cloud (Nov 2026): tilt the body 15° (head end up,
  *  resting on the pillow) and lift the root LIE_LIFT × scale above the mattress -> back of the head on the pillow (0.33 m),
  *  torso on the mattress (0.30 m), nothing below the surface. */
-export const LIE_TILT = (15 * Math.PI) / 180, LIE_LIFT = 0.08;
+export const LIE_TILT = (3 * Math.PI) / 180, LIE_LIFT = 0.135;
 /** Pitch of the avatar group when fully lying (rotation about its local X, Euler order YXZ). */
 export const LIE_PITCH = -(Math.PI / 2 - LIE_TILT);
 /** Legacy formula (Yoo Plage loungers and any seat without measured data). */
@@ -33,3 +33,15 @@ export function lieRoot(seat: Seat, scale: number, out: THREE.Vector3) {
 }
 /** Seated height of the hips bone for a root position (for tests / debug). */
 export const hipsY = (rootY: number, scale: number) => rootY + HIP_H * scale;
+
+/** Procedural seated pose (render/avatar/sitPose.ts): height of the Hips bone above the seat top so that the bottom
+ *  of the pelvis and the thighs rest ON the cushion (calibrated on the in-game vertex cloud, tools/pose-probe.mjs). */
+export const SEAT_CLEAR = 0.078;
+/** Seats with measured data use the procedural pose; legacy ones (Yoo Plage loungers) keep the SitDown clip. */
+export const posedSeat = (seat: Seat) => seat.pose !== 'lie' && !!seat.hip && seat.h !== undefined;
+/** World point where the Hips bone is planted for the procedural pose. */
+export function sitHip(seat: Seat, out: THREE.Vector3) { out.copy(seat.hip!); out.y = seat.h! + SEAT_CLEAR; return out; }
+/** Root (feet / shadow) of a posed seated avatar: on the floor, under the thighs. */
+export function posedRoot(seat: Seat, out: THREE.Vector3) {
+  out.copy(seat.hip!).addScaledVector(_f.set(Math.sin(seat.yaw), 0, Math.cos(seat.yaw)), 0.05); out.y = 0; return out;
+}

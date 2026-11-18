@@ -28,7 +28,7 @@ export function computeSeats(layout: ApartmentLayout, cat: Catalog): Seat[] {
     st.slots.forEach((sx, k) => {
       const pos = new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, st.depth ?? 0.04);
       const hip = st.hipZ !== undefined ? new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, st.hipZ) : undefined;
-      out.push({ id: `${it.uid}:${k}`, pos, yaw: t.yaw, front: pos.clone().addScaledVector(fwd, depth / 2 + 0.22 - (st.depth ?? 0)), pose: 'sit', h: st.h, hip });
+      out.push({ id: `${it.uid}:${k}`, pos, yaw: t.yaw, front: pos.clone().addScaledVector(fwd, depth / 2 + 0.22 - (st.depth ?? 0)), pose: 'sit', h: st.h, hip, kind: st.kind });
     });
     st.lie?.slots.forEach((sx, k) => {
       const hip = new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, st.lie!.footZ);
