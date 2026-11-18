@@ -115,3 +115,8 @@ html, body { position:fixed; inset:0; } /* no rubber-band scrolling / address-ba
 .places-card-go { color:#e2569b; font-weight:800; }
 .card.here { outline:2px solid #e2569b; outline-offset:-2px; }
 .chip.loc { pointer-events:auto; }
+
+/* Camera framing toggle + "new place" hint on Lieux */
+.chip.cam { cursor:pointer; } .chip.cam.on { background:#f3e3f7; }
+.dock button.new { position:relative; } .dock button.new::after { content:'Nouveau'; position:absolute; top:-9px; right:-6px; background:#ff6f91; color:#fff; font-size:9px; font-weight:800; padding:2px 5px; border-radius:8px; animation:yw-pulse 1.6s ease-in-out infinite; }
+@keyframes yw-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.12); } }

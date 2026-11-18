@@ -21,6 +21,17 @@ import { RotateOverlay } from '../ui/RotateOverlay';
 import { BeachAmbience, BeachView } from '../render/beach/BeachView';
 import { BEACH_CENTER, BEACH_FRAME } from '../game/beach/beachLayout';
 import { TravelFade } from '../ui/TravelFade';
+import { VARIANT } from './variant';
+import { camStore, camViewFollow, camViewZoomMul } from './camView';
+import { startLocation } from './startLocation';
+
+const LIEU_KEY = 'yw.lieuDefaultUsed';
+function startAt() {
+  let used = false; try { used = sessionStorage.getItem(LIEU_KEY) === '1'; } catch { /* */ }
+  const s = startLocation(location.search, import.meta.env.VITE_DEFAULT_LIEU as string | undefined, used);
+  try { sessionStorage.setItem(LIEU_KEY, '1'); } catch { /* */ }
+  return s;
+}
 
 const W = APT_COLS * CELL, D = APT_ROWS * CELL;
 const CENTER = new THREE.Vector3(W / 2 - 0.2, 0.35, D / 2 - 0.3);
@@ -32,7 +43,8 @@ const ROOM = { w: W, d: D, wallH: WALL_H };
 export default function App() {
   const ready = useStore(game.store, (s) => s.ready); const active = useStore(game.store, (s) => s.activeChar);
   const placing = useStore(game.store, (s) => !!s.placing); const loc = useStore(game.store, (s) => s.location);
-  useEffect(() => { game.init().then(() => {
+  const view = useStore(camStore, (s) => s.view);
+  useEffect(() => { game.init({ startAt: SHOT ? null : startAt() }).then(() => {
     const p = game.s.profile!; world.chars[game.s.activeChar].name = p.name;
     if (SHOT?.startsWith('beach')) game.travel('beach');
     if (SHOT) setTimeout(runShotScript, 300); else say(game.s.activeChar, 'Touche le sol pour marcher !', 5000);
@@ -54,6 +66,7 @@ export default function App() {
         </Suspense>
         <Stats />
         <CameraRig key={loc} target={cam.target} zoom={cam.zoom} dir={cam.dir} interactive={!SHOT} panEnabled={!placing} room={SHOT ? undefined : beach ? BEACH_FRAME : ROOM}
+          zoomMul={camViewZoomMul(view, VARIANT.zoomMul)} followLean={camViewFollow(view, beach ? 0.22 : VARIANT.follow)}
           follow={SHOT ? undefined : () => world.chars[game.s.activeChar]?.pos ?? null} />
       </Canvas>
       {(!SHOT || SHOT.startsWith('ui')) && <Hud />}

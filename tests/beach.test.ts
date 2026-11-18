@@ -100,3 +100,20 @@ describe('beach persistence & interactions', () => {
     expect(new THREE.Vector3().copy(world.chars.f.pos).length()).toBeGreaterThan(0);
   });
 });
+
+describe('Task A: start location + shared saves', () => {
+  it('init({startAt:"beach"}) starts at Yoo Plage even with a home save, and persists it', async () => {
+    const repo = new MemoryRepository(); const a = await boot(repo); expect(a.g.s.location).toBe('home');
+    const g = new GameController(repo, new OfflineTransport()); await g.init({ startAt: 'beach' });
+    expect(g.s.location).toBe('beach'); expect((await repo.loadProfile())!.location).toBe('beach');
+  });
+  it('ignores unknown / unplayable start locations', async () => {
+    const g = new GameController(new MemoryRepository(), new OfflineTransport()); await g.init({ startAt: 'disco' }); expect(g.s.location).toBe('home');
+  });
+  it('a save from another build with unknown furniture loads without crashing', async () => {
+    const repo = new MemoryRepository(); const { g } = await boot(repo); const apt = g.s.apartment!;
+    await repo.saveApartment({ ...apt, items: [...apt.items, { ...apt.items[0], uid: 'zz', defId: 'notInThisBuild' }] });
+    const g2 = new GameController(repo, new OfflineTransport()); await g2.init();
+    expect(g2.s.apartment!.items.some((i) => i.defId === 'notInThisBuild')).toBe(false); expect(g2.s.apartment!.items.length).toBe(apt.items.length);
+  });
+});

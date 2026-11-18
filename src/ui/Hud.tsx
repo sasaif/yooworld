@@ -1,3 +1,4 @@
+import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
 import { useEffect, useState } from 'react';
 import { useStore } from '../core/store';
 import { game } from '../app/services';
@@ -28,6 +29,9 @@ export function Hud() {
     </>
   );
 }
+const SEEN_KEY = 'yw.placesSeen';
+const placesNew = () => { try { return localStorage.getItem(SEEN_KEY) !== '1'; } catch { return false; } };
+const markPlacesSeen = () => { try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* */ } };
 function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const i = setInterval(() => f((n) => n + 1), ms); return () => clearInterval(i); }, [ms]); }
 
 function TopBar() {
@@ -41,9 +45,19 @@ function TopBar() {
       <span className="chip coin">🪙 {coins}</span>
       <span className="spacer" />
       <LocationChip />
+      <CamViewChip />
       {document.fullscreenEnabled && !document.fullscreenElement && matchMedia('(pointer: coarse)').matches && <button className="chip fs" title="Plein écran" aria-label="Plein écran" onClick={() => void enterLandscape()}>⛶</button>}
       <span className="chip net" title="Aucun serveur : seuls les personnages locaux sont présents">● Hors ligne</span>
     </div>
+  );
+}
+function CamViewChip() {
+  const view = useStore(camStore, (s) => s.view); const next = nextCamView(view);
+  return (
+    <button className={'chip cam' + (view === 'avatar' ? ' on' : '')} title={`Passer en ${CAM_VIEW_LABEL[next]}`} aria-label={`Passer en ${CAM_VIEW_LABEL[next]}`}
+      onClick={() => { const v = toggleCamView(); game.toast(v === 'avatar' ? '🔍 Vue perso' : '🏠 Vue appartement'); }}>
+      {view === 'room' ? '🔍' : '🏠'}<span className="hide-sm">{view === 'room' ? 'Vue perso' : 'Vue appart'}</span>
+    </button>
   );
 }
 function LocationChip() {
@@ -57,7 +71,7 @@ function PlayDock() {
   const emote = !!world.chars[active]?.emote;
   return (
     <nav className="dock">
-      <button onClick={() => game.setPanel('places')} className={panel === 'places' ? 'on' : ''}>🗺️<span>Lieux</span></button>
+      <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Lieux : Mon appart, Yoo Plage">🗺️<span>Lieux</span></button>
       {loc === 'home' ? <>
         <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
         <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>

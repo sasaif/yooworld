@@ -1,0 +1,698 @@
+{
+  "iphone15_landscape_v1_room": {
+    "device": "iphone15_landscape",
+    "v": 1,
+    "view": "room",
+    "zoom": 86.4,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 75,
+      "bboxPx": [
+        377,
+        119,
+        461,
+        241
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.068,
+      "screenH": 77,
+      "bboxPx": [
+        428,
+        142,
+        506,
+        262
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "iphone15_landscape_v1_avatar": {
+    "device": "iphone15_landscape",
+    "v": 1,
+    "view": "avatar",
+    "zoom": 172.7,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 150,
+      "bboxPx": [
+        343,
+        45,
+        512,
+        289
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.069,
+      "screenH": 153,
+      "bboxPx": [
+        446,
+        91,
+        602,
+        331
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "iphone15_landscape_v2_room": {
+    "device": "iphone15_landscape",
+    "v": 2,
+    "view": "room",
+    "zoom": 94.5,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 85,
+      "bboxPx": [
+        370,
+        108,
+        466,
+        246
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.105,
+      "screenH": 87,
+      "bboxPx": [
+        427,
+        133,
+        515,
+        269
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "iphone15_landscape_v2_avatar": {
+    "device": "iphone15_landscape",
+    "v": 2,
+    "view": "avatar",
+    "zoom": 172.7,
+    "f": {
+      "worldH": 1.086,
+      "screenH": 156,
+      "bboxPx": [
+        340,
+        38,
+        515,
+        291
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.108,
+      "screenH": 159,
+      "bboxPx": [
+        443,
+        84,
+        605,
+        332
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "iphone15_landscape_v3_room": {
+    "device": "iphone15_landscape",
+    "v": 3,
+    "view": "room",
+    "zoom": 103.6,
+    "f": {
+      "worldH": 1.086,
+      "screenH": 93,
+      "bboxPx": [
+        369,
+        100,
+        474,
+        252
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.107,
+      "screenH": 95,
+      "bboxPx": [
+        431,
+        128,
+        529,
+        277
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "iphone15_landscape_v3_avatar": {
+    "device": "iphone15_landscape",
+    "v": 3,
+    "view": "avatar",
+    "zoom": 172.7,
+    "f": {
+      "worldH": 1.086,
+      "screenH": 156,
+      "bboxPx": [
+        340,
+        38,
+        515,
+        291
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.107,
+      "screenH": 159,
+      "bboxPx": [
+        443,
+        84,
+        605,
+        332
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "pixel7_landscape_v1_room": {
+    "device": "pixel7_landscape",
+    "v": 1,
+    "view": "room",
+    "zoom": 92.7,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 81,
+      "bboxPx": [
+        405,
+        123,
+        495,
+        254
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.069,
+      "screenH": 82,
+      "bboxPx": [
+        460,
+        148,
+        544,
+        277
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "pixel7_landscape_v1_avatar": {
+    "device": "pixel7_landscape",
+    "v": 1,
+    "view": "avatar",
+    "zoom": 185.5,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 161,
+      "bboxPx": [
+        368,
+        43,
+        550,
+        305
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.069,
+      "screenH": 165,
+      "bboxPx": [
+        479,
+        92,
+        647,
+        350
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "pixel7_landscape_v2_room": {
+    "device": "pixel7_landscape",
+    "v": 2,
+    "view": "room",
+    "zoom": 101.5,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 91,
+      "bboxPx": [
+        398,
+        111,
+        501,
+        260
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.105,
+      "screenH": 93,
+      "bboxPx": [
+        458,
+        138,
+        554,
+        284
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "pixel7_landscape_v2_avatar": {
+    "device": "pixel7_landscape",
+    "v": 2,
+    "view": "avatar",
+    "zoom": 185.5,
+    "f": {
+      "worldH": 1.086,
+      "screenH": 167,
+      "bboxPx": [
+        365,
+        36,
+        553,
+        307
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.107,
+      "screenH": 170,
+      "bboxPx": [
+        476,
+        85,
+        650,
+        352
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "pixel7_landscape_v3_room": {
+    "device": "pixel7_landscape",
+    "v": 3,
+    "view": "room",
+    "zoom": 111.3,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 100,
+      "bboxPx": [
+        396,
+        103,
+        509,
+        266
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.106,
+      "screenH": 102,
+      "bboxPx": [
+        463,
+        132,
+        567,
+        293
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "pixel7_landscape_v3_avatar": {
+    "device": "pixel7_landscape",
+    "v": 3,
+    "view": "avatar",
+    "zoom": 185.5,
+    "f": {
+      "worldH": 1.086,
+      "screenH": 167,
+      "bboxPx": [
+        365,
+        36,
+        553,
+        307
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.107,
+      "screenH": 170,
+      "bboxPx": [
+        476,
+        85,
+        650,
+        352
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "ipad_landscape_v1_room": {
+    "device": "ipad_landscape",
+    "v": 1,
+    "view": "room",
+    "zoom": 125.4,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 109,
+      "bboxPx": [
+        440,
+        272,
+        563,
+        449
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.069,
+      "screenH": 111,
+      "bboxPx": [
+        515,
+        305,
+        629,
+        479
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "ipad_landscape_v1_avatar": {
+    "device": "ipad_landscape",
+    "v": 1,
+    "view": "avatar",
+    "zoom": 250.9,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 218,
+      "bboxPx": [
+        391,
+        164,
+        636,
+        519
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.068,
+      "screenH": 222,
+      "bboxPx": [
+        540,
+        231,
+        768,
+        579
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "ipad_landscape_v2_room": {
+    "device": "ipad_landscape",
+    "v": 2,
+    "view": "room",
+    "zoom": 137.2,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 124,
+      "bboxPx": [
+        431,
+        255,
+        570,
+        456
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.108,
+      "screenH": 126,
+      "bboxPx": [
+        513,
+        292,
+        642,
+        490
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "ipad_landscape_v2_avatar": {
+    "device": "ipad_landscape",
+    "v": 2,
+    "view": "avatar",
+    "zoom": 250.9,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 226,
+      "bboxPx": [
+        387,
+        153,
+        641,
+        521
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.106,
+      "screenH": 230,
+      "bboxPx": [
+        537,
+        220,
+        772,
+        581
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "ipad_landscape_v3_room": {
+    "device": "ipad_landscape",
+    "v": 3,
+    "view": "room",
+    "zoom": 150.5,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 136,
+      "bboxPx": [
+        430,
+        244,
+        582,
+        465
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.108,
+      "screenH": 138,
+      "bboxPx": [
+        520,
+        284,
+        661,
+        501
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "ipad_landscape_v3_avatar": {
+    "device": "ipad_landscape",
+    "v": 3,
+    "view": "avatar",
+    "zoom": 250.9,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 226,
+      "bboxPx": [
+        387,
+        154,
+        641,
+        521
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.106,
+      "screenH": 230,
+      "bboxPx": [
+        536,
+        220,
+        772,
+        581
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "desktop_v1_room": {
+    "device": "desktop",
+    "v": 1,
+    "view": "room",
+    "zoom": 147,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 128,
+      "bboxPx": [
+        636,
+        319,
+        780,
+        526
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.068,
+      "screenH": 130,
+      "bboxPx": [
+        724,
+        358,
+        857,
+        562
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "desktop_v1_avatar": {
+    "device": "desktop",
+    "v": 1,
+    "view": "avatar",
+    "zoom": 294,
+    "f": {
+      "worldH": 1.047,
+      "screenH": 256,
+      "bboxPx": [
+        578,
+        192,
+        866,
+        608
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.069,
+      "screenH": 261,
+      "bboxPx": [
+        754,
+        270,
+        1020,
+        679
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "desktop_v2_room": {
+    "device": "desktop",
+    "v": 2,
+    "view": "room",
+    "zoom": 160.8,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 145,
+      "bboxPx": [
+        625,
+        299,
+        788,
+        535
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.108,
+      "screenH": 148,
+      "bboxPx": [
+        722,
+        342,
+        873,
+        574
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "desktop_v2_avatar": {
+    "device": "desktop",
+    "v": 2,
+    "view": "avatar",
+    "zoom": 294,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 265,
+      "bboxPx": [
+        573,
+        180,
+        871,
+        610
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.106,
+      "screenH": 270,
+      "bboxPx": [
+        749,
+        258,
+        1025,
+        681
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "desktop_v3_room": {
+    "device": "desktop",
+    "v": 3,
+    "view": "room",
+    "zoom": 176.4,
+    "f": {
+      "worldH": 1.086,
+      "screenH": 159,
+      "bboxPx": [
+        623,
+        286,
+        802,
+        545
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.107,
+      "screenH": 162,
+      "bboxPx": [
+        729,
+        333,
+        894,
+        587
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  },
+  "desktop_v3_avatar": {
+    "device": "desktop",
+    "v": 3,
+    "view": "avatar",
+    "zoom": 294,
+    "f": {
+      "worldH": 1.085,
+      "screenH": 265,
+      "bboxPx": [
+        573,
+        180,
+        871,
+        610
+      ],
+      "fullyVisible": true
+    },
+    "m": {
+      "worldH": 1.108,
+      "screenH": 270,
+      "bboxPx": [
+        749,
+        258,
+        1025,
+        681
+      ],
+      "fullyVisible": true
+    },
+    "errors": []
+  }
+}

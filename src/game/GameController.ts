@@ -43,14 +43,20 @@ export class GameController {
   }
   get s() { return this.store.get(); }
 
-  async init() {
+  /** `startAt` (deep link ?lieu= / build default) overrides the saved location when playable. */
+  async init(opts: { startAt?: string | null } = {}) {
     let profile = await this.repo.loadProfile();
     if (!profile) { profile = { version: 1, id: 'p_' + Math.random().toString(36).slice(2, 9), name: 'Juanita', appearance: { body: 'f' }, homeId: '', friends: [], createdAt: Date.now() }; profile.homeId = `home_${profile.id}`; await this.repo.saveProfile(profile); }
     let apt = await this.repo.loadApartment(profile.homeId);
     if (!apt) { apt = { ...defaultApartment(profile.id), id: profile.homeId }; await this.repo.saveApartment(apt); }
     let inv = await this.repo.loadInventory(profile.id);
     if (!inv) { inv = emptyInventory(profile.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); await this.repo.saveInventory(inv); }
-    const location = profile.location && isPlayable(profile.location) ? profile.location : 'home';
+    // saves are shared by every build on the same origin (/, /polish/, /plage/): drop furniture this build doesn't know
+    if (!Array.isArray(apt.items)) apt = { ...apt, items: [] };
+    else if (apt.items.some((i) => !this.cat[i.defId])) apt = { ...apt, items: apt.items.filter((i) => !!this.cat[i.defId]) };
+    const wanted = opts.startAt ?? profile.location;
+    const location = wanted && isPlayable(wanted) ? wanted : 'home';
+    if (opts.startAt && location !== profile.location) { profile = { ...profile, location }; await this.repo.saveProfile(profile); }
     this.store.set({ profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f', location });
     this.enterWorld(location, location !== 'home');
     this.store.set({ ready: true });

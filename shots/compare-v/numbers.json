@@ -1,0 +1,250 @@
+{
+ "iphone15_landscape": {
+  "v1_room": {
+   "px": 76,
+   "f": 75,
+   "cov": 76.0,
+   "vis": 94,
+   "zoom": 86.4,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v1_avatar": {
+   "px": 152,
+   "f": 150,
+   "cov": 100.0,
+   "vis": 31,
+   "zoom": 172.7,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v2_room": {
+   "px": 86,
+   "f": 85,
+   "cov": 84.7,
+   "vis": 88,
+   "zoom": 94.5,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v2_avatar": {
+   "px": 158,
+   "f": 156,
+   "cov": 100.0,
+   "vis": 31,
+   "zoom": 172.7,
+   "feet": true,
+   "worldH": 1.086,
+   "errors": []
+  },
+  "v3_room": {
+   "px": 94,
+   "f": 93,
+   "cov": 91.4,
+   "vis": 79,
+   "zoom": 103.6,
+   "feet": true,
+   "worldH": 1.086,
+   "errors": []
+  },
+  "v3_avatar": {
+   "px": 158,
+   "f": 156,
+   "cov": 100.0,
+   "vis": 31,
+   "zoom": 172.7,
+   "feet": true,
+   "worldH": 1.086,
+   "errors": []
+  }
+ },
+ "pixel7_landscape": {
+  "v1_room": {
+   "px": 82,
+   "f": 81,
+   "cov": 76.9,
+   "vis": 93,
+   "zoom": 92.7,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v1_avatar": {
+   "px": 163,
+   "f": 161,
+   "cov": 100.0,
+   "vis": 30,
+   "zoom": 185.5,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v2_room": {
+   "px": 92,
+   "f": 91,
+   "cov": 85.5,
+   "vis": 87,
+   "zoom": 101.5,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v2_avatar": {
+   "px": 168,
+   "f": 167,
+   "cov": 100.0,
+   "vis": 30,
+   "zoom": 185.5,
+   "feet": true,
+   "worldH": 1.086,
+   "errors": []
+  },
+  "v3_room": {
+   "px": 101,
+   "f": 100,
+   "cov": 92.1,
+   "vis": 78,
+   "zoom": 111.3,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v3_avatar": {
+   "px": 168,
+   "f": 167,
+   "cov": 100.0,
+   "vis": 30,
+   "zoom": 185.5,
+   "feet": true,
+   "worldH": 1.086,
+   "errors": []
+  }
+ },
+ "ipad_landscape": {
+  "v1_room": {
+   "px": 110,
+   "f": 109,
+   "cov": 71.0,
+   "vis": 98,
+   "zoom": 125.4,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v1_avatar": {
+   "px": 220,
+   "f": 218,
+   "cov": 100.0,
+   "vis": 35,
+   "zoom": 250.9,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v2_room": {
+   "px": 125,
+   "f": 124,
+   "cov": 79.2,
+   "vis": 92,
+   "zoom": 137.2,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v2_avatar": {
+   "px": 228,
+   "f": 226,
+   "cov": 100.0,
+   "vis": 35,
+   "zoom": 250.9,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v3_room": {
+   "px": 137,
+   "f": 136,
+   "cov": 86.7,
+   "vis": 83,
+   "zoom": 150.5,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v3_avatar": {
+   "px": 228,
+   "f": 226,
+   "cov": 100.0,
+   "vis": 35,
+   "zoom": 250.9,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  }
+ },
+ "desktop": {
+  "v1_room": {
+   "px": 129,
+   "f": 128,
+   "cov": 62.9,
+   "vis": 100,
+   "zoom": 147,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v1_avatar": {
+   "px": 258,
+   "f": 256,
+   "cov": 100.0,
+   "vis": 41,
+   "zoom": 294,
+   "feet": true,
+   "worldH": 1.047,
+   "errors": []
+  },
+  "v2_room": {
+   "px": 146,
+   "f": 145,
+   "cov": 72.4,
+   "vis": 100,
+   "zoom": 160.8,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v2_avatar": {
+   "px": 268,
+   "f": 265,
+   "cov": 100.0,
+   "vis": 41,
+   "zoom": 294,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  },
+  "v3_room": {
+   "px": 160,
+   "f": 159,
+   "cov": 80.6,
+   "vis": 93,
+   "zoom": 176.4,
+   "feet": true,
+   "worldH": 1.086,
+   "errors": []
+  },
+  "v3_avatar": {
+   "px": 268,
+   "f": 265,
+   "cov": 100.0,
+   "vis": 41,
+   "zoom": 294,
+   "feet": true,
+   "worldH": 1.085,
+   "errors": []
+  }
+ }
+}
