@@ -86,6 +86,30 @@ if (!SEATS_ONLY) {
   let worst = 100; for (const [x, z] of [[1.9, 4.6], [6.4, 1.3], [5.4, 5.0], [5.3, 0.9]]) { await p.evaluate(([x, z]) => { const c = window.__world.chars[window.game.s.activeChar]; c.pos.set(x, 0, z); c.path = []; window.dispatchEvent(new Event('yw:follow')); }, [x, z]); await p.waitForTimeout(4000); worst = Math.min(worst, (await p.evaluate(() => window.__frame())).roomPct); }
   ok(worst >= 65, 'B4 avatar in the 4 corners of the room: the room always covers ≥ 65 % of the screen (before: 55-62 %)', { worst });
 
+  // ---------- B5-B7. zoom range: default keeps big avatars, pinch-out shows the whole room, pinch-in zooms on the avatar ----------
+  await p.evaluate(() => { const c = window.__world.chars[window.game.s.activeChar]; c.pos.set(3.0, 0, 3.6); c.path = []; window.dispatchEvent(new Event("yw:follow")); }); await p.waitForTimeout(3500);
+  const z0 = await p.evaluate(() => ({ zoom: window.__cam.zoom, av: window.__metrics()[window.game.s.activeChar].screenH }));
+  async function pinch(out, times = 6) {
+    const cx = dev.w / 2, cy = dev.h / 2;
+    for (let k = 0; k < times; k++) {
+      if (TOUCH) { const a = out ? 150 : 25, b = out ? 25 : 150; await T('touchStart', [{ x: cx - a, y: cy, id: 1 }, { x: cx + a, y: cy, id: 2 }]);
+        for (let i = 1; i <= 8; i++) { const d = a + (b - a) * i / 8; await T('touchMove', [{ x: cx - d, y: cy, id: 1 }, { x: cx + d, y: cy, id: 2 }]); } await T('touchEnd', []); }
+      else { await p.mouse.move(cx, cy); for (let i = 0; i < 4; i++) await p.mouse.wheel(0, out ? 240 : -240); }
+      await p.waitForTimeout(250);
+    }
+    await p.waitForTimeout(2500);
+  }
+  await pinch(true); const zOut = await p.evaluate(() => ({ zoom: +window.__cam.zoom.toFixed(1), frame: window.__frame(), av: window.__metrics()[window.game.s.activeChar].screenH }));
+  await p.screenshot({ path: `${SHOTS}/${devName}_B_zoom_min.png` });
+  ok(zOut.frame.visPct >= 97, 'B5 pinch-out / wheel: the WHOLE apartment fits on screen (≥ 97 % of the room visible)', { ...zOut, defaultZoom: +z0.zoom.toFixed(1), defaultAvatarPx: z0.av });
+  await pinch(false, 10); const zIn = await p.evaluate(() => ({ zoom: +window.__cam.zoom.toFixed(1), m: window.__metrics()[window.game.s.activeChar] }));
+  await p.screenshot({ path: `${SHOTS}/${devName}_B_zoom_max.png` });
+  const avc = [(zIn.m.bboxPx[0] + zIn.m.bboxPx[2]) / 2 / dev.w, (zIn.m.bboxPx[1] + zIn.m.bboxPx[3]) / 2 / dev.h];
+  ok(zIn.m.screenH >= z0.av * 2 && Math.abs(avc[0] - 0.5) < 0.25 && Math.abs(avc[1] - 0.5) < 0.25, 'B6 pinch-in / wheel: zooms onto the avatar (≥ 2× bigger, centred on screen)', { zoom: zIn.zoom, avatarPx: zIn.m.screenH, centre: avc.map((v) => +v.toFixed(2)) });
+  await clickVue(); await p.waitForTimeout(2000); await clickVue(); await p.waitForTimeout(2500);
+  const zBack = await p.evaluate(() => ({ zoom: +window.__cam.zoom.toFixed(1), av: window.__metrics()[window.game.s.activeChar].screenH }));
+  ok(Math.abs(zBack.zoom - z0.zoom) < 1 && (devName !== 'iphone15' || zBack.av >= 90), 'B7 default framing unchanged (V3: big avatars, ~93 px on iPhone 15) and restored by the view button', { zoom: zBack.zoom, avatarPx: zBack.av });
+
   // ---------- C. social: Mode local + compact chat ----------
   const chip = await p.evaluate(() => { const c = document.querySelector('.chip.net'); const r = c.getBoundingClientRect(); return { text: c.textContent, x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
   ok(/Mode local/.test(chip.text) && !/en ligne/i.test(chip.text), 'C1 top bar says "Mode local" (offline prototype), never "en ligne"', chip.text);

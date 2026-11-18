@@ -31,8 +31,13 @@ export function fitZoom(viewW: number, viewH: number, room: Room, dir: THREE.Vec
   if (viewW >= viewH) return Math.max(wFit * 0.95, hFit * 1.05);
   return Math.min(Math.max(wFit, hFit), wFit * 1.8);
 }
-/** Allowed pinch / wheel range around the fitted zoom. */
-export const zoomLimits = (fit: number) => ({ min: fit * 0.7, max: fit * 3.2 });
+/** Zoom at which the WHOLE room (floor + walls) fits on screen, with a small margin for the HUD. */
+export function fullRoomZoom(viewW: number, viewH: number, room: Room, dir: THREE.Vector3, margin = 0.93) {
+  const s = projectedRoomSize(room, dir); return Math.min(viewW / s.w, viewH / s.h) * margin;
+}
+/** Allowed pinch / wheel range around the fitted zoom. Pinch-out always reaches the whole-room view (`full`), even on a
+ *  wide phone in landscape where it is well below the default framing (iPhone 15: ~59 vs default ~104). */
+export const zoomLimits = (fit: number, full = Infinity) => ({ min: Math.min(fit * 0.7, full), max: fit * 3.2 });
 
 /** World-space area the camera must stay on (apartment = the room box, Yoo Plage = the beach). */
 export interface Bounds { x0: number; z0: number; x1: number; z1: number; h: number }

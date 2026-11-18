@@ -16,13 +16,29 @@ export function appViewport(win: Pick<Window, 'innerWidth' | 'innerHeight'> & { 
   return { w: Math.round(w), h: Math.round(h) };
 }
 
+/**
+ * On-screen keyboard (iOS Safari keeps innerHeight and shrinks the visual viewport instead): when a text field has the
+ * focus and the visual viewport is clearly shorter than the window, report how far the keyboard covers the bottom of the
+ * stage (`off`) and the visible height (`vh`), so the chat card can sit right above the keyboard.
+ */
+export function keyboardInset(win: Pick<Window, 'innerHeight'> & { visualViewport?: { height: number; offsetTop?: number; scale?: number } | null }, typing: boolean) {
+  const vv = win.visualViewport; if (!typing || !vv || Math.abs((vv.scale ?? 1) - 1) > 0.01) return { open: false, off: 0, vh: win.innerHeight };
+  const off = Math.max(0, Math.round(win.innerHeight - (vv.offsetTop ?? 0) - vv.height));
+  return off > 80 ? { open: true, off, vh: Math.round(vv.height) } : { open: false, off: 0, vh: win.innerHeight };
+}
+const typingNow = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); };
+
 export function installViewportFill() {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
   const root = document.documentElement; let raf = 0; const timers: ReturnType<typeof setTimeout>[] = [];
   const apply = () => {
     raf = 0; const { w, h } = appViewport(window);
-    root.style.setProperty('--app-h', h + 'px'); root.style.setProperty('--app-w', w + 'px');
-    if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+    const kb = keyboardInset(window, typingNow());
+    root.classList.toggle('kb-open', kb.open); root.style.setProperty('--kb-off', kb.off + 'px'); root.style.setProperty('--vv-h', kb.vh + 'px');
+    // while the keyboard is up, the stage keeps its full height (the card moves above the keyboard instead) and Safari's
+    // own scroll to the focused field is left alone
+    root.style.setProperty('--app-h', (kb.open ? window.innerHeight : h) + 'px'); root.style.setProperty('--app-w', w + 'px');
+    if (!kb.open && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
   };
   const on = () => { if (!raf) raf = requestAnimationFrame(apply); };
   const late = () => { on(); for (const ms of [120, 350, 700, 1200]) timers.push(setTimeout(on, ms)); };
@@ -31,11 +47,13 @@ export function installViewportFill() {
   addEventListener('resize', on); addEventListener('orientationchange', late); addEventListener('pageshow', late);
   window.visualViewport?.addEventListener('resize', on); window.visualViewport?.addEventListener('scroll', on);
   screen.orientation?.addEventListener?.('change', late);
+  document.addEventListener('focusin', late); document.addEventListener('focusout', late);
   document.addEventListener('gesturestart', noZoom, { passive: false }); document.addEventListener('gesturechange', noZoom, { passive: false });
   return () => {
     removeEventListener('resize', on); removeEventListener('orientationchange', late); removeEventListener('pageshow', late);
     window.visualViewport?.removeEventListener('resize', on); window.visualViewport?.removeEventListener('scroll', on);
     screen.orientation?.removeEventListener?.('change', late);
+    document.removeEventListener('focusin', late); document.removeEventListener('focusout', late);
     document.removeEventListener('gesturestart', noZoom); document.removeEventListener('gesturechange', noZoom);
     timers.forEach(clearTimeout); if (raf) cancelAnimationFrame(raf);
   };

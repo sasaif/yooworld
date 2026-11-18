@@ -67,3 +67,20 @@ describe('full-screen stage size (mauve band bug)', () => {
     expect(appViewport({ innerWidth: 852, innerHeight: 393, visualViewport: { width: 426, height: 196, scale: 2 } })).toEqual({ w: 852, h: 393 });
   });
 });
+
+import { keyboardInset } from '../src/app/viewportFill';
+import { fullRoomZoom, zoomLimits as zl } from '../src/render/cameraFit';
+describe('chat above the on-screen keyboard (keyboardInset)', () => {
+  it('reports the keyboard height only while typing and when the visual viewport really shrank', () => {
+    expect(keyboardInset({ innerHeight: 393, visualViewport: { height: 170, offsetTop: 0, scale: 1 } }, true)).toEqual({ open: true, off: 223, vh: 170 });
+    expect(keyboardInset({ innerHeight: 393, visualViewport: { height: 170, offsetTop: 0, scale: 1 } }, false).open).toBe(false);
+    expect(keyboardInset({ innerHeight: 393, visualViewport: { height: 350, offsetTop: 0, scale: 1 } }, true).open).toBe(false); // toolbar change only
+    expect(keyboardInset({ innerHeight: 393, visualViewport: { height: 170, offsetTop: 0, scale: 2 } }, true).open).toBe(false); // pinch-zoomed page
+  });
+});
+describe('zoom range', () => {
+  it('pinch-out always reaches the whole-room zoom, default untouched', () => {
+    const room = { w: 7.2, d: 6, wallH: 1.55 } as never; const dir = new THREE.Vector3(1, 1.05, 1.2).normalize();
+    const full = fullRoomZoom(852, 393, room, dir); const l = zl(86, full); expect(l.min).toBeLessThanOrEqual(full); expect(full).toBeLessThan(86); expect(l.max).toBeGreaterThan(250);
+  });
+});

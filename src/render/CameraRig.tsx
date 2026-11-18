@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import type { OrbitControls as OC } from 'three-stdlib';
-import { clampTarget, fitZoom, roomBounds, zoomLimits, type Bounds, type Room } from './cameraFit';
+import { clampTarget, fitZoom, fullRoomZoom, roomBounds, zoomLimits, type Bounds, type Room } from './cameraFit';
 
 const ZOOM_TWEEN_MS = 650;
 export const ISO_DIR = new THREE.Vector3(1, 1.05, 1.2).normalize();
@@ -29,7 +29,7 @@ export function CameraRig({ target, zoom, dir = ISO_DIR, follow, interactive, pa
   const area = bounds ?? (room ? roomBounds(room) : undefined);
   const back = useRef(new THREE.Vector3()); const fixed = useRef(new THREE.Vector3()); const ndc = useRef(new THREE.Vector3());
   const lastTouch = useRef(0); const dragging = useRef(false);
-  const baseRef = useRef(0); const mulRef = useRef(zoomMul); const anim = useRef<{ from: number; to: number; t0: number } | null>(null);
+  const lastZoom = useRef(0); const baseRef = useRef(0); const mulRef = useRef(zoomMul); const anim = useRef<{ from: number; to: number; t0: number } | null>(null);
   useEffect(() => {
     camera.position.copy(target).addScaledVector(dir, 30); camera.lookAt(target);
     (camera as THREE.OrthographicCamera).zoom = zoom; camera.updateProjectionMatrix();
@@ -37,7 +37,7 @@ export function CameraRig({ target, zoom, dir = ISO_DIR, follow, interactive, pa
   }, [camera]);
   useEffect(() => {
     if (!room || !size.width || !size.height) return;
-    const cam = camera as THREE.OrthographicCamera; const fit = fitZoom(size.width, size.height, room, dir); const l = zoomLimits(fit);
+    const cam = camera as THREE.OrthographicCamera; const fit = fitZoom(size.width, size.height, room, dir); const l = zoomLimits(fit, fullRoomZoom(size.width, size.height, room, dir));
     const base = fit * zoomMul; l.max = Math.max(l.max, base * 1.6);
     const fresh = fitCam.current !== camera || !baseRef.current; fitCam.current = camera;
     if (fresh) cam.zoom = THREE.MathUtils.clamp(base, l.min, l.max);
@@ -62,6 +62,8 @@ export function CameraRig({ target, zoom, dir = ISO_DIR, follow, interactive, pa
     if (p && !following.current && !dragging.current && performance.now() - lastTouch.current > 1500) {
       const v = ndc.current.copy(p).project(camera); if (Math.abs(v.x) > 1 || Math.abs(v.y) > 1) following.current = true;
     }
+    // pinch / wheel zoom-in (not the framing tween): zoom onto the player's avatar -> resume following it
+    const z = (camera as THREE.OrthographicCamera).zoom; if (anim.current === null && z > lastZoom.current * 1.003 && p) following.current = true; lastZoom.current = z;
     let moved = false;
     if (p && following.current) { moved = true;
       const want = tmp.current.set(p.x, target.y, p.z).lerp(target, followLean ?? (room ? 0.22 : 0.45)); // mostly on the player, a bit towards the room centre
