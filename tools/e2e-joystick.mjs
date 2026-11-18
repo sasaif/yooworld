@@ -45,7 +45,7 @@ const worldDir = (a) => p.evaluate((a) => { const d = new window.__cam.position.
   const x = Math.cos(a * Math.PI / 180), y = -Math.sin(a * Math.PI / 180); const up = -y / sinEl; const wx = -fz * x + fx * up, wz = fx * x + fz * up, l = Math.hypot(wx, wz); return [wx / l, wz / l]; }, a);
 /** free-disc test on the live nav grid */
 const freeRay = (x, z, dx, dz, len) => p.evaluate(([x, z, dx, dz, len]) => { const n = window.__world.nav; const bl = (px, pz) => { if (px < 0 || pz < 0) return true; const i = Math.floor(px / n.cell), j = Math.floor(pz / n.cell); return !n.free(i, j); };
-  const disc = (px, pz) => [[0, 0], [0.08, 0], [-0.08, 0], [0, 0.08], [0, -0.08]].some(([a, b]) => bl(px + a, pz + b)); for (let s = 0; s <= len; s += 0.05) if (disc(x + dx * s, z + dz * s)) return s; return len; }, [x, z, dx, dz, len]);
+  const R = 0.15; const disc = (px, pz) => [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R], [R * 0.7, R * 0.7], [-R * 0.7, R * 0.7], [R * 0.7, -R * 0.7], [-R * 0.7, -R * 0.7]].some(([a, b]) => bl(px + a, pz + b)); for (let s = 0; s <= len; s += 0.05) if (disc(x + dx * s, z + dz * s)) return s; return len; }, [x, z, dx, dz, len]);
 async function openStart(dir, len) { // the free start point with the longest clear run in that direction
   const n = await p.evaluate(() => [window.__world.nav.nx, window.__world.nav.nz, window.__world.nav.cell]); let best = null;
   for (let j = 1; j < n[1]; j += 2) for (let i = 1; i < n[0]; i += 2) { const x = (i + 0.5) * n[2], z = (j + 0.5) * n[2]; const r = await freeRay(x, z, dir[0], dir[1], len); if (!best || r > best.r) best = { x, z, r }; if (r >= len) return best; }
@@ -126,14 +126,14 @@ const sa = await samples(); const iIn = sa.findIndex((s) => s.d >= 0.99); const 
 const X = 0.3; const kA = 14, kD = 32; // MOVE_DEFAULTS accel / decel rates
 const at = sa.slice(iIn).find((s) => s.sim - o.sim >= X) ?? sa.at(-1); const Xs = at.sim - o.sim;
 const ramp = Math.hypot(at.x - o.x, at.z - o.z) / (MAX * Xs), rampTheory = 1 - (1 - Math.exp(-kA * Xs)) / (kA * Xs);
-const iRel = sa.findIndex((s, i) => i > iIn && s.d === 0); const r0 = sa[iRel - 1]; const iStop = sa.findIndex((s, i) => i >= iRel && s.v === 0);
+const iRel = sa.findIndex((s, i) => i > iIn && s.d === 0); const r0 = sa[iRel - 1]; const iStop = sa.findIndex((s, i) => i >= iRel && s.v === 0); const i5 = sa.findIndex((s, i) => i >= iRel && s.v <= 0.05 * MAX); const slowGameMs = Math.round((sa[i5].sim - r0.sim) * 1000);
 const coast = Math.hypot(sa[iStop].x - r0.x, sa[iStop].z - r0.z), coastTheory = r0.v / kD;
 const stopFrames = iStop - iRel + 1, stopGameMs = Math.round((sa[iStop].sim - r0.sim) * 1000);
 const tail = sa.slice(iStop); const drift = Math.hypot(tail.at(-1).x - tail[0].x, tail.at(-1).z - tail[0].z);
 report.accelSamples = sa.slice(Math.max(0, iIn - 2), iIn + 8).map((s) => [Math.round(s.t), +s.sim.toFixed(3), +s.x.toFixed(3), +s.z.toFixed(3), +s.v.toFixed(2), +s.d.toFixed(2)]);
-Object.assign(report, { accelRamp: { windowS: +Xs.toFixed(3), distRatio: +ramp.toFixed(3), theory: +rampTheory.toFixed(3) }, stop: { coastM: +coast.toFixed(3), theoryM: +coastTheory.toFixed(3), frames: stopFrames, gameMs: stopGameMs }, drift: +drift.toFixed(4) });
+Object.assign(report, { accelRamp: { windowS: +Xs.toFixed(3), distRatio: +ramp.toFixed(3), theory: +rampTheory.toFixed(3) }, stop: { coastM: +coast.toFixed(3), theoryM: +coastTheory.toFixed(3), under5pctMs: slowGameMs, frames: stopFrames, gameMs: stopGameMs }, drift: +drift.toFixed(4) });
 ok(Math.abs(ramp - rampTheory) < 0.1 && ramp < 0.95, `smooth acceleration: in the first ${Math.round(Xs * 1000)} ms the avatar covers ${Math.round(ramp * 100)} % of the full-speed distance (model ${Math.round(rampTheory * 100)} %, ≈95 % speed after 0.21 s)`);
-ok(coast < 0.12 && stopGameMs <= 160 + frameMs && drift === 0, `immediate stop after release: coasts ${(coast * 100).toFixed(1)} cm (model ${(coastTheory * 100).toFixed(1)} cm), at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time, no drift`);
+ok(coast < 0.12 && slowGameMs <= 120 + frameMs && drift === 0, `immediate stop after release: coasts ${(coast * 100).toFixed(1)} cm (model ${(coastTheory * 100).toFixed(1)} cm), below 5 % speed after ${slowGameMs} ms, fully at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time, no drift`);
 const after2 = await mv(); const knob = (await J()).knob;
 ok(!after2.stick.active && after2.mode === 'idle' && Math.hypot(knob[0] - joy.cx, knob[1] - joy.cy) < 2, 'stick recentred, avatar idle');
 await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
