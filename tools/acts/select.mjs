@@ -1,0 +1,1 @@
+export default async (p) => { await p.evaluate(() => { const g = window.game; g.setMode('edit'); const s = g.s.apartment.items.find((i) => i.defId === 'loungeChair'); g.store.set({ selItem: s.uid }); }); await p.waitForTimeout(1200); };

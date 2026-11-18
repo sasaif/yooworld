@@ -24,3 +24,39 @@ html, body, #root { margin:0; height:100%; background:#2f2440; font-family: syst
 .chatbar input { flex:1; min-height:40px; border-radius:12px; border:1px solid #d9cfee; padding:0 10px; font-size:15px; }
 .toast { position:absolute; left:50%; top:64px; transform:translateX(-50%); background:rgba(42,36,64,.9); color:#fff; padding:8px 14px; border-radius:12px; font-size:13px; pointer-events:none; white-space:nowrap; }
 .badge-local { font-size:10px; font-weight:800; background:#ffd9a8; color:#7a4300; border-radius:6px; padding:1px 5px; margin-left:4px; }
+.loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
+.avatar-dot { width:12px; height:12px; border-radius:50%; display:inline-block; }
+.chip.coin { color:#8a5a00; }
+.chip.net { font-size:11px; color:#8c84a3; }
+.dock.edit .done { background:#e3f8ea; color:#11743a; }
+.editbar { position:absolute; left:8px; right:8px; margin:0 auto; max-width:460px; bottom:calc(max(12px, env(safe-area-inset-bottom)) + 74px); background:var(--card); border-radius:16px; padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.35); color:var(--ink); }
+.editbar-title { display:flex; align-items:center; gap:8px; font-weight:800; margin-bottom:6px; }
+.editbar-title img { width:36px; height:36px; }
+.status { margin-left:auto; font-size:12px; padding:2px 8px; border-radius:8px; }
+.status.ok { background:#dff7e7; color:#11743a; } .status.bad { background:#ffe3e3; color:#b3261e; }
+.hint { font-size:12px; color:#8c84a3; margin-bottom:6px; }
+.imenu { background:var(--card); border-radius:14px; padding:8px; display:flex; flex-direction:column; gap:6px; box-shadow:0 6px 18px rgba(0,0,0,.3); min-width:170px; transform:translateY(-50%); }
+.imenu-title { font-weight:800; font-size:13px; color:var(--ink); text-align:center; }
+.imenu .btn { min-height:38px; text-align:left; }
+.tabs { display:flex; gap:6px; } .tabs button, .chips button, .quick button { border:0; border-radius:10px; padding:6px 10px; background:#efe7f8; font-weight:700; color:var(--ink); }
+.tabs button.on, .chips button.on { background:var(--pink); color:#fff; }
+.x { border:0; background:transparent; font-size:18px; color:var(--ink); }
+.chips { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:6px; }
+.chips button { white-space:nowrap; font-size:12px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; }
+.card { border:0; background:#fff; border-radius:14px; padding:8px 6px; display:flex; flex-direction:column; align-items:center; gap:2px; box-shadow:0 2px 6px rgba(42,36,64,.12); color:var(--ink); }
+.card img { width:64px; height:64px; object-fit:contain; } .card b { font-size:12px; text-align:center; } .card small { font-size:11px; color:#8c84a3; }
+.card:disabled { opacity:.45; } .card .big { font-size:32px; }
+.empty, .muted { color:#8c84a3; font-size:13px; }
+.label { font-weight:800; margin:8px 0 6px; font-size:13px; }
+.swatches { display:grid; grid-template-columns:repeat(auto-fill, minmax(82px, 1fr)); gap:8px; }
+.sw { border:2px solid transparent; background:#fff; border-radius:12px; padding:6px; display:flex; flex-direction:column; align-items:center; gap:3px; color:var(--ink); }
+.sw.on { border-color:var(--pink); } .sw i { width:100%; height:34px; border-radius:8px; display:block; } .sw small { font-size:11px; font-weight:700; } .sw em { font-size:11px; font-style:normal; color:#8c84a3; }
+.chatlog { font-size:13px; max-height:110px; overflow:auto; margin-bottom:6px; display:flex; flex-direction:column; gap:3px; }
+.quick { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; } .quick button { font-size:12px; }
+.field { flex:1; min-height:40px; border-radius:12px; border:1px solid #d9cfee; padding:0 10px; font-size:15px; }
+.notes { color:#fff; font-size:20px; font-weight:800; text-shadow:0 2px 4px rgba(0,0,0,.4); animation:float 1.6s ease-in-out infinite; }
+@keyframes float { 0%,100% { transform:translateY(0) rotate(-6deg); } 50% { transform:translateY(-10px) rotate(6deg); } }
+@media (max-width: 420px) { .hide-sm { display:none; } .dock button { min-width:58px; } }
+/* UI always above world-anchored labels (name tags / bubbles use z-index 0-40) */
+.hud-top, .dock, .sheet, .editbar, .toast, .loading { z-index: 100; }

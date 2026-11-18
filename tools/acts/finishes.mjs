@@ -1,0 +1,1 @@
+export default async (p) => { await p.evaluate(() => { const g = window.game; g.setMode('edit'); g.setFinish('floor', 'candy'); g.setFinish('wall', 'stripes'); g.setPanel('finishes'); }); await p.waitForTimeout(1500); };

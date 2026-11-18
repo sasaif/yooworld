@@ -10,10 +10,10 @@ for (const job of jobs) {
   const p = await ctx.newPage();
   const logs = []; p.on('console', (x) => { if (x.type() === 'error' || x.type() === 'warning') logs.push(x.text().slice(0, 200)); }); p.on('pageerror', (e) => logs.push('PAGEERR ' + e.message));
   const extra = process.env.EXTRA ?? '';
-  const url = m.startsWith('ui') ? `http://localhost:5202/?${extra}` : `http://localhost:5202/?shot=${m}&${extra}`;
+  const url = `http://localhost:5202/?shot=${m}&${extra}`;
   await p.goto(url, { timeout: 120000 });
-  if (m.startsWith('ui')) { await p.waitForTimeout(Number(process.env.WAIT ?? 14000)); if (process.env.ACT) { const fn = (await import(process.env.ACT)).default; await fn(p); } }
-  else { try { await p.waitForFunction(() => window.__ready === true, null, { timeout: 180000 }); } catch { console.log('TIMEOUT', m); } }
+  try { await p.waitForFunction(() => window.__ready === true, null, { timeout: 180000 }); } catch { console.log('TIMEOUT', m); }
+  if (process.env.ACT) { const fn = (await import(process.env.ACT)).default; await fn(p); }
   const name = (process.env.NAME ?? m) + (mobile ? '_mobile' : '');
   await p.screenshot({ path: `${out}/${name}.png` });
   const info = await p.evaluate(() => window.__info ?? null);
