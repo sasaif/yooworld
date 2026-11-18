@@ -12,6 +12,7 @@ import { Q } from '../quality';
 import { flattenModel, mergeSimple, type Part } from './furnitureParts';
 import { floorTexture, wallTexture } from './finishTextures';
 import { InteractionMenu } from '../../ui/InteractionMenu';
+import { Decor } from './Decor';
 
 const URL = (m: string) => `${import.meta.env.BASE_URL}models/furniture/${m}.glb`;
 Object.values(FURNITURE).forEach((d) => useGLTF.preload(URL(d.model)));
@@ -63,6 +64,7 @@ function Walls({ apt }: { apt: ApartmentLayout }) {
     <mesh key={key} geometry={geo} castShadow receiveShadow>
       {key.startsWith('paint')
         ? <meshLambertMaterial key={fin.id} map={tex} color={tex ? '#ffffff' : key === 'paint_back' ? fin.a : fin.b} />
+        : key === 'glass' ? <meshLambertMaterial color="#cde9ff" emissive="#a9d6ff" emissiveIntensity={0.55} transparent opacity={0.92} />
         : <meshLambertMaterial color={'#' + src.color.getHexString()} transparent={src.transparent} opacity={src.opacity} />}
     </mesh>
   ))}</>;
@@ -183,6 +185,7 @@ export function ApartmentView() {
     <group>
       <Floor apt={apt} />
       <Walls apt={apt} />
+      <Decor apt={apt} />
       {batches.map(([defId, items]) => <FurnitureBatch key={defId} defId={defId} items={items} apt={apt} />)}
       <ItemEffects apt={apt} />
       <EditOverlay apt={apt} />

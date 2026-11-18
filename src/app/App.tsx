@@ -36,7 +36,7 @@ export default function App() {
   const cam = SHOT ? SHOT_CAM[SHOT] : { target: CENTER, zoom: small ? 70 : 122 };
   return (
     <div className="stage">
-      <Canvas shadows dpr={SHOT ? (small ? 2 : 1) : Q.dpr} gl={{ alpha: true, preserveDrawingBuffer: !!SHOT, antialias: Q.antialias, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+      <Canvas shadows="soft" dpr={SHOT ? (small ? 2 : 1) : Q.dpr} gl={{ alpha: true, preserveDrawingBuffer: !!SHOT, antialias: Q.antialias, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
         onPointerMissed={() => game.store.set({ menuItem: null })}>
         <OrthographicCamera makeDefault near={0.1} far={100} />
         <Lighting center={[CENTER.x, 0, CENTER.z]} />
