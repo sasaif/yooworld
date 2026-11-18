@@ -144,7 +144,8 @@ for (const [def, act] of [['loungeSofa', 'sit'], ['loungeChair', 'sit'], ['chair
     c.pos.set(3.3, 0, 2.9); c.mode = 'idle'; c.path = []; c.sitOn = undefined; c.pendingSeat = undefined; g.interact(it.uid, act); window.dispatchEvent(new Event('yw:follow'));
     const s = c.pendingSeat; return s ? { uid: it.uid, yaw: s.yaw, seatH: g.cat[def].seat?.h ?? null } : null; }, [def, act]);
   if (!r) { ok(false, `D ${def} ${act}: no free seat`); continue; }
-  const sat = await waitMode('sitting'); await p.waitForTimeout(act === 'lie' ? 2500 : 3500);
+  const sat = await waitMode('sitting'); // then wait for the end of the transition (turn, sit down, lie back)
+  await p.waitForFunction((a) => { const ph = window.__move().seat?.phase; return ph ? ph === (a === 'lie' ? 'lying' : 'seated') : true; }, act, { timeout: 30000, polling: 100 }).catch(() => {}); await p.waitForTimeout(act === 'lie' ? 1200 : 1500);
   console.log('   ', def, act, JSON.stringify(await p.evaluate(() => { const c = window.__world.chars[window.game.s.activeChar]; return { mode: c.mode, pos: c.pos.toArray().map((v) => +v.toFixed(2)), seat: c.sitOn?.id }; })));
   const body = await p.evaluate(() => window.__body(window.game.s.activeChar));
   const center = await p.evaluate((uid) => window.__itemPoints().find((x) => x.uid === uid), r.uid);

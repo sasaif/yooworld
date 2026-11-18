@@ -1,6 +1,6 @@
 import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../core/store';
 import { game, fashion } from '../app/services';
 import { Wallet } from './fashion/Studio';
@@ -199,19 +199,31 @@ function NetChip() {
     </span>
   );
 }
+const CHAT_COLLAPSED = 'yw.chatCollapsed';
+const readCollapsed = () => { try { return localStorage.getItem(CHAT_COLLAPSED) === '1'; } catch { return false; } };
 function ChatSheet() {
   const [msg, setMsg] = useState(''); const [, f] = useState(0);
-  useEffect(() => game.chat.onMessage(() => f((n) => n + 1)), []);
+  // collapsible card: folds to its header (unread counter), state kept across sessions
+  const [collapsed, setCollapsed] = useState(readCollapsed); const [unread, setUnread] = useState(0); const [noteOpen, setNoteOpen] = useState(false);
+  const col = useRef(collapsed); col.current = collapsed;
+  useEffect(() => game.chat.onMessage(() => { f((n) => n + 1); if (col.current) setUnread((n) => n + 1); }), []);
+  const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { localStorage.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
+  const log = useRef<HTMLDivElement>(null);
+  useEffect(() => { const el = log.current; if (el) el.scrollTop = el.scrollHeight; }); // newest message in view
+  const local = netBadge(game.net.status).tone === 'local'; const note = chatScopeNote(game.net.status);
   return (
-    <div className="sheet chat-sheet">
-      <h3>Chat <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{netBadge(game.net.status).tone === 'local' ? 'Mode local · hors ligne' : netBadge(game.net.status).short}</span><button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
-      <p className="chat-scope">{chatScopeNote(game.net.status)}</p>
-      <div className="chatlog">{game.chat.history().slice(-6).map((m, i) => <div key={i}><b>{world.chars[m.from]?.name ?? m.from}</b> {m.text}</div>)}</div>
-      <form className="chatbar" onSubmit={(e) => { e.preventDefault(); if (msg.trim()) game.sendChat(msg); setMsg(''); }}>
-        <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Dire quelque chose…" maxLength={80} />
-        <button className="btn primary" type="submit">Envoyer</button>
-      </form>
-      <div className="quick">{(game.s.location === 'beach' ? ['Salut ! 👋', 'On se baigne ? 🌊', 'Un smoothie ? 🥭', 'On danse ? 🎉'] : ['Salut ! 👋', 'Bienvenue chez moi 🏠', 'Trop cool !', 'On danse ? 🎉']).map((q) => <button key={q} onClick={() => game.sendChat(q)}>{q}</button>)}</div>
+    <div className={'sheet chat-sheet' + (collapsed ? ' collapsed' : '')}>
+      <h3><button type="button" className="chat-fold" onClick={toggle} aria-expanded={!collapsed} aria-label={collapsed ? 'Ouvrir le chat' : 'Réduire le chat'}>{collapsed ? '▸' : '▾'} Chat{collapsed && unread > 0 && <span className="chat-unread">{unread}</span>}</button>
+        <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? 'Mode local · hors ligne' : netBadge(game.net.status).short}</span><button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
+      {!collapsed && <>
+        <p className={'chat-scope' + (noteOpen ? ' open' : '')} onClick={() => setNoteOpen(!noteOpen)}>{local && !noteOpen ? 'Visible seulement sur cet appareil.' : note}{local && <span className="more">{noteOpen ? ' ▴' : ' ⓘ'}</span>}</p>
+        <div className="chatlog" ref={log}>{game.chat.history().slice(-40).map((m, i) => <div key={i} dir="auto"><b>{world.chars[m.from]?.name ?? m.from}</b> <bdi>{m.text}</bdi></div>)}</div>
+        <form className="chatbar" onSubmit={(e) => { e.preventDefault(); if (msg.trim()) game.sendChat(msg); setMsg(''); }}>
+          <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Dire quelque chose…" maxLength={200} dir="auto" />
+          <button className="btn primary" type="submit">Envoyer</button>
+        </form>
+        <div className="quick">{(game.s.location === 'beach' ? ['Salut ! 👋', 'On se baigne ? 🌊', 'Un smoothie ? 🥭', 'On danse ? 🎉'] : ['Salut ! 👋', 'Bienvenue chez moi 🏠', 'Trop cool !', 'On danse ? 🎉']).map((q) => <button key={q} onClick={() => game.sendChat(q)}>{q}</button>)}</div>
+      </>}
     </div>
   );
 }

@@ -60,11 +60,15 @@ export function resolveApproaches(seats: Seat[], nav: NavGrid) {
   const R = new THREE.Vector3(), q = new THREE.Vector3();
   for (const s of seats) {
     if (!s.hip || !s.approach || freeAt(s.front)) continue;
+    // walk-to point just inside the furniture padding: step a little further out first
+    const F = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw)); let moved = false;
+    for (const d of [0.1, 0.2]) { q.copy(s.front).addScaledVector(F, d); if (freeAt(q)) { s.front = q.clone(); moved = true; break; } }
+    if (moved) continue;
     const hip = s.edgeHip ?? s.hip; R.set(Math.cos(s.yaw), 0, -Math.sin(s.yaw));
-    for (const side of [1, -1]) {
-      q.copy(hip).addScaledVector(R, side * 0.45).setY(0);
+    found: for (const [lat, fw] of [[0.45, 0], [0.45, 0.15], [0.6, 0], [0.6, 0.2], [0.45, -0.1]]) for (const side of [1, -1]) {
+      q.copy(hip).addScaledVector(R, side * lat).addScaledVector(F, fw).setY(0);
       if (!freeAt(q)) continue;
-      s.front = q.clone(); s.approach = hip.clone().addScaledVector(R, side * 0.32).setY(0); break;
+      s.front = q.clone(); s.approach = hip.clone().addScaledVector(R, side * 0.32).setY(0); break found;
     }
   }
 }

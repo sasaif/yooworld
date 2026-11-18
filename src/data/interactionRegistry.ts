@@ -78,7 +78,7 @@ export function validateRegistry(sizes: Record<string, { w: number; d: number; h
       const p = PRESETS[s.preset]; if (!p) { err.push(`${id}:${k}: unknown preset ${s.preset}`); continue; }
       if (Math.abs(s.x) > sz.w / 2) err.push(`${id}:${k}: slot outside the width`);
       if (Math.abs(s.hipZ) > sz.d / 2 + 0.05) err.push(`${id}:${k}: hips outside the depth`);
-      if (!(s.h > 0.15 && s.h < sz.h)) err.push(`${id}:${k}: cushion height ${s.h} not inside the model (0.15..${sz.h})`);
+      if (!(s.h > 0.15 && s.h <= sz.h)) err.push(`${id}:${k}: cushion height ${s.h} not inside the model (0.15..${sz.h})`);
       if (!(p.sitIn >= 0.3 && p.sitIn <= 1 && p.sitOut >= 0.3 && p.sitOut <= 1 && p.turn > 0 && p.turn <= 0.8)) err.push(`${id}:${k}: transition durations out of range`);
       if (!(p.approach >= 0.12 && p.approach <= 0.4)) err.push(`${id}:${k}: approach distance out of range`);
     }

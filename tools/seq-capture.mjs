@@ -72,7 +72,7 @@ for (const sc of SCEN) {
     c.pos.set(sx, 0, sz); c.yaw = seat.yaw + Math.PI; // facing the seat
     window.__cam.zoom = window.__z0 * 1.7; window.__cam.updateProjectionMatrix(); window.dispatchEvent(new Event('yw:follow'));
     const ip = window.__itemPoints().find((q) => q.uid === it.uid); const reg = g.cat[defId].seat;
-    return { uid: it.uid, box: { x: ip.x, z: ip.z, w: ip.w, d: ip.d, yaw: seat.yaw, h: act === 'lie' ? reg.lie.h : reg.h }, hip: seat.hip ? [seat.hip.x, seat.hip.z] : [seat.pos.x, seat.pos.z] };
+    return { uid: it.uid, box: { x: ip.x, z: ip.z, w: ip.w, d: ip.d, yaw: seat.yaw, h: act === 'lie' ? reg.lie.h : reg.h }, hip: act === 'lie' ? [(seat.hip.x + ip.x) / 2, (seat.hip.z + ip.z) / 2] : seat.hip ? [seat.hip.x, seat.hip.z] : [seat.pos.x, seat.pos.z] };
   }, [defId, act]);
   if (!info) { console.log('SKIP', sc); continue; }
   for (let i = 0; i < 40; i++) await p.evaluate(() => window.__step(1000 / 60)); // camera settles
