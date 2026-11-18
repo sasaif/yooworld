@@ -6,22 +6,91 @@
     393
   ],
   "dpr": 3,
-  "fps": 10,
+  "fps": 9,
   "maxSpeed": 1.9,
   "dirs": [
     {
       "stickDeg": 0,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.901,
+      "wallClockSpeed": 1.613,
+      "longFrames": 1,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.3,
+      "frames": 5,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 45,
+      "diagonal": true,
+      "speed": 1.9,
+      "wallClockSpeed": 1.898,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.55,
+      "frames": 8,
+      "blocked": false,
+      "retries": 0
     },
     {
-      "stickDeg": 45,
+      "stickDeg": 90,
+      "diagonal": false,
+      "speed": 1.9,
+      "wallClockSpeed": 1.891,
+      "longFrames": 0,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.54,
+      "frames": 7,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 135,
+      "diagonal": true,
+      "speed": 1.9,
+      "wallClockSpeed": 1.898,
+      "longFrames": 0,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.54,
+      "frames": 6,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 180,
+      "diagonal": false,
+      "speed": 1.9,
+      "wallClockSpeed": 1.899,
+      "longFrames": 0,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.53,
+      "frames": 7,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 225,
       "diagonal": true,
       "speed": 1.9,
       "wallClockSpeed": 1.9,
@@ -29,95 +98,76 @@
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
-    },
-    {
-      "stickDeg": 90,
-      "diagonal": false,
-      "speed": 1.879,
-      "wallClockSpeed": 1.877,
-      "longFrames": 0,
-      "pctMax": 99,
-      "worldErrDeg": 0.8,
-      "screenErrDeg": 1.4,
-      "run": 2.4
-    },
-    {
-      "stickDeg": 135,
-      "diagonal": true,
-      "speed": 1.9,
-      "wallClockSpeed": 1.901,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "run": 2.4
-    },
-    {
-      "stickDeg": 180,
-      "diagonal": false,
-      "speed": 1.9,
-      "wallClockSpeed": 1.896,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "run": 2.4
-    },
-    {
-      "stickDeg": 225,
-      "diagonal": true,
-      "speed": 1.9,
-      "wallClockSpeed": 1.901,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.43,
+      "frames": 7,
+      "blocked": false,
+      "retries": 0
     },
     {
       "stickDeg": 270,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.893,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.44,
+      "frames": 6,
+      "blocked": false,
+      "retries": 0
     },
     {
       "stickDeg": 315,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.897,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.45,
+      "frames": 6,
+      "blocked": false,
+      "retries": 0
     },
     {
       "stickDeg": 22.5,
       "diagonal": true,
-      "speed": 1.9,
-      "wallClockSpeed": 1.673,
-      "longFrames": 1,
+      "speed": 1.899,
+      "wallClockSpeed": 1.901,
+      "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.35,
+      "frames": 8,
+      "blocked": false,
+      "retries": 0
     },
     {
       "stickDeg": 112.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.896,
+      "wallClockSpeed": 1.905,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.6,
+      "frames": 6,
+      "blocked": false,
+      "retries": 0
     },
     {
       "stickDeg": 202.5,
@@ -128,18 +178,28 @@
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.55,
+      "frames": 5,
+      "blocked": false,
+      "retries": 0
     },
     {
       "stickDeg": 292.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.898,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
-      "run": 2.4
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.37,
+      "frames": 6,
+      "blocked": false,
+      "retries": 0
     }
   ],
   "bands": [
@@ -150,9 +210,13 @@
       "inputD": 0.05,
       "factor": 0,
       "speed": 0,
-      "wallClockSpeed": 1.898,
+      "wallClockSpeed": null,
       "longFrames": 0,
       "pctMax": 0,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 0,
+      "blocked": false,
       "anim": {
         "s": 0,
         "walk": 0,
@@ -168,12 +232,16 @@
       "inputD": 0.15,
       "factor": 0.087,
       "speed": 0.165,
-      "wallClockSpeed": 0.165,
-      "longFrames": 0,
+      "wallClockSpeed": 0.156,
+      "longFrames": 2,
       "pctMax": 9,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 7,
+      "blocked": false,
       "anim": {
         "s": 0.165,
-        "walk": 0.6,
+        "walk": 0.58,
         "run": 0,
         "walkTS": 0.17,
         "runTS": 0.076
@@ -186,12 +254,16 @@
       "inputD": 0.225,
       "factor": 0.3,
       "speed": 0.57,
-      "wallClockSpeed": 0.57,
-      "longFrames": 0,
+      "wallClockSpeed": 0.523,
+      "longFrames": 1,
       "pctMax": 30,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 8,
+      "blocked": false,
       "anim": {
         "s": 0.57,
-        "walk": 1,
+        "walk": 0.99,
         "run": 0,
         "walkTS": 0.588,
         "runTS": 0.263
@@ -204,9 +276,13 @@
       "inputD": 0.3,
       "factor": 0.402,
       "speed": 0.765,
-      "wallClockSpeed": 0.765,
-      "longFrames": 0,
+      "wallClockSpeed": 0.715,
+      "longFrames": 2,
       "pctMax": 40,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 8,
+      "blocked": false,
       "anim": {
         "s": 0.765,
         "walk": 1,
@@ -225,6 +301,10 @@
       "wallClockSpeed": 1.14,
       "longFrames": 0,
       "pctMax": 60,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 8,
+      "blocked": false,
       "anim": {
         "s": 1.14,
         "walk": 1,
@@ -240,9 +320,13 @@
       "inputD": 0.6,
       "factor": 0.695,
       "speed": 1.32,
-      "wallClockSpeed": 1.32,
+      "wallClockSpeed": 1.321,
       "longFrames": 0,
       "pctMax": 69,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 7,
+      "blocked": false,
       "anim": {
         "s": 1.32,
         "walk": 0.89,
@@ -258,13 +342,17 @@
       "inputD": 0.775,
       "factor": 0.85,
       "speed": 1.615,
-      "wallClockSpeed": 1.615,
+      "wallClockSpeed": 1.613,
       "longFrames": 0,
       "pctMax": 85,
+      "lane": 3.4,
+      "windowMs": 1200,
+      "frames": 8,
+      "blocked": false,
       "anim": {
         "s": 1.615,
-        "walk": 0,
-        "run": 1,
+        "walk": 0.01,
+        "run": 0.98,
         "walkTS": 1.6,
         "runTS": 0.746
       }
@@ -276,27 +364,35 @@
       "inputD": 0.95,
       "factor": 1,
       "speed": 1.9,
-      "wallClockSpeed": 1.908,
-      "longFrames": 0,
+      "wallClockSpeed": 1.89,
+      "longFrames": 1,
       "pctMax": 100,
+      "lane": 3.4,
+      "windowMs": 1150,
+      "frames": 6,
+      "blocked": false,
       "anim": {
         "s": 1.9,
-        "walk": 0.03,
-        "run": 0.96,
+        "walk": 0.01,
+        "run": 0.98,
         "walkTS": 1.6,
         "runTS": 0.877
       }
     },
     {
-      "d": 1,
+      "d": 1.25,
       "name": "max (butée)",
       "target": 1,
       "inputD": 1,
       "factor": 1,
       "speed": 1.9,
-      "wallClockSpeed": 1.901,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
+      "lane": 3.4,
+      "windowMs": 1063,
+      "frames": 8,
+      "blocked": false,
       "anim": {
         "s": 1.9,
         "walk": 0.01,
@@ -306,101 +402,101 @@
       }
     }
   ],
-  "straightAvg": 1.895,
+  "straightAvg": 1.9,
   "diagAvg": 1.9,
   "accelSamples": [
     [
-      69893,
-      42.733,
-      3.5,
+      73238,
+      44.659,
+      4.3,
       3.1,
       0,
       0
     ],
     [
-      69998,
-      42.733,
-      3.5,
+      73371,
+      44.659,
+      4.3,
       3.1,
       0,
       0
     ],
     [
-      70107,
-      42.842,
-      3.405,
-      3.063,
-      1.49,
+      73613,
+      44.903,
+      3.991,
+      2.981,
+      1.84,
       1
     ],
     [
-      70220,
-      42.955,
+      73639,
+      44.929,
+      3.945,
+      2.963,
+      1.86,
+      1
+    ],
+    [
+      73766,
+      45.056,
+      3.723,
+      2.878,
+      1.89,
+      1
+    ],
+    [
+      73904,
+      45.194,
+      3.478,
+      2.784,
+      1.9,
+      1
+    ],
+    [
+      74046,
+      45.336,
       3.227,
-      2.995,
-      1.82,
-      1
-    ],
-    [
-      70334,
-      43.067,
-      3.032,
-      2.92,
-      1.88,
-      1
-    ],
-    [
-      70464,
-      43.199,
-      2.8,
-      2.831,
+      2.687,
       1.9,
       1
     ],
     [
-      70577,
-      43.312,
-      2.599,
-      2.753,
+      74266,
+      45.555,
+      2.838,
+      2.537,
       1.9,
       1
     ],
     [
-      70684,
-      43.419,
-      2.409,
-      2.68,
+      74387,
+      45.676,
+      2.623,
+      2.455,
       1.9,
       1
     ],
     [
-      70812,
-      43.545,
-      2.187,
-      2.595,
-      1.9,
-      1
-    ],
-    [
-      70992,
-      43.727,
-      1.863,
-      2.47,
+      74396,
+      45.687,
+      2.605,
+      2.448,
       1.9,
       1
     ]
   ],
   "accelRamp": {
-    "windowS": 0.335,
-    "distRatio": 0.788,
-    "theory": 0.788
+    "windowS": 0.396,
+    "distRatio": 0.821,
+    "theory": 0.821
   },
   "stop": {
     "coastM": 0.059,
     "theoryM": 0.059,
-    "under5pctMs": 216,
+    "under5pctMs": 122,
     "frames": 2,
-    "gameMs": 216
+    "gameMs": 234
   },
   "drift": 0,
   "results": [
@@ -440,55 +536,139 @@
     },
     {
       "ok": true,
-      "test": "direction 0° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 0° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.3,
+        "win": 900,
+        "frames": 5,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 45° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 45° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.55,
+        "win": 900,
+        "frames": 8,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 90° → 1.88 m/s (99 %), heading error 0.8° world / 1.4° on screen"
+      "test": "direction 90° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.54,
+        "win": 900,
+        "frames": 7,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 135° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 135° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.54,
+        "win": 900,
+        "frames": 6,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 180° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 180° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.53,
+        "win": 900,
+        "frames": 7,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 225° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 225° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.43,
+        "win": 900,
+        "frames": 7,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 270° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 270° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.44,
+        "win": 900,
+        "frames": 6,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.45,
+        "win": 900,
+        "frames": 6,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 22.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 22.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.35,
+        "win": 900,
+        "frames": 8,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 112.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 112.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.6,
+        "win": 900,
+        "frames": 6,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 202.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 202.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.55,
+        "win": 900,
+        "frames": 5,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "direction 292.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+      "test": "direction 292.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.37,
+        "win": 900,
+        "frames": 6,
+        "blocked": false
+      }
     },
     {
       "ok": true,
-      "test": "diagonals not faster: straight 1.89 m/s vs diagonal 1.90 m/s"
+      "test": "diagonals not faster: straight 1.90 m/s vs diagonal 1.90 m/s"
     },
     {
       "ok": true,
@@ -524,7 +704,7 @@
     },
     {
       "ok": true,
-      "test": "max (butée) band d=1: 1.90 m/s = 100 % of max (target ≈100 %)"
+      "test": "max (butée): finger past the rim → d=1.000, 1.90 m/s = 100 % of max (target 100 %)"
     },
     {
       "ok": true,
@@ -542,7 +722,7 @@
     },
     {
       "ok": true,
-      "test": "animation: slow = walk (1), max = run (0.99)"
+      "test": "animation: slow = walk (0.99), max = run (0.99)"
     },
     {
       "ok": true,
@@ -588,27 +768,33 @@
     },
     {
       "ok": true,
-      "test": "smooth acceleration: in the first 335 ms the avatar covers 79 % of the full-speed distance (model 79 %, ≈95 % speed after 0.21 s)"
+      "test": "smooth acceleration: in the first 396 ms the avatar covers 82 % of the full-speed distance (model 82 %, ≈95 % speed after 0.21 s)"
     },
     {
       "ok": true,
-      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), below 5 % speed after 216 ms, fully at rest after 2 frame(s) / 216 ms game time, no drift"
+      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), below 5 % speed after 122 ms, fully at rest after 2 frame(s) / 234 ms game time, no drift"
     },
     {
       "ok": true,
-      "test": "stick recentred, avatar idle"
+      "test": "stick recentred, avatar idle (checked 905 ms after release)",
+      "extra": {
+        "active": false,
+        "mode": "idle",
+        "speed": 0,
+        "knobOff": 0
+      }
     },
     {
       "ok": true,
-      "test": "wall: walking into the back wall stops at x=0.29 m (wall face 0.12 m + avatar radius), never inside"
+      "test": "wall: walking into the back wall stops at x=0.28 m (wall face 0.12 m + avatar radius), never inside"
     },
     {
       "ok": true,
-      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.32 m along, min x 0.81 m)"
+      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.34 m along, min x 0.82 m)"
     },
     {
       "ok": true,
-      "test": "furniture: avatar never enters the furniture footprint (obstacle 0.70 m ahead; advanced 0.85 m, 0.92 m travelled incl. sliding around it)",
+      "test": "furniture: avatar never enters the furniture footprint (obstacle 0.70 m ahead; advanced 0.84 m, 0.92 m travelled incl. sliding around it)",
       "extra": {
         "blockedCells": 202
       }
@@ -633,7 +819,7 @@
     },
     {
       "ok": true,
-      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.72 m)"
+      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.71 m)"
     },
     {
       "ok": true,
@@ -651,10 +837,16 @@
       "ok": true,
       "test": "sitting + joystick → stand-up animation, then walks away",
       "extra": {
+        "sat": true,
         "modes": [
+          "sitting",
           "standing",
           "idle",
           "walk"
+        ],
+        "last": [
+          "walk",
+          0.73
         ]
       }
     },
@@ -668,11 +860,20 @@
     },
     {
       "ok": true,
-      "test": "hidden in decorate mode, back in play mode"
+      "test": "hidden in decorate mode, back in play mode (visible again after 10 ms)",
+      "extra": {
+        "edit": [
+          false
+        ],
+        "play": [
+          true
+        ],
+        "panel": null
+      }
     },
     {
       "ok": true,
-      "test": "Yoo Plage: joystick walks on the sand/boardwalk (6.25 m), never into the sea or props"
+      "test": "Yoo Plage: joystick walks on the sand/boardwalk (7.38 m), never into the sea or props"
     },
     {
       "ok": true,
