@@ -10,8 +10,8 @@ export const ISO_DIR = new THREE.Vector3(1, 1.05, 1.2).normalize();
  * Touch: 1 finger = pan, pinch = zoom (+2-finger rotate). Mouse: left drag = pan, right drag = rotate, wheel = zoom.
  * A tap (no drag) is left to the scene (walk / select). Follows the active character until the user pans.
  */
-export function CameraRig({ target, zoom, dir = ISO_DIR, follow, interactive }: {
-  target: THREE.Vector3; zoom: number; dir?: THREE.Vector3; follow?: () => THREE.Vector3 | null; interactive: boolean;
+export function CameraRig({ target, zoom, dir = ISO_DIR, follow, interactive, panEnabled = true }: {
+  target: THREE.Vector3; zoom: number; dir?: THREE.Vector3; follow?: () => THREE.Vector3 | null; interactive: boolean; panEnabled?: boolean;
 }) {
   const { camera } = useThree(); const ctl = useRef<OC>(null);
   const following = useRef(true); const tmp = useRef(new THREE.Vector3());
@@ -33,7 +33,7 @@ export function CameraRig({ target, zoom, dir = ISO_DIR, follow, interactive }: 
   });
   if (!interactive) return null;
   return (
-    <OrbitControls ref={ctl as never} makeDefault enableDamping dampingFactor={0.12} minZoom={70} maxZoom={420}
+    <OrbitControls ref={ctl as never} makeDefault enableDamping dampingFactor={0.12} minZoom={45} enablePan={panEnabled} maxZoom={420}
       minPolarAngle={0.55} maxPolarAngle={1.1} minAzimuthAngle={0.1} maxAzimuthAngle={1.45} screenSpacePanning
       mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }}
       touches={{ ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }}

@@ -1,0 +1,1 @@
+export default async (p) => { await p.evaluate(() => { const g = window.game; const tv = g.s.apartment.items.find((i) => i.defId === 'lampRoundFloor'); g.tapItem(tv.uid); }); await p.waitForTimeout(1200); };
