@@ -1,4 +1,5 @@
 import bounds from './furnitureBounds.json';
+import { legacySeat } from './interactionRegistry';
 
 /** Data-driven furniture catalogue. To add an item: drop the GLB in public/models/furniture,
  *  run `python3 tools/furniture_bounds.py`, then add one entry below. */
@@ -12,7 +13,7 @@ export interface FurnitureDef {
   surface?: number;                                   // top height (m) if 'top' items can be placed on it
   /** sitting spots: local x offsets; `hipZ` = local forward position of the hips on the cushion, `h` = real cushion
    *  height (m, tools/seat_heights.py); `lie` = spots to lie down on (beds): `footZ` = local z of the feet, `h` = mattress top */
-  seat?: { slots: number[]; depth?: number; hipZ?: number; h?: number; kind?: 'chair' | 'stool' | 'sofa' | 'bed'; lie?: { slots: number[]; footZ: number; h: number } };
+  seat?: { slots: number[]; depth?: number; hipZ?: number; h?: number; kind?: 'chair' | 'stool' | 'sofa' | 'bed'; lie?: { slots: number[]; footZ: number; h: number } }; // derived from data/interactionRegistry.ts
   interaction?: Interaction;
   light?: { y: number; color: string; intensity: number; distance: number };
   tint?: Record<string, string>;                      // per-item material colour overrides
@@ -22,13 +23,13 @@ const def = (id: string, name: string, category: Category, price: number, extra:
   ({ id, name, model: extra.model ?? id, category, layer: 'floor', price, rarity: 'common', size: B[extra.model ?? id], ...extra });
 
 export const FURNITURE: Record<string, FurnitureDef> = Object.fromEntries([
-  def('loungeSofa', 'Canapé rose', 'seating', 180, { seat: { slots: [-0.27, 0.27], hipZ: 0.17, h: 0.276, kind: 'sofa' }, interaction: 'sit', surface: undefined }),
-  def('loungeDesignSofa', 'Canapé design', 'seating', 260, { seat: { slots: [-0.32, 0.32], hipZ: 0.17, h: 0.276, kind: 'sofa' }, interaction: 'sit', rarity: 'rare' }),
-  def('loungeSofaCorner', 'Canapé d’angle', 'seating', 320, { seat: { slots: [-0.32, 0.18], hipZ: -0.16, h: 0.276, kind: 'sofa' }, interaction: 'sit', rarity: 'rare' }),
-  def('loungeChair', 'Fauteuil', 'seating', 110, { seat: { slots: [0], hipZ: 0.17, h: 0.276, kind: 'sofa' }, interaction: 'sit' }),
-  def('chair', 'Chaise en bois', 'seating', 35, { seat: { slots: [0], depth: 0.05, hipZ: 0.12, h: 0.288, kind: 'chair' }, interaction: 'sit' }),
-  def('chairDesk', 'Chaise de bureau', 'seating', 60, { seat: { slots: [0], hipZ: 0.12, h: 0.28, kind: 'chair' }, interaction: 'sit' }),
-  def('stoolBar', 'Tabouret de bar', 'seating', 40, { seat: { slots: [0], hipZ: 0.09, h: 0.522, kind: 'stool' }, interaction: 'sit' }),
+  def('loungeSofa', 'Canapé rose', 'seating', 180, { seat: legacySeat('loungeSofa'), interaction: 'sit', surface: undefined }),
+  def('loungeDesignSofa', 'Canapé design', 'seating', 260, { seat: legacySeat('loungeDesignSofa'), interaction: 'sit', rarity: 'rare' }),
+  def('loungeSofaCorner', 'Canapé d’angle', 'seating', 320, { seat: legacySeat('loungeSofaCorner'), interaction: 'sit', rarity: 'rare' }),
+  def('loungeChair', 'Fauteuil', 'seating', 110, { seat: legacySeat('loungeChair'), interaction: 'sit' }),
+  def('chair', 'Chaise en bois', 'seating', 35, { seat: legacySeat('chair'), interaction: 'sit' }),
+  def('chairDesk', 'Chaise de bureau', 'seating', 60, { seat: legacySeat('chairDesk'), interaction: 'sit' }),
+  def('stoolBar', 'Tabouret de bar', 'seating', 40, { seat: legacySeat('stoolBar'), interaction: 'sit' }),
   def('tableCoffee', 'Table basse', 'tables', 70, { surface: 0.276 }),
   def('tableRound', 'Table ronde', 'tables', 90, { surface: 0.44 }),
   def('desk', 'Bureau', 'tables', 120, { surface: 0.461 }),
@@ -38,7 +39,7 @@ export const FURNITURE: Record<string, FurnitureDef> = Object.fromEntries([
   def('bookcaseClosedWide', 'Bibliothèque', 'storage', 140, { interaction: 'look' }),
   def('cabinetTelevision', 'Meuble TV', 'storage', 85, { surface: 0.372 }),
   def('coatRackStanding', 'Porte-manteau', 'decor', 30),
-  def('bedDouble', 'Lit double', 'bedroom', 240, { seat: { slots: [-0.25, 0.25], depth: 0.42, hipZ: 0.62, h: 0.3, kind: 'bed', lie: { slots: [-0.24, 0.24], footZ: 0.42, h: 0.3 } }, interaction: 'bed' }),
+  def('bedDouble', 'Lit double', 'bedroom', 240, { seat: legacySeat('bedDouble'), interaction: 'bed' }),
   def('lampRoundFloor', 'Lampadaire', 'lighting', 65, { interaction: 'light', light: { y: 0.95, color: '#ffb870', intensity: 2.2, distance: 4 } }),
   def('lampSquareTable', 'Lampe de chevet', 'lighting', 35, { layer: 'top', interaction: 'light', light: { y: 0.3, color: '#ffc48a', intensity: 1.4, distance: 3 } }),
   def('televisionModern', 'Télé écran plat', 'electronics', 210, { layer: 'top', interaction: 'tv', rarity: 'rare' }),

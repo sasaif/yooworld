@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { NavGrid } from '../nav/NavGrid';
 import { blockingFootprints, CELL, itemTransform, type ApartmentLayout, type Catalog } from './ApartmentModel';
 import { world, type Seat } from '../world';
+import { INTERACTIONS, PRESETS } from '../../data/interactionRegistry';
 
 /** Rebuild navigation + seats after any layout change, and keep characters in valid spots. */
 export function syncWorld(layout: ApartmentLayout, cat: Catalog) {
@@ -23,16 +24,28 @@ export function computeSeats(layout: ApartmentLayout, cat: Catalog): Seat[] {
   for (const it of layout.items) {
     const def = cat[it.defId]; if (!def.seat) continue;
     const t = itemTransform(it, cat); const fwd = new THREE.Vector3(Math.sin(t.yaw), 0, Math.cos(t.yaw)); const right = new THREE.Vector3(fwd.z, 0, -fwd.x);
-    const depth = it.rot % 2 ? def.size.d : def.size.d; // model depth along its own forward axis
-    const st = def.seat;
+    const depth = def.size.d; // model depth along its own forward axis
+    const at = (x: number, z: number) => new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, x).addScaledVector(fwd, z);
+    const reg = INTERACTIONS[def.id];
+    if (reg) {
+      // data-driven slots (data/interactionRegistry.ts): per-slot cushion height, hips point, preset, approach point
+      const sits = reg.sit.map((s, k): Seat => {
+        const pos = at(s.x, reg.depth ?? 0.04); const front = at(s.x, depth / 2 + 0.22); const hip = at(s.x, s.hipZ);
+        const P = PRESETS[s.preset]; const ap = Math.min(s.hipZ + P.approach, depth / 2 + 0.22);
+        return { id: `${it.uid}:${k}`, pos, yaw: t.yaw, front, pose: 'sit', h: s.h, hip, kind: P.kind, preset: s.preset, approach: at(s.x, ap) };
+      });
+      out.push(...sits);
+      reg.lie?.forEach((l, k) => {
+        const e = sits[l.edge]; const hip = at(l.x, l.footZ);
+        out.push({ id: `${it.uid}:L${k}`, pos: hip.clone(), yaw: t.yaw, front: e.front.clone(), pose: 'lie', h: l.h, hip, kind: 'bed', preset: 'lie', approach: e.approach!.clone(), edgeHip: e.hip!.clone(), edgeH: e.h });
+      });
+      continue;
+    }
+    const st = def.seat; // catalogue items without a registry entry (none in the starter flat): legacy single-height seats
     st.slots.forEach((sx, k) => {
-      const pos = new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, st.depth ?? 0.04);
-      const hip = st.hipZ !== undefined ? new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, st.hipZ) : undefined;
+      const pos = at(sx, st.depth ?? 0.04);
+      const hip = st.hipZ !== undefined ? at(sx, st.hipZ) : undefined;
       out.push({ id: `${it.uid}:${k}`, pos, yaw: t.yaw, front: pos.clone().addScaledVector(fwd, depth / 2 + 0.22 - (st.depth ?? 0)), pose: 'sit', h: st.h, hip, kind: st.kind });
-    });
-    st.lie?.slots.forEach((sx, k) => {
-      const hip = new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, st.lie!.footZ);
-      out.push({ id: `${it.uid}:L${k}`, pos: hip.clone(), yaw: t.yaw, front: new THREE.Vector3(t.x, 0, t.z).addScaledVector(right, sx).addScaledVector(fwd, depth / 2 + 0.22), pose: 'lie', h: st.lie!.h, hip });
     });
   }
   return out;

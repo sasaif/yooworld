@@ -1,11 +1,20 @@
 import * as THREE from 'three';
+import type { PresetId } from '../data/interactionRegistry';
 import type { NavGrid } from './nav/NavGrid';
 import type { Mover } from './character/locomotion';
 
 export type Mode = 'idle' | 'walk' | 'sitting' | 'standing' | 'emote';
 /** A place to sit or lie. `pos` = legacy seat point; `hip` + `h` = measured anchor (hips target for 'sit', feet point for
  *  'lie') and the real surface height of the cushion / mattress (see game/interact/anchors.ts). */
-export interface Seat { id: string; pos: THREE.Vector3; yaw: number; front: THREE.Vector3; pose?: 'sit' | 'lie'; h?: number; hip?: THREE.Vector3; kind?: 'chair' | 'stool' | 'sofa' | 'bed' }
+export interface Seat {
+  id: string; pos: THREE.Vector3; yaw: number; front: THREE.Vector3; pose?: 'sit' | 'lie'; h?: number; hip?: THREE.Vector3; kind?: 'chair' | 'stool' | 'sofa' | 'bed';
+  /** registry pose preset (data/interactionRegistry.ts) */
+  preset?: PresetId;
+  /** standing point (floor) in front of the seat where the avatar turns round before sitting down / ends up after standing */
+  approach?: THREE.Vector3;
+  /** lying spots: the bed-edge sitting point used on the way down / up (hips + cushion height) */
+  edgeHip?: THREE.Vector3; edgeH?: number;
+}
 /** Runtime state of a character in the current scene (mutable, read by the render loop). */
 export interface CharState extends Mover {
   id: string; name: string; mode: Mode; local: true;
