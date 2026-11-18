@@ -39,7 +39,7 @@ Le canvas faisait déjà 100 % de la fenêtre (mesuré : 100 % de couverture sur
 - Lumière de contour (rim) + légère auto-illumination de la texture : visages lisibles même à l’ombre, personnages qui ressortent du décor.
 - Contour cartoon (inverted hull, 1 draw call par avatar).
 - Danse : rebond sur le temps, balancement des hanches, rotation du corps par-dessus le clip « Victory ».
-- Pas de remplacement de modèle : aucune alternative testée n’était meilleure que Juanita/Juan pour ce style (voir docs/02-avatars.md) ; ils restent par défaut.
+- Pas de remplacement de modèle : Juanita/Juan restent par défaut. Aucun modèle alternatif n’a été testé dans cette passe (consigne : ne pas remplacer sans tester) ; on a amélioré l’existant.
 
 ### P4 — Appartement
 - Ombres douces (PCF soft), lumière principale plus chaude, ambiance chaude.
