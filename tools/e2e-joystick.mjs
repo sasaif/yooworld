@@ -35,7 +35,7 @@ async function stickTo(d, a, id = 1, steps = 4) {
   const from = touches.get(id); for (let i = 1; i <= steps; i++) await moveT(id, from.x + (tx - from.x) * i / steps, from.y + (ty - from.y) * i / steps);
 }
 const mv = () => p.evaluate(() => window.__move());
-const sampler = () => p.evaluate(() => { window.__samples = []; if (window.__sampling) return; window.__sampling = true; const f = () => { const m = window.__move(); window.__samples.push({ t: performance.now(), x: m.pos[0], z: m.pos[1], speed: m.speed, v: Math.hypot(m.vel[0], m.vel[1]), mode: m.mode, d: m.d, yaw: m.yaw, anim: m.anim && { w: m.anim.walk, r: m.anim.run, i: m.anim.idle, wts: m.anim.walkTS, rts: m.anim.runTS, s: m.anim.speed } }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
+const sampler = () => p.evaluate(() => { window.__samples = []; if (window.__sampling) return; window.__sampling = true; const f = () => { const m = window.__move(); window.__samples.push({ t: performance.now(), sim: m.simTime, x: m.pos[0], z: m.pos[1], speed: m.speed, v: Math.hypot(m.vel[0], m.vel[1]), mode: m.mode, d: m.d, yaw: m.yaw, anim: m.anim && { w: m.anim.walk, r: m.anim.run, i: m.anim.idle, wts: m.anim.walkTS, rts: m.anim.runTS, s: m.anim.speed } }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
 const samples = () => p.evaluate(() => window.__samples.slice());
 const resetSamples = () => p.evaluate(() => { window.__samples = []; });
 /** teleport the player (test setup only) */
@@ -54,7 +54,15 @@ async function openStart(dir, len) { // the free start point with the longest cl
 const cellFree = (r = 0) => p.evaluate((r) => { const n = window.__world.nav; const ok = (x, z) => { const i = Math.floor(x / n.cell), j = Math.floor(z / n.cell); return x >= 0 && z >= 0 && n.free(i, j); };
   return window.__samples.every((s) => [[0, 0], [r, 0], [-r, 0], [0, r], [0, -r]].every(([a, b]) => ok(s.x + a, s.z + b))); }, r);
 const camState = () => p.evaluate(() => { const c = window.__cam; const d = new c.position.constructor(); c.getWorldDirection(d); return { zoom: c.zoom, az: Math.atan2(d.x, d.z), pol: Math.acos(-d.y / d.length()) }; });
-function speedOver(ss, t0, t1) { const a = ss.find((s) => s.t >= t0), bb = [...ss].reverse().find((s) => s.t <= t1); if (!a || !bb || bb.t <= a.t) return NaN; return Math.hypot(bb.x - a.x, bb.z - a.z) / ((bb.t - a.t) / 1000); }
+/** speed over a window, measured against the GAME clock (sum of frame times the controller integrated). On a frame-starved
+ *  headless renderer, frames longer than the 0.25 s clamp lose time; the wall-clock speed is reported alongside. */
+let lastWall = NaN, longFrames = 0;
+/** steady-state speed: from 0.3 s (game time) after the stick input reached displacement dT until the last frame before release */
+function steadySpeed(ss, dT, tEnd) { if (dT <= 0.1) { const w = ss.filter((s) => s.t <= tEnd); return w.length > 1 ? Math.hypot(w.at(-1).x - w[0].x, w.at(-1).z - w[0].z) : 0; }
+  const i0 = ss.findIndex((s) => Math.abs(s.d - dT) < 0.01); if (i0 < 0) return NaN; const a = ss.slice(i0).find((s) => s.sim - ss[i0].sim >= 0.3); const bb = [...ss].reverse().find((s) => s.t <= tEnd && Math.abs(s.d - dT) < 0.01);
+  if (!a || !bb || bb.sim <= a.sim) return NaN; return speedOver(ss, a.t, bb.t); }
+function speedOver(ss, t0, t1) { const a = ss.find((s) => s.t >= t0), bb = [...ss].reverse().find((s) => s.t <= t1); if (!a || !bb || bb.t <= a.t) return NaN; const dist = Math.hypot(bb.x - a.x, bb.z - a.z);
+  lastWall = dist / ((bb.t - a.t) / 1000); const w = ss.filter((s) => s.t >= a.t && s.t <= bb.t); longFrames = w.filter((s, i) => i && s.t - w[i - 1].t > 250).length; return dist / Math.max(1e-6, bb.sim - a.sim); }
 const fps = await p.evaluate(() => new Promise((res) => { let n = 0; const s = performance.now(); const f = () => { n++; if (performance.now() - s < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
 const MAX = (await mv()).maxSpeed; const frameMs = 1000 / fps; const report = { device: devName, label: dev.label, viewport: [dev.w, dev.h], dpr: DPR, fps: Math.round(fps), maxSpeed: MAX, dirs: [], bands: [] };
 console.log(`== ${dev.label} ${dev.w}x${dev.h} @${DPR}x  ~${Math.round(fps)} fps (headless SwiftShader) ==`);
@@ -74,14 +82,14 @@ for (const a of angles) {
   const dir = await worldDir(a); const st = await openStart(dir, 2.4); await place(st.x - dir[0] * 0.0, st.z, Math.atan2(dir[0], dir[1]));
   await p.waitForTimeout(150); await resetSamples();
   await stickTo(1, a, 1, 2); const t0 = await p.evaluate(() => performance.now()); const win = Math.min(900, (st.r - 0.5) / MAX * 1000);
-  await p.waitForTimeout(300 + win); await up(1); await p.waitForTimeout(400);
-  const ss = await samples(); const sp = speedOver(ss, t0 + 300, t0 + 300 + win);
+  await p.waitForTimeout(300 + win + 150); await up(1); await p.waitForTimeout(400);
+  const ss = await samples(); const sp = steadySpeed(ss, 1, t0 + 300 + win + 150);
   const first = ss[0], last = ss[ss.length - 1]; const ang = Math.atan2(last.z - first.z, last.x - first.x), want = Math.atan2(dir[1], dir[0]);
   const err = Math.abs(((ang - want) * 180 / Math.PI + 540) % 360 - 180);
   // on-screen direction of travel vs stick angle
   const scr = await p.evaluate(([a0, a1]) => { const V = window.__cam.position.constructor; const p0 = new V(a0[0], 0, a0[1]).project(window.__cam), p1 = new V(a1[0], 0, a1[1]).project(window.__cam); return Math.atan2((p1.y - p0.y) * innerHeight, (p1.x - p0.x) * innerWidth) * 180 / Math.PI; }, [[first.x, first.z], [last.x, last.z]]);
   const scrErr = Math.abs(((scr - a) + 540) % 360 - 180);
-  report.dirs.push({ stickDeg: a, diagonal: a % 90 !== 0, speed: +sp.toFixed(3), pctMax: Math.round(sp / MAX * 100), worldErrDeg: +err.toFixed(1), screenErrDeg: +scrErr.toFixed(1), run: +st.r.toFixed(2) });
+  report.dirs.push({ stickDeg: a, diagonal: a % 90 !== 0, speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), worldErrDeg: +err.toFixed(1), screenErrDeg: +scrErr.toFixed(1), run: +st.r.toFixed(2) });
   ok(sp > 0.9 * MAX && sp < 1.06 * MAX && err < 8 && scrErr < 10, `direction ${a}° → ${sp.toFixed(2)} m/s (${Math.round(sp / MAX * 100)} %), heading error ${err.toFixed(1)}° world / ${scrErr.toFixed(1)}° on screen`);
 }
 const straight = report.dirs.filter((d) => !d.diagonal).map((d) => d.speed), diag = report.dirs.filter((d) => d.diagonal).map((d) => d.speed);
@@ -96,10 +104,10 @@ const bdir = await worldDir(bandDir); const bst = await openStart(bdir, 2.4);
 for (const [d, name, target] of bands) {
   await place(bst.x, bst.z, Math.atan2(bdir[0], bdir[1])); await p.waitForTimeout(150); await resetSamples();
   await stickTo(d, bandDir, 1, 2); const t0 = await p.evaluate(() => performance.now()); const win = Math.min(1200, (bst.r - 0.4) / Math.max(0.3, MAX * (target ?? 0.6)) * 1000);
-  await p.waitForTimeout(300 + win); const m = await mv(); await up(1); await p.waitForTimeout(350);
-  const ss = await samples(); const sp = speedOver(ss, t0 + 300, t0 + 300 + win);
+  await p.waitForTimeout(300 + win + 150); const m = await mv(); await up(1); await p.waitForTimeout(350);
+  const ss = await samples(); const sp = steadySpeed(ss, m.d, t0 + 300 + win + 150);
   const an = ss.filter((s) => s.t > t0 + 300 && s.t < t0 + 300 + win && s.anim).pop()?.anim;
-  report.bands.push({ d, name, target, inputD: +m.d.toFixed(3), factor: +m.factor.toFixed(3), speed: +sp.toFixed(3), pctMax: Math.round(sp / MAX * 100), anim: an && { s: +an.s.toFixed(3), walk: +an.w.toFixed(2), run: +an.r.toFixed(2), walkTS: +an.wts.toFixed(3), runTS: +an.rts.toFixed(3) } });
+  report.bands.push({ d, name, target, inputD: +m.d.toFixed(3), factor: +m.factor.toFixed(3), speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), anim: an && { s: +an.s.toFixed(3), walk: +an.w.toFixed(2), run: +an.r.toFixed(2), walkTS: +an.wts.toFixed(3), runTS: +an.rts.toFixed(3) } });
   if (target === 0) ok(sp < 0.01 && m.speed === 0, `dead zone ${d * 100}% → no movement (${sp.toFixed(3)} m/s)`);
   else if (target != null) ok(Math.abs(sp / MAX - target) < 0.06, `${name} band d=${d}: ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target ≈${target * 100} %)`);
   else ok(sp > 0, `${name} d=${d}: ${sp.toFixed(2)} m/s (${Math.round(sp / MAX * 100)} %)`);
@@ -111,16 +119,21 @@ const vW = 0.85 * 1.14, vR = 1.9 * 1.14;
 ok(slowB.anim.walk > 0.8 && maxB.anim.run > 0.8, `animation: slow = walk (${slowB.anim.walk}), max = run (${maxB.anim.run})`);
 ok(report.bands.every((x) => !x.anim || (x.anim.walkTS <= x.anim.s / vW + 1e-3 && x.anim.runTS <= x.anim.s / vR + 1e-3 && x.anim.walkTS <= x.speed / vW + 0.1)), 'walk/run playback rate ≤ actual speed / natural clip speed (feet never faster than the body)', report.bands.map((x) => x.anim && [x.anim.walkTS, x.anim.runTS]));
 
-// ---------- 4. accel / decel / immediate stop ----------
-await place(bst.x, bst.z, 0); await p.waitForTimeout(200); await resetSamples(); const ta = await p.evaluate(() => performance.now());
-await stickTo(1, bandDir, 1, 1); await p.waitForTimeout(700); const tr = await p.evaluate(() => performance.now()); await up(1); await p.waitForTimeout(900);
-const sa0 = await samples(); const sa = sa0; const tin = sa.find((s) => s.d >= 0.99)?.t ?? ta; const trel = sa.find((s) => s.t > tr - 1 && s.d === 0)?.t ?? tr;
-const t95 = sa.find((s) => s.t >= tin && s.v >= 0.95 * MAX); const tstop = sa.find((s) => s.t >= trel && s.v === 0);
-const after = sa.filter((s) => s.t > tr + 300); const drift = after.length > 1 ? Math.hypot(after.at(-1).x - after[0].x, after.at(-1).z - after[0].z) : 0;
-report.accelTo95 = t95 ? Math.round(t95.t - tin) : null; report.stopMs = tstop ? Math.round(tstop.t - trel) : null; report.drift = +drift.toFixed(4);
-const firstV = sa.find((s) => s.t >= tin && s.v > 0);
-ok(t95 && report.accelTo95 < 260 + frameMs && firstV && firstV.v < 0.95 * MAX, `smooth acceleration: first frame ${firstV?.v.toFixed(2)} m/s, 95 % of max ${report.accelTo95} ms after the input (frame ≈${Math.round(frameMs)} ms)`);
-ok(tstop && report.stopMs <= 150 + frameMs && drift === 0, `immediate stop after release: v=0 ${report.stopMs} ms after the release frame (frame ≈${Math.round(frameMs)} ms), no drift`);
+// ---------- 4. accel / decel / immediate stop (frame-rate independent: distances on the game clock) ----------
+await place(bst.x, bst.z, 0); await p.waitForTimeout(200); await resetSamples();
+await stickTo(1, bandDir, 1, 1); await p.waitForTimeout(900); await up(1); await p.waitForTimeout(900);
+const sa = await samples(); const iIn = sa.findIndex((s) => s.d >= 0.99); const o = sa[Math.max(0, iIn - 1)];
+const X = 0.3; const kA = 14, kD = 32; // MOVE_DEFAULTS accel / decel rates
+const at = sa.slice(iIn).find((s) => s.sim - o.sim >= X) ?? sa.at(-1); const Xs = at.sim - o.sim;
+const ramp = Math.hypot(at.x - o.x, at.z - o.z) / (MAX * Xs), rampTheory = 1 - (1 - Math.exp(-kA * Xs)) / (kA * Xs);
+const iRel = sa.findIndex((s, i) => i > iIn && s.d === 0); const r0 = sa[iRel - 1]; const iStop = sa.findIndex((s, i) => i >= iRel && s.v === 0);
+const coast = Math.hypot(sa[iStop].x - r0.x, sa[iStop].z - r0.z), coastTheory = r0.v / kD;
+const stopFrames = iStop - iRel + 1, stopGameMs = Math.round((sa[iStop].sim - r0.sim) * 1000);
+const tail = sa.slice(iStop); const drift = Math.hypot(tail.at(-1).x - tail[0].x, tail.at(-1).z - tail[0].z);
+report.accelSamples = sa.slice(Math.max(0, iIn - 2), iIn + 8).map((s) => [Math.round(s.t), +s.sim.toFixed(3), +s.x.toFixed(3), +s.z.toFixed(3), +s.v.toFixed(2), +s.d.toFixed(2)]);
+Object.assign(report, { accelRamp: { windowS: +Xs.toFixed(3), distRatio: +ramp.toFixed(3), theory: +rampTheory.toFixed(3) }, stop: { coastM: +coast.toFixed(3), theoryM: +coastTheory.toFixed(3), frames: stopFrames, gameMs: stopGameMs }, drift: +drift.toFixed(4) });
+ok(Math.abs(ramp - rampTheory) < 0.1 && ramp < 0.95, `smooth acceleration: in the first ${Math.round(Xs * 1000)} ms the avatar covers ${Math.round(ramp * 100)} % of the full-speed distance (model ${Math.round(rampTheory * 100)} %, ≈95 % speed after 0.21 s)`);
+ok(coast < 0.12 && stopGameMs <= 160 + frameMs && drift === 0, `immediate stop after release: coasts ${(coast * 100).toFixed(1)} cm (model ${(coastTheory * 100).toFixed(1)} cm), at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time, no drift`);
 const after2 = await mv(); const knob = (await J()).knob;
 ok(!after2.stick.active && after2.mode === 'idle' && Math.hypot(knob[0] - joy.cx, knob[1] - joy.cy) < 2, 'stick recentred, avatar idle');
 await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
@@ -197,8 +210,9 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
   await p.evaluate((u) => window.game.interact(u, 'sit'), sofa);
   const sat = await p.waitForFunction(() => window.__move().mode === 'sitting', null, { timeout: 60000 }).then(() => true, () => false);
   await p.waitForTimeout(1200); await p.screenshot({ path: `${SHOTS}/${devName}_sitting.png` });
-  await stickTo(1, 0); const modes = []; for (let i = 0; i < 16; i++) { modes.push((await mv()).mode); await p.waitForTimeout(150); }
-  const mm = await mv(); await up(1); await p.waitForTimeout(400);
+  await stickTo(1, 0); const modes = []; let mm = await mv(); const tS = Date.now();
+  while (Date.now() - tS < 10000) { mm = await mv(); modes.push(mm.mode); if (mm.mode === 'walk' && mm.speed > 0.2) break; await p.waitForTimeout(120); }
+  await up(1); await p.waitForTimeout(400);
   ok(sat && modes.includes('standing') && mm.mode === 'walk' && mm.speed > 0.2, 'sitting + joystick → stand-up animation, then walks away', { modes: [...new Set(modes)] });
   // dance then push the stick
   await place(st.x, st.z, 0); await p.evaluate(() => window.game.toggleEmote()); await p.waitForTimeout(800);
@@ -209,8 +223,8 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
 
 // ---------- 8. hidden while the style studio / decorate mode is open ----------
 {
-  await p.evaluate(() => window.game.setMode('edit')); await p.waitForTimeout(300); const e = await J();
-  await p.evaluate(() => window.game.setMode('play')); await p.waitForTimeout(300); const e2 = await J();
+  await p.evaluate(() => window.game.setMode('edit')); await p.waitForFunction(() => document.querySelector('.joy')?.classList.contains('joy-hidden'), null, { timeout: 8000 }).catch(() => {}); const e = await J();
+  await p.evaluate(() => window.game.setMode('play')); await p.waitForFunction(() => !document.querySelector('.joy')?.classList.contains('joy-hidden'), null, { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(300); const e2 = await J();
   ok(!e.vis && e2.vis, 'hidden in decorate mode, back in play mode');
 }
 

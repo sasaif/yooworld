@@ -49,7 +49,7 @@ export function driveCharacter(c: CharState, dt: number, camDir: { x: number; y:
   if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st.x = c.pos.x; st.z = c.pos.z; st.yaw = c.yaw; } // teleported (travel) or moved by something else
   dirV.x = camDir.x; dirV.y = camDir.y; dirV.z = camDir.z;
   const next: MoveState = stepMove(st, inp, camBasisFromDir(dirV.x, dirV.y, dirV.z), dt, motion.cfg, collider(nav));
-  motion.st = next; motion.frames++; motion.simTime += dt;
+  motion.st = next; motion.frames++; motion.simTime += Math.min(Math.max(dt, 0), motion.cfg.maxDt);
   c.pos.x = next.x; c.pos.z = next.z; c.yaw = next.yaw; c.speed = next.speed;
   motion.driving = !(next.vx === 0 && next.vz === 0 && !engaged);
   return true;

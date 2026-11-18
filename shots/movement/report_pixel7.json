@@ -1,0 +1,552 @@
+{
+  "device": "pixel7",
+  "label": "Pixel 7 paysage",
+  "viewport": [
+    915,
+    412
+  ],
+  "dpr": 2.625,
+  "fps": 9,
+  "maxSpeed": 1.9,
+  "dirs": [
+    {
+      "stickDeg": 0,
+      "diagonal": false,
+      "speed": 1.891,
+      "pctMax": 100,
+      "worldErrDeg": 2.8,
+      "screenErrDeg": 1.6,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 45,
+      "diagonal": true,
+      "speed": 1.708,
+      "pctMax": 90,
+      "worldErrDeg": 2.8,
+      "screenErrDeg": 3.4,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 90,
+      "diagonal": false,
+      "speed": 1.91,
+      "pctMax": 101,
+      "worldErrDeg": 1.1,
+      "screenErrDeg": 1.9,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 135,
+      "diagonal": true,
+      "speed": 1.9,
+      "pctMax": 100,
+      "worldErrDeg": 0.6,
+      "screenErrDeg": 0.8,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 180,
+      "diagonal": false,
+      "speed": 1.909,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 225,
+      "diagonal": true,
+      "speed": 1.899,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 270,
+      "diagonal": false,
+      "speed": 1.901,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 315,
+      "diagonal": true,
+      "speed": 1.9,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 22.5,
+      "diagonal": true,
+      "speed": 1.815,
+      "pctMax": 96,
+      "worldErrDeg": 4.3,
+      "screenErrDeg": 3.1,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 112.5,
+      "diagonal": true,
+      "speed": 1.899,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 202.5,
+      "diagonal": true,
+      "speed": 1.899,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    },
+    {
+      "stickDeg": 292.5,
+      "diagonal": true,
+      "speed": 1.895,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "run": 2.4
+    }
+  ],
+  "bands": [
+    {
+      "d": 0.05,
+      "name": "zone morte",
+      "target": 0,
+      "inputD": 0.05,
+      "factor": 0,
+      "speed": 0,
+      "pctMax": 0,
+      "anim": {
+        "s": 0,
+        "walk": 0,
+        "run": 0,
+        "walkTS": 0,
+        "runTS": 0
+      }
+    },
+    {
+      "d": 0.15,
+      "name": "lent (bord bas)",
+      "target": null,
+      "inputD": 0.15,
+      "factor": 0.087,
+      "speed": 0.165,
+      "pctMax": 9,
+      "anim": {
+        "s": 0.165,
+        "walk": 0.6,
+        "run": 0,
+        "walkTS": 0.17,
+        "runTS": 0.076
+      }
+    },
+    {
+      "d": 0.225,
+      "name": "lent",
+      "target": 0.3,
+      "inputD": 0.225,
+      "factor": 0.3,
+      "speed": 0.561,
+      "pctMax": 30,
+      "anim": {
+        "s": 0.57,
+        "walk": 1,
+        "run": 0,
+        "walkTS": 0.588,
+        "runTS": 0.263
+      }
+    },
+    {
+      "d": 0.3,
+      "name": "lent (bord haut)",
+      "target": null,
+      "inputD": 0.3,
+      "factor": 0.402,
+      "speed": 0.765,
+      "pctMax": 40,
+      "anim": {
+        "s": 0.765,
+        "walk": 1,
+        "run": 0,
+        "walkTS": 0.789,
+        "runTS": 0.353
+      }
+    },
+    {
+      "d": 0.5,
+      "name": "normal",
+      "target": 0.6,
+      "inputD": 0.5,
+      "factor": 0.6,
+      "speed": 1.14,
+      "pctMax": 60,
+      "anim": {
+        "s": 1.14,
+        "walk": 1,
+        "run": 0,
+        "walkTS": 1.176,
+        "runTS": 0.526
+      }
+    },
+    {
+      "d": 0.6,
+      "name": "normal (bord haut)",
+      "target": null,
+      "inputD": 0.6,
+      "factor": 0.695,
+      "speed": 1.322,
+      "pctMax": 70,
+      "anim": {
+        "s": 1.32,
+        "walk": 0.89,
+        "run": 0.11,
+        "walkTS": 1.363,
+        "runTS": 0.61
+      }
+    },
+    {
+      "d": 0.775,
+      "name": "rapide",
+      "target": 0.85,
+      "inputD": 0.775,
+      "factor": 0.85,
+      "speed": 1.615,
+      "pctMax": 85,
+      "anim": {
+        "s": 1.615,
+        "walk": 0,
+        "run": 1,
+        "walkTS": 1.6,
+        "runTS": 0.746
+      }
+    },
+    {
+      "d": 0.95,
+      "name": "max",
+      "target": 1,
+      "inputD": 0.95,
+      "factor": 1,
+      "speed": 1.899,
+      "pctMax": 100,
+      "anim": {
+        "s": 1.9,
+        "walk": 0,
+        "run": 1,
+        "walkTS": 1.6,
+        "runTS": 0.877
+      }
+    },
+    {
+      "d": 1,
+      "name": "max (butée)",
+      "target": 1,
+      "inputD": 1,
+      "factor": 1,
+      "speed": 1.9,
+      "pctMax": 100,
+      "anim": {
+        "s": 1.9,
+        "walk": 0,
+        "run": 1,
+        "walkTS": 1.6,
+        "runTS": 0.877
+      }
+    }
+  ],
+  "straightAvg": 1.903,
+  "diagAvg": 1.864,
+  "accelTo95": 109,
+  "stopMs": 202,
+  "drift": 0,
+  "results": [
+    {
+      "ok": true,
+      "test": "joystick visible in the game world (touch device, no flag)"
+    },
+    {
+      "ok": true,
+      "test": "joystick in the bottom-left corner, inside the screen edges",
+      "extra": {
+        "rect": [
+          14,
+          276,
+          124
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "base 124 px (thumb-sized), knob travel radius 52 px"
+    },
+    {
+      "ok": true,
+      "test": "joystick does not overlap the bottom dock",
+      "extra": {
+        "dock": [
+          294,
+          356,
+          622
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "touch-action:none on the joystick (no browser scroll / zoom)"
+    },
+    {
+      "ok": true,
+      "test": "direction 0° → 1.89 m/s (100 %), heading error 2.8° world / 1.6° on screen"
+    },
+    {
+      "ok": false,
+      "test": "direction 45° → 1.71 m/s (90 %), heading error 2.8° world / 3.4° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 90° → 1.91 m/s (101 %), heading error 1.1° world / 1.9° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 135° → 1.90 m/s (100 %), heading error 0.6° world / 0.8° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 180° → 1.91 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 225° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 270° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 22.5° → 1.82 m/s (96 %), heading error 4.3° world / 3.1° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 112.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 202.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 292.5° → 1.89 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "diagonals not faster: straight 1.90 m/s vs diagonal 1.86 m/s"
+    },
+    {
+      "ok": true,
+      "test": "dead zone 5% → no movement (0.000 m/s)"
+    },
+    {
+      "ok": true,
+      "test": "lent (bord bas) d=0.15: 0.16 m/s (9 %)"
+    },
+    {
+      "ok": true,
+      "test": "lent band d=0.225: 0.56 m/s = 30 % of max (target ≈30 %)"
+    },
+    {
+      "ok": true,
+      "test": "lent (bord haut) d=0.3: 0.76 m/s (40 %)"
+    },
+    {
+      "ok": true,
+      "test": "normal band d=0.5: 1.14 m/s = 60 % of max (target ≈60 %)"
+    },
+    {
+      "ok": true,
+      "test": "normal (bord haut) d=0.6: 1.32 m/s (70 %)"
+    },
+    {
+      "ok": true,
+      "test": "rapide band d=0.775: 1.62 m/s = 85 % of max (target ≈85 %)"
+    },
+    {
+      "ok": true,
+      "test": "max band d=0.95: 1.90 m/s = 100 % of max (target ≈100 %)"
+    },
+    {
+      "ok": true,
+      "test": "max (butée) band d=1: 1.90 m/s = 100 % of max (target ≈100 %)"
+    },
+    {
+      "ok": true,
+      "test": "speed increases progressively with displacement",
+      "extra": [
+        0.165,
+        0.561,
+        0.765,
+        1.14,
+        1.322,
+        1.615,
+        1.899,
+        1.9
+      ]
+    },
+    {
+      "ok": true,
+      "test": "animation: slow = walk (1), max = run (1)"
+    },
+    {
+      "ok": true,
+      "test": "walk/run playback rate ≤ actual speed / natural clip speed (feet never faster than the body)",
+      "extra": [
+        [
+          0,
+          0
+        ],
+        [
+          0.17,
+          0.076
+        ],
+        [
+          0.588,
+          0.263
+        ],
+        [
+          0.789,
+          0.353
+        ],
+        [
+          1.176,
+          0.526
+        ],
+        [
+          1.363,
+          0.61
+        ],
+        [
+          1.6,
+          0.746
+        ],
+        [
+          1.6,
+          0.877
+        ],
+        [
+          1.6,
+          0.877
+        ]
+      ]
+    },
+    {
+      "ok": true,
+      "test": "smooth acceleration: first frame 1.47 m/s, 95 % of max 109 ms after the input (frame ≈115 ms)"
+    },
+    {
+      "ok": true,
+      "test": "immediate stop after release: v=0 202 ms after the release frame (frame ≈115 ms), no drift"
+    },
+    {
+      "ok": true,
+      "test": "stick recentred, avatar idle"
+    },
+    {
+      "ok": true,
+      "test": "wall: walking into the back wall stops at x=0.28 m (wall face 0.12 m + avatar radius), never inside"
+    },
+    {
+      "ok": true,
+      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.31 m along, min x 0.78 m)"
+    },
+    {
+      "ok": true,
+      "test": "furniture: avatar never enters the furniture footprint (obstacle 0.70 m ahead; advanced 0.85 m, 0.92 m travelled incl. sliding around it)",
+      "extra": {
+        "blockedCells": 202
+      }
+    },
+    {
+      "ok": true,
+      "test": "joystick drag never zooms or rotates the camera",
+      "extra": {
+        "zoom": [
+          111.3,
+          111.3
+        ],
+        "az": [
+          -2.4469,
+          -2.4469
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "pinch-zoom with two other fingers while the joystick is held: zoom 111 → 297"
+    },
+    {
+      "ok": true,
+      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.70 m)"
+    },
+    {
+      "ok": true,
+      "test": "camera rotation range intact"
+    },
+    {
+      "ok": true,
+      "test": "joystick interrupts a tap-to-move path (path 2 → 0 waypoints)"
+    },
+    {
+      "ok": true,
+      "test": "tap-to-move still works after the joystick is released"
+    },
+    {
+      "ok": false,
+      "test": "sitting + joystick → stand-up animation, then walks away",
+      "extra": {
+        "modes": [
+          "standing"
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "dancing + joystick → stops dancing and walks"
+    },
+    {
+      "ok": true,
+      "test": "companion avatar untouched (idle)"
+    },
+    {
+      "ok": true,
+      "test": "hidden in decorate mode, back in play mode"
+    },
+    {
+      "ok": true,
+      "test": "Yoo Plage: joystick walks on the sand/boardwalk (7.14 m), never into the sea or props"
+    },
+    {
+      "ok": true,
+      "test": "no console / page errors",
+      "extra": []
+    },
+    {
+      "ok": true,
+      "test": "no HTTP errors",
+      "extra": []
+    }
+  ]
+}
