@@ -38,7 +38,7 @@ export const FURNITURE: Record<string, FurnitureDef> = Object.fromEntries([
   def('bookcaseClosedWide', 'Bibliothèque', 'storage', 140, { interaction: 'look' }),
   def('cabinetTelevision', 'Meuble TV', 'storage', 85, { surface: 0.372 }),
   def('coatRackStanding', 'Porte-manteau', 'decor', 30),
-  def('bedDouble', 'Lit double', 'bedroom', 240, { seat: { slots: [-0.25, 0.25], depth: 0.42, hipZ: 0.62, h: 0.3, kind: 'bed', lie: { slots: [-0.24, 0.24], footZ: 0.6, h: 0.3 } }, interaction: 'bed' }),
+  def('bedDouble', 'Lit double', 'bedroom', 240, { seat: { slots: [-0.25, 0.25], depth: 0.42, hipZ: 0.62, h: 0.3, kind: 'bed', lie: { slots: [-0.24, 0.24], footZ: 0.42, h: 0.3 } }, interaction: 'bed' }),
   def('lampRoundFloor', 'Lampadaire', 'lighting', 65, { interaction: 'light', light: { y: 0.95, color: '#ffb870', intensity: 2.2, distance: 4 } }),
   def('lampSquareTable', 'Lampe de chevet', 'lighting', 35, { layer: 'top', interaction: 'light', light: { y: 0.3, color: '#ffc48a', intensity: 1.4, distance: 3 } }),
   def('televisionModern', 'Télé écran plat', 'electronics', 210, { layer: 'top', interaction: 'tv', rarity: 'rare' }),
