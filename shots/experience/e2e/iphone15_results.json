@@ -64,14 +64,14 @@
       "test": "B1 three big one-finger pans: the room still covers ≥ 60 % of the screen (before: 0 %)",
       "extra": {
         "roomPct": 69.8,
-        "visPct": 60.2
+        "visPct": 60.1
       }
     },
     {
       "ok": true,
       "test": "B2 the avatar is on screen after the pan",
       "extra": {
-        "worldH": 1.085,
+        "worldH": 1.083,
         "screenH": 93,
         "bboxPx": [
           277,
@@ -86,7 +86,7 @@
       "ok": true,
       "test": "B3 Vue perso + big pans: the room still covers ≥ 70 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 77.4,
+        "roomPct": 77.5,
         "visPct": 24
       }
     },
@@ -116,7 +116,7 @@
       "test": "B6 pinch-in / wheel: zooms onto the avatar (≥ 2× bigger, centred on screen)",
       "extra": {
         "zoom": 276.4,
-        "avatarPx": 249,
+        "avatarPx": 248,
         "centre": [
           0.47,
           0.39
@@ -150,7 +150,7 @@
       ]
     },
     {
-      "ok": true,
+      "ok": false,
       "test": "C4 chat panel says Mode local · hors ligne + who can read messages",
       "extra": {
         "mode": "Mode local · hors ligne"
@@ -160,15 +160,15 @@
       "ok": true,
       "test": "C5 landscape phone: the chat is a compact corner card (≤ 22 % of the screen)",
       "extra": {
-        "area": 18.6,
+        "area": 18,
         "rect": [
           524,
-          138,
+          145,
           844,
           333
         ],
         "mode": "Mode local · hors ligne",
-        "scope": "Mode local : seuls tes avatars sur cet appareil voient ces messages. Le multijoueur en ligne n’est pas encore branché."
+        "scope": "Visible seulement sur cet appareil. ⓘ"
       }
     },
     {
@@ -176,7 +176,7 @@
       "test": "C6 the chat does not hide the avatars (< 50 % of either avatar covered)",
       "extra": [
         0,
-        0.24
+        0.22
       ]
     },
     {
@@ -219,7 +219,7 @@
       "ok": true,
       "test": "D loungeSofa sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.16,
+        "soleY": 0.159,
         "kneeY": 0.33
       }
     },
@@ -395,7 +395,7 @@
       "ok": true,
       "test": "D chairDesk sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.155,
+        "soleY": 0.154,
         "kneeY": 0.326
       }
     },
@@ -439,7 +439,7 @@
       "ok": true,
       "test": "D bedDouble sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.178,
+        "soleY": 0.179,
         "kneeY": 0.35
       }
     },
@@ -463,7 +463,7 @@
       "test": "D bed lie: legs stretched out (knees ≥ 150°), backpack put aside while lying",
       "extra": {
         "knee": [
-          165,
+          166,
           166
         ],
         "bagVisible": false

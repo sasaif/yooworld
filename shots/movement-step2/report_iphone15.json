@@ -1,8 +1,8 @@
 {
   "device": "iphone15",
   "label": "iPhone 15 paysage",
-  "url": "http://127.0.0.1:5230/",
-  "fps": 7,
+  "url": "http://127.0.0.1:5270/",
+  "fps": 9,
   "results": [
     {
       "ok": true,
@@ -76,7 +76,7 @@
     },
     {
       "ok": true,
-      "test": "arrives at the destination (error 0.0 cm, 3222 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
+      "test": "arrives at the destination (error 0.0 cm, 3112 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
     },
     {
       "ok": true,
@@ -100,10 +100,10 @@
     },
     {
       "ok": true,
-      "test": "tap behind furniture: routes around it (straight line 3.80 m crosses 2.10 m of furniture, walked 4.13 m, 0 frames inside a blocked cell)",
+      "test": "tap behind furniture: routes around it (straight line 3.79 m crosses 2.05 m of furniture, walked 4.34 m, 0 frames inside a blocked cell)",
       "extra": {
         "result": "moved",
-        "dist": 0.005
+        "dist": 0.007
       }
     },
     {
@@ -119,15 +119,15 @@
     },
     {
       "ok": true,
-      "test": "double tap = run (running true, gap between the two taps as seen by the game 366 ms)",
+      "test": "double tap = run (running true, gap between the two taps as seen by the game 389 ms)",
       "extra": {
         "dbl": true,
         "result": "moved"
       }
     },
     {
-      "ok": false,
-      "test": "joystick interrupts the tap path (path 1 → 0, marker hidden), stick drives (0.00 m in 0.9 s), stops on release",
+      "ok": true,
+      "test": "joystick interrupts the tap path (path 1 → 0, marker hidden), stick drives (1.27 m in 0.9 s), stops on release",
       "extra": {
         "m0path": 1,
         "m1": {
@@ -137,8 +137,38 @@
         },
         "m3": {
           "path": 0,
-          "speed": 0,
-          "mode": "idle"
+          "speed": 0.007,
+          "mode": "walk"
+        },
+        "m2": {
+          "stick": {
+            "active": true,
+            "pointerId": 13,
+            "x": 0,
+            "y": -0.9000002811600287,
+            "mag": 0.9000002811600287
+          },
+          "speed": 1.8484226744245063,
+          "blocked": false,
+          "pos": [
+            1.433282792039137,
+            1.5860093218710265
+          ],
+          "p1": [
+            2.599943973225563,
+            2.08477684611669
+          ],
+          "frames": [
+            137,
+            146
+          ],
+          "input": {
+            "inputX": 0,
+            "inputY": -0.9000002811600287,
+            "d": 0.9000002811600287,
+            "source": "stick"
+          },
+          "mode": "walk"
         }
       }
     },

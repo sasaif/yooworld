@@ -1,7 +1,7 @@
 {
   "device": "desktop",
   "label": "Ordinateur 1440×900",
-  "url": "http://127.0.0.1:5230/",
+  "url": "http://127.0.0.1:5270/",
   "fps": 6,
   "results": [
     {
@@ -15,13 +15,13 @@
         "phase": "active",
         "x": 1.3037238353768004,
         "z": 3.5019543890266576,
-        "alpha": 1,
+        "alpha": 0.8799999999917215,
         "seq": 1
       }
     },
     {
       "ok": true,
-      "test": "arrives at the destination (error 0.0 cm, 3026 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
+      "test": "arrives at the destination (error 0.0 cm, 3301 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
     },
     {
       "ok": true,
@@ -37,7 +37,7 @@
     },
     {
       "ok": true,
-      "test": "click elsewhere mid-walk re-targets smoothly (speed never dropped below 0.55 m/s, arrived 0.0 cm from the new spot)"
+      "test": "click elsewhere mid-walk re-targets smoothly (speed never dropped below 0.50 m/s, arrived 0.0 cm from the new spot)"
     },
     {
       "ok": true,
@@ -45,10 +45,10 @@
     },
     {
       "ok": true,
-      "test": "click behind furniture: routes around it (straight line 3.79 m crosses 2.05 m of furniture, walked 4.24 m, 0 frames inside a blocked cell)",
+      "test": "click behind furniture: routes around it (straight line 3.80 m crosses 2.10 m of furniture, walked 4.05 m, 0 frames inside a blocked cell)",
       "extra": {
         "result": "moved",
-        "dist": 0.002
+        "dist": 0.004
       }
     },
     {

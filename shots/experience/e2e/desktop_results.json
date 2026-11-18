@@ -63,8 +63,8 @@
       "ok": true,
       "test": "B1 three big one-finger pans: the room still covers ≥ 60 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 73,
-        "visPct": 84.1
+        "roomPct": 72.9,
+        "visPct": 84
       }
     },
     {
@@ -86,7 +86,7 @@
       "ok": true,
       "test": "B3 Vue perso + big pans: the room still covers ≥ 70 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 79.8,
+        "roomPct": 79.9,
         "visPct": 33.1
       }
     },
@@ -116,7 +116,7 @@
       "test": "B6 pinch-in / wheel: zooms onto the avatar (≥ 2× bigger, centred on screen)",
       "extra": {
         "zoom": 470.4,
-        "avatarPx": 423,
+        "avatarPx": 422,
         "centre": [
           0.47,
           0.42
@@ -150,7 +150,7 @@
       ]
     },
     {
-      "ok": true,
+      "ok": false,
       "test": "C4 chat panel says Mode local · hors ligne + who can read messages",
       "extra": {
         "mode": "Mode local · hors ligne"
@@ -292,7 +292,7 @@
       "ok": true,
       "test": "D chair sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.162,
+        "soleY": 0.163,
         "kneeY": 0.334
       }
     },
@@ -424,7 +424,7 @@
       "ok": true,
       "test": "D bedDouble sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.179,
+        "soleY": 0.178,
         "kneeY": 0.35
       }
     },
@@ -448,7 +448,7 @@
       "test": "D bed lie: legs stretched out (knees ≥ 150°), backpack put aside while lying",
       "extra": {
         "knee": [
-          165,
+          166,
           166
         ],
         "bagVisible": false
