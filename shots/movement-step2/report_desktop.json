@@ -2,7 +2,7 @@
   "device": "desktop",
   "label": "Ordinateur 1440×900",
   "url": "http://127.0.0.1:5230/",
-  "fps": 7,
+  "fps": 6,
   "results": [
     {
       "ok": true,
@@ -21,7 +21,7 @@
     },
     {
       "ok": true,
-      "test": "arrives at the destination (error 0.0 cm, 3064 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
+      "test": "arrives at the destination (error 0.0 cm, 3026 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
     },
     {
       "ok": true,
@@ -37,7 +37,7 @@
     },
     {
       "ok": true,
-      "test": "click elsewhere mid-walk re-targets smoothly (speed never dropped below 0.30 m/s, arrived 0.0 cm from the new spot)"
+      "test": "click elsewhere mid-walk re-targets smoothly (speed never dropped below 0.55 m/s, arrived 0.0 cm from the new spot)"
     },
     {
       "ok": true,
@@ -45,10 +45,10 @@
     },
     {
       "ok": true,
-      "test": "click behind furniture: routes around it (straight line 3.79 m crosses 2.05 m of furniture, walked 4.29 m, 0 frames inside a blocked cell)",
+      "test": "click behind furniture: routes around it (straight line 3.79 m crosses 2.05 m of furniture, walked 4.24 m, 0 frames inside a blocked cell)",
       "extra": {
         "result": "moved",
-        "dist": 0.005
+        "dist": 0.002
       }
     },
     {
@@ -61,6 +61,14 @@
     {
       "ok": true,
       "test": "click on the back wall never walks through it (tap not taken by the floor)"
+    },
+    {
+      "ok": true,
+      "test": "double click = run (running true, gap between the two clicks as seen by the game 2 ms)",
+      "extra": {
+        "dbl": true,
+        "result": "moved"
+      }
     },
     {
       "ok": true,
@@ -101,10 +109,5 @@
       "extra": []
     }
   ],
-  "skipped": [
-    {
-      "test": "double click = run",
-      "why": "harness: the headless renderer (~7 fps) delivered the 2nd click 10504 ms after the 1st (> 380 ms double-tap window), cannot test here"
-    }
-  ]
+  "skipped": []
 }
