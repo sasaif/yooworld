@@ -9,7 +9,9 @@ import { addItem, buy, emptyInventory, spend, takeItem, type Inventory } from '.
 import type { GameRepository, Profile } from '../persistence/types';
 import type { NetworkTransport } from '../net/NetworkTransport';
 import { LocalChatService } from './social/social';
-import { goTo, say, world } from './world';
+import { goTo, placeChar, say, world } from './world';
+import { BEACH_SPAWN, DANCE_SPOTS, beachWorld, propById } from './beach/beachLayout';
+import { isPlayable, locationById } from '../data/locations';
 
 export type Panel = null | 'catalog' | 'finishes' | 'chat' | 'profile' | 'places' | 'emotes';
 export interface Placing { defId: string; x: number; z: number; rot: Rot; moving?: string; valid: PlaceResult }
@@ -17,13 +19,21 @@ export interface GameState {
   ready: boolean; profile: Profile | null; apartment: ApartmentLayout | null; inventory: Inventory | null;
   mode: 'play' | 'edit'; panel: Panel; selItem: string | null; placing: Placing | null; menuItem: string | null;
   activeChar: string; toast: { text: string; at: number } | null;
+  /** current location id ('home' | 'beach'); persisted in the profile */
+  location: string;
+  /** travel fade in progress (UI only) */
+  transition: { to: string; at: number } | null;
+  /** Yoo Plage ambience: day, sunset, or a slow automatic day→sunset cycle; DJ music on/off */
+  mood: 'day' | 'sunset' | 'cycle'; beachMusic: boolean;
 }
+/** Where characters appear when they arrive in a location (home = just inside the front door). */
+const HOME_SPAWN = { player: new THREE.Vector3(5.25, 0, 0.95), buddy: new THREE.Vector3(5.75, 0, 1.25), yaw: 0.2 };
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur une table ou un meuble', unknown: 'Objet inconnu', funds: 'Pas assez de pièces' };
 
 /** Game logic façade: owns state, applies pure-model edits, persists through the repository,
  *  and forwards shareable events to the network transport (offline today). UI calls only these methods. */
 export class GameController {
-  readonly store = new Store<GameState>({ ready: false, profile: null, apartment: null, inventory: null, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null, activeChar: 'f', toast: null });
+  readonly store = new Store<GameState>({ ready: false, profile: null, apartment: null, inventory: null, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null, activeChar: 'f', toast: null, location: 'home', transition: null, mood: 'day', beachMusic: false });
   readonly chat: LocalChatService;
   readonly cat = FURNITURE;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,8 +50,10 @@ export class GameController {
     if (!apt) { apt = { ...defaultApartment(profile.id), id: profile.homeId }; await this.repo.saveApartment(apt); }
     let inv = await this.repo.loadInventory(profile.id);
     if (!inv) { inv = emptyInventory(profile.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); await this.repo.saveInventory(inv); }
-    syncWorld(apt, this.cat);
-    this.store.set({ ready: true, profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f' });
+    const location = profile.location && isPlayable(profile.location) ? profile.location : 'home';
+    this.store.set({ profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f', location });
+    this.enterWorld(location, location !== 'home');
+    this.store.set({ ready: true });
     await this.net.connect(apt.id, profile.id);
   }
   private persist() {
@@ -49,7 +61,7 @@ export class GameController {
     this.saveTimer = setTimeout(() => { const { apartment, inventory, profile } = this.s; if (apartment) this.repo.saveApartment(apartment); if (inventory) this.repo.saveInventory(inventory); if (profile) this.repo.saveProfile(profile); }, 250);
   }
   private setLayout(apartment: ApartmentLayout, op: 'place' | 'move' | 'remove' | 'toggle', payload: unknown) {
-    this.store.set({ apartment }); syncWorld(apartment, this.cat); this.persist();
+    this.store.set({ apartment }); if (this.s.location === 'home') syncWorld(apartment, this.cat); this.persist();
     this.net.send({ t: 'furniture', roomId: apartment.id, op, payload });
   }
   toast(text: string) { this.store.set({ toast: { text, at: Date.now() } }); }
@@ -133,5 +145,66 @@ export class GameController {
   ownsFinish(kind: 'floor' | 'wall', id: string, price: number) { return price === 0 || !!this.s.inventory?.items[`${kind}:${id}`]; }
   rename(name: string) { const p = { ...this.s.profile!, name: name.trim().slice(0, 16) || 'Moi' }; this.store.set({ profile: p }); world.chars[this.s.activeChar].name = p.name; this.persist(); }
   setBody(body: 'f' | 'm') { const p = { ...this.s.profile!, appearance: { ...this.s.profile!.appearance, body } }; this.store.set({ profile: p, activeChar: body }); this.persist(); }
-  async resetSave() { const p = this.s.profile!; const apt = { ...defaultApartment(p.id), id: p.homeId }; let inv = emptyInventory(p.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); this.store.set({ apartment: apt, inventory: inv, selItem: null, placing: null }); syncWorld(apt, this.cat); this.persist(); }
+  async resetSave() { const p = this.s.profile!; const apt = { ...defaultApartment(p.id), id: p.homeId }; let inv = emptyInventory(p.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); this.store.set({ apartment: apt, inventory: inv, selItem: null, placing: null }); if (this.s.location === 'home') syncWorld(apt, this.cat); this.persist(); }
+
+  // ---------- locations ----------
+  /** Build the navigation + seat registry of a location and (optionally) put both local avatars at its entrance. */
+  private enterWorld(id: string, spawn: boolean) {
+    world.location = id;
+    if (id === 'beach') { const b = beachWorld(); world.nav = b.nav; world.seats = b.seats; }
+    else syncWorld(this.s.apartment!, this.cat);
+    if (!spawn) return;
+    const sp = id === 'beach' ? BEACH_SPAWN : HOME_SPAWN; const me = this.s.activeChar;
+    for (const c of Object.values(world.chars)) placeChar(c.id, c.id === me ? sp.player : sp.buddy, sp.yaw);
+  }
+  /** Instant switch to another playable location (the companion avatar comes along). Returns false if not possible. */
+  travel(id: string) {
+    if (!this.s.ready || id === this.s.location || !isPlayable(id)) return false;
+    this.store.set({ location: id, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null });
+    this.enterWorld(id, true);
+    const p = { ...this.s.profile!, location: id }; this.store.set({ profile: p }); this.persist();
+    this.net.connect(id === 'home' ? this.s.apartment!.id : `public:${id}`, p.id);
+    say(this.s.activeChar, id === 'beach' ? 'Direction la plage ! 🌴' : 'De retour à la maison 🏠', 3500);
+    return true;
+  }
+  /** Travel with the short fade used by the UI: fade out, switch, fade back in. */
+  travelWithFade(id: string, outMs = 450, holdMs = 550) {
+    if (this.s.transition || id === this.s.location || !isPlayable(id)) return false;
+    this.store.set({ transition: { to: id, at: performance.now() }, panel: null });
+    setTimeout(() => { this.travel(id); setTimeout(() => this.store.set({ transition: null }), holdMs); }, outMs);
+    return true;
+  }
+  locationName() { return locationById(this.s.location)?.name ?? ''; }
+  setMood(mood: GameState['mood']) { this.store.set({ mood }); }
+  cycleMood() { const order: GameState['mood'][] = ['day', 'sunset', 'cycle']; this.setMood(order[(order.indexOf(this.s.mood) + 1) % order.length]); }
+  /** Tap on a Yoo Plage prop: same flow as furniture (menu), keyed by prop id. */
+  tapProp(id: string) { this.store.set({ menuItem: this.s.menuItem === id ? null : id }); }
+  interactProp(id: string, action: 'sit' | 'dance' | 'music' | 'order' | 'look') {
+    const p = propById(id); if (!p || this.s.location !== 'beach') return;
+    const me = world.chars[this.s.activeChar]; this.store.set({ menuItem: null });
+    if (action === 'sit') {
+      const seatProp = p.kind === 'towel' ? propById(id.replace('towel', 'lounger')) ?? p : p;
+      const seat = freeSeat(seatProp.id, me.pos, me.id); if (!seat) return this.toast('Plus de place !'); goTo(me.id, seat.front, { seat });
+    }
+    if (action === 'music') {
+      const on = !this.s.beachMusic; this.store.set({ beachMusic: on });
+      say(me.id, on ? '♪ DJ, monte le son !' : 'Petite pause musique…', 2500);
+    }
+    if (action === 'dance') {
+      if (!this.s.beachMusic) this.store.set({ beachMusic: true });
+      const taken = Object.values(world.chars).filter((c) => c.id !== me.id).map((c) => c.path[c.path.length - 1] ?? c.pos);
+      const spot = DANCE_SPOTS.slice().sort((a, b) => Math.min(...taken.map((t) => t.distanceTo(b))) - Math.min(...taken.map((t) => t.distanceTo(a))))[0];
+      if (!goTo(me.id, spot, { emote: true })) { me.emote = true; }
+      this.net.send({ t: 'emote', playerId: this.s.profile!.id, emote: 'victory' });
+    }
+    if (action === 'order') {
+      goTo(me.id, new THREE.Vector3(p.x, 0, 1.15));
+      say(me.id, ['Un smoothie mangue, svp 🥭', 'Une glace à la fraise ! 🍦', 'Un café glacé ☕'][Math.floor(Math.random() * 3)], 3500);
+    }
+    if (action === 'look') {
+      const f = new THREE.Vector3(Math.sin(p.yaw), 0, Math.cos(p.yaw));
+      goTo(me.id, new THREE.Vector3(p.x, 0, p.z).addScaledVector(f, p.kind === 'kiosk' ? 1.4 : 0.7));
+      say(me.id, p.kind === 'sign' ? 'Bienvenue à Yoo Plage ! 🏖️' : `Trop joli, ${p.name.toLowerCase()} !`, 3000);
+    }
+  }
 }

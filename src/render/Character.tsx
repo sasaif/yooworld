@@ -43,7 +43,7 @@ export function Character({ c, def, selected, onSelect }: { c: CharState; def: A
         const fwd = new THREE.Vector3(Math.sin(seat.yaw), 0, Math.cos(seat.yaw));
         s.pos.copy(seat.pos).addScaledVector(fwd, def.sitForward * def.scale); s.pos.y = 0.04 - (def.scale - 1) * 0.22; // hips stay on the cushion
         play('sit', 0.25);
-      } else { s.mode = s.emote ? 'emote' : 'idle'; play(s.emote ? 'emote' : 'idle', 0.3); }
+      } else { if (s.pendingEmote) { s.pendingEmote = false; s.emote = true; } s.mode = s.emote ? 'emote' : 'idle'; play(s.emote ? 'emote' : 'idle', 0.3); }
     }
     built.mixer.update(dt);
     // face: blink, smile, grin while dancing, lip flap while a bubble is shown

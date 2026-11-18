@@ -105,7 +105,7 @@ function GridOverlay({ W, D }: { W: number; D: number }) {
   }, [W, D]);
   return <lineSegments geometry={geo} position-y={0.004}><lineBasicMaterial color="#ffffff" transparent opacity={0.22} /></lineSegments>;
 }
-function TapMarker() {
+export function TapMarker() {
   const ref = useRef<THREE.Mesh>(null!); const t = useRef(99);
   useLayoutEffect(() => { const on = (e: Event) => { ref.current.position.copy((e as CustomEvent).detail).setY(0.01); t.current = 0; }; window.addEventListener('yw:marker', on); return () => window.removeEventListener('yw:marker', on); }, []);
   useFrame((_, dt) => { t.current += dt; const k = Math.min(1, t.current / 0.6); ref.current.visible = k < 1; ref.current.scale.setScalar(0.6 + k * 0.8); (ref.current.material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - k); });

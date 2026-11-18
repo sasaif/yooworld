@@ -1,0 +1,42 @@
+import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)(process.env.PW ?? 'playwright-core');
+// Yoo Plage end-to-end on an iPhone-landscape touch viewport with real localStorage: travel via the Lieux menu,
+// tap-to-walk on the sand, sit via the tap menu, dance at the DJ, persistence after reload, travel back home.
+const url = process.argv[2] ?? `http://localhost:${process.env.PORT ?? '5210'}/`;
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const ctx = await b.newContext({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+const p = await ctx.newPage(); const errs = [], bad = [];
+p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 200)); });
+p.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
+const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
+await p.goto(url); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 });
+await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 }); await p.waitForTimeout(4000);
+ok(await p.evaluate(() => window.game.s.location) === 'home', 'starts at home');
+await p.tap('.dock button:first-child'); await p.waitForTimeout(500);
+const card = p.locator('.sheet .card', { hasText: 'Yoo Plage' }); ok(await card.isEnabled(), 'Yoo Plage card enabled in Lieux');
+await card.tap(); await p.waitForTimeout(200);
+ok(await p.evaluate(() => window.game.s.transition?.to) === 'beach', 'fade transition started');
+await p.waitForFunction(() => window.game.s.location === 'beach' && !window.game.s.transition, null, { timeout: 20000 });
+ok(true, 'arrived at Yoo Plage after the fade');
+ok(await p.locator('.dock', { hasText: 'Décorer' }).count() === 0, 'apartment-only buttons hidden at the beach');
+await p.waitForTimeout(3000);
+const before = await p.evaluate(() => window.__world.chars[window.game.s.activeChar].pos.toArray());
+await p.touchscreen.tap(560, 300); await p.waitForTimeout(3500);
+const after = await p.evaluate(() => window.__world.chars[window.game.s.activeChar].pos.toArray());
+ok(Math.hypot(after[0] - before[0], after[2] - before[2]) > 0.2, 'tap-to-walk on the sand ' + JSON.stringify(after.map((v) => +v.toFixed(2))));
+await p.evaluate(() => window.game.tapProp('bench1')); await p.waitForTimeout(800);
+const sitBtn = p.locator('.imenu button', { hasText: 'S’asseoir' }); ok(await sitBtn.count() === 1, 'bench menu shows S’asseoir');
+await sitBtn.dispatchEvent('click'); // menu may sit off-screen when the bench is outside the follow camera
+await p.waitForFunction(() => window.__world.chars[window.game.s.activeChar].mode === 'sitting', null, { timeout: 60000 }).then(() => ok(true, 'avatar sits on the bench'), () => ok(false, 'avatar sits on the bench'));
+await p.evaluate(() => window.game.tapProp('dj')); await p.waitForTimeout(800);
+await p.locator('.imenu button', { hasText: 'Danser' }).dispatchEvent('click');
+await p.waitForFunction(() => window.__world.chars[window.game.s.activeChar].mode === 'emote', null, { timeout: 90000 }).then(() => ok(true, 'walks to the dance floor and dances'), () => ok(false, 'walks to the dance floor and dances'));
+ok(await p.evaluate(() => window.game.s.beachMusic), 'DJ music on');
+await p.locator('.dock button', { hasText: 'Jour' }).tap(); ok(await p.evaluate(() => window.game.s.mood) === 'sunset', 'mood toggle → sunset');
+await p.waitForTimeout(600);
+await p.reload(); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 });
+ok(await p.evaluate(() => window.game.s.location) === 'beach', 'location persisted after reload');
+await p.evaluate(() => window.game.travel('home')); await p.waitForTimeout(2500);
+ok(await p.evaluate(() => window.game.s.location === 'home' && window.game.s.apartment.items.length > 20), 'back home, apartment intact');
+await p.evaluate(() => localStorage.clear());
+ok(errs.length === 0, 'no console/page errors ' + errs.join(' | ')); ok(bad.length === 0, 'no HTTP errors ' + bad.join(' '));
+await b.close();

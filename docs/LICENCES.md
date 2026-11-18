@@ -22,3 +22,13 @@
 | Expressions faciales | blendshapes déjà présents dans Juanita/Juan (CC0) | CC0 | 100Avatars R3 |
 
 Aucun nouvel asset téléchargé, aucun achat.
+
+## Ajouts branche `surprise-plage` (Yoo Plage)
+| Élément | Fichier(s) | Licence | Source |
+|---|---|---|---|
+| Tout le décor de Yoo Plage : ponton, café, bancs, transats, serviettes, parasols, palmiers, cabine DJ, piste de danse, rochers, château de sable, dunes, voilier, mouettes, guirlandes | `src/render/beach/beachProps.ts`, `src/render/beach/BeachView.tsx` | code du projet | géométrie **100 % procédurale** (boîtes, cylindres, cônes, sphères), aucun modèle téléchargé |
+| Mer animée, sable, scintillements | `src/render/beach/water.ts` | code du projet | shaders GLSL + texture canvas générés par code |
+| Panneaux « Café Yoo », menu, « Yoo Plage » | `src/render/beach/BeachView.tsx` | code du projet | textures canvas générées (police système) |
+| Teaser vidéo et captures | `shots/surprise/*` | œuvre du projet | rendus du jeu (Chrome headless) ; carton-titre en police Poppins (SIL Open Font License, utilisée seulement pour le rendu de l’image, non embarquée dans le jeu) |
+
+Aucun nouvel asset téléchargé, aucun achat, aucun service tiers.

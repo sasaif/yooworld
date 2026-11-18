@@ -1,0 +1,590 @@
+{
+  "overview_iphone15_landscape": {
+    "info": {
+      "calls": 18,
+      "triangles": 73470,
+      "geometries": 84,
+      "textures": 16,
+      "programs": 26
+    },
+    "metrics": {
+      "zoom": 62.2,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1.047,
+        "screenH": 54,
+        "bboxPx": [
+          415,
+          132,
+          476,
+          220
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.069,
+        "screenH": 55,
+        "bboxPx": [
+          438,
+          155,
+          500,
+          245
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "overview_desktop": {
+    "info": {
+      "calls": 18,
+      "triangles": 73470,
+      "geometries": 85,
+      "textures": 17,
+      "programs": 26
+    },
+    "metrics": {
+      "zoom": 105.8,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.047,
+        "screenH": 92,
+        "bboxPx": [
+          702,
+          341,
+          805,
+          491
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.067,
+        "screenH": 94,
+        "bboxPx": [
+          740,
+          380,
+          846,
+          533
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "sit_bench_iphone15_landscape": {
+    "info": {
+      "calls": 18,
+      "triangles": 73470,
+      "geometries": 84,
+      "textures": 16,
+      "programs": 26
+    },
+    "metrics": {
+      "zoom": 108,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1.039,
+        "screenH": 93,
+        "bboxPx": [
+          391,
+          51,
+          469,
+          187
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.043,
+        "screenH": 93,
+        "bboxPx": [
+          440,
+          74,
+          519,
+          211
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "sit_bench_desktop": {
+    "info": {
+      "calls": 18,
+      "triangles": 73470,
+      "geometries": 85,
+      "textures": 17,
+      "programs": 26
+    },
+    "metrics": {
+      "zoom": 183.7,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.039,
+        "screenH": 158,
+        "bboxPx": [
+          660,
+          203,
+          794,
+          434
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.043,
+        "screenH": 159,
+        "bboxPx": [
+          744,
+          241,
+          878,
+          474
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "sit_towels_iphone15_landscape": {
+    "info": {
+      "calls": 15,
+      "triangles": 73014,
+      "geometries": 84,
+      "textures": 15,
+      "programs": 26
+    },
+    "metrics": {
+      "zoom": 103.6,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1.039,
+        "screenH": 89,
+        "bboxPx": [
+          297,
+          85,
+          403,
+          234
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.043,
+        "screenH": 90,
+        "bboxPx": [
+          305,
+          164,
+          412,
+          313
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "sit_towels_desktop": {
+    "info": {
+      "calls": 15,
+      "triangles": 73014,
+      "geometries": 85,
+      "textures": 17,
+      "programs": 26
+    },
+    "metrics": {
+      "zoom": 176.4,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.039,
+        "screenH": 152,
+        "bboxPx": [
+          501,
+          261,
+          681,
+          513
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.043,
+        "screenH": 153,
+        "bboxPx": [
+          515,
+          395,
+          695,
+          649
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "dance_iphone15_landscape": {
+    "info": {
+      "calls": 18,
+      "triangles": 73486,
+      "geometries": 85,
+      "textures": 16,
+      "programs": 28
+    },
+    "metrics": {
+      "zoom": 99.3,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 0.977,
+        "screenH": 81,
+        "bboxPx": [
+          450,
+          133,
+          556,
+          273
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.072,
+        "screenH": 88,
+        "bboxPx": [
+          534,
+          142,
+          629,
+          283
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "dance_desktop": {
+    "info": {
+      "calls": 19,
+      "triangles": 73498,
+      "geometries": 86,
+      "textures": 17,
+      "programs": 28
+    },
+    "metrics": {
+      "zoom": 169,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.085,
+        "screenH": 152,
+        "bboxPx": [
+          757,
+          340,
+          934,
+          590
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.098,
+        "screenH": 154,
+        "bboxPx": [
+          900,
+          367,
+          1044,
+          601
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "sunset_iphone15_landscape": {
+    "info": {
+      "calls": 22,
+      "triangles": 73534,
+      "geometries": 85,
+      "textures": 16,
+      "programs": 28
+    },
+    "metrics": {
+      "zoom": 69.1,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1.039,
+        "screenH": 60,
+        "bboxPx": [
+          394,
+          125,
+          443,
+          212
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.043,
+        "screenH": 60,
+        "bboxPx": [
+          437,
+          144,
+          486,
+          232
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "sunset",
+    "errors": [],
+    "http4xx": []
+  },
+  "sunset_desktop": {
+    "info": {
+      "calls": 22,
+      "triangles": 73534,
+      "geometries": 86,
+      "textures": 17,
+      "programs": 28
+    },
+    "metrics": {
+      "zoom": 117.6,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.039,
+        "screenH": 101,
+        "bboxPx": [
+          665,
+          328,
+          750,
+          477
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.043,
+        "screenH": 102,
+        "bboxPx": [
+          738,
+          361,
+          823,
+          511
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "sunset",
+    "errors": [],
+    "http4xx": []
+  },
+  "sunset_dance_iphone15_landscape": {
+    "info": {
+      "calls": 20,
+      "triangles": 73510,
+      "geometries": 85,
+      "textures": 16,
+      "programs": 28
+    },
+    "metrics": {
+      "zoom": 77.7,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1,
+        "screenH": 64,
+        "bboxPx": [
+          441,
+          145,
+          529,
+          258
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.097,
+        "screenH": 71,
+        "bboxPx": [
+          512,
+          154,
+          581,
+          264
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "sunset",
+    "errors": [],
+    "http4xx": []
+  },
+  "sunset_dance_desktop": {
+    "info": {
+      "calls": 20,
+      "triangles": 73510,
+      "geometries": 86,
+      "textures": 17,
+      "programs": 28
+    },
+    "metrics": {
+      "zoom": 132.3,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.053,
+        "screenH": 116,
+        "bboxPx": [
+          761,
+          373,
+          885,
+          557
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.077,
+        "screenH": 118,
+        "bboxPx": [
+          863,
+          389,
+          981,
+          573
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "beach",
+    "mood": "sunset",
+    "errors": [],
+    "http4xx": []
+  },
+  "home_iphone15_landscape": {
+    "info": {
+      "calls": 80,
+      "triangles": 59462,
+      "geometries": 80,
+      "textures": 12,
+      "programs": 19
+    },
+    "metrics": {
+      "zoom": 86.4,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1.044,
+        "screenH": 75,
+        "bboxPx": [
+          376,
+          119,
+          461,
+          241
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.058,
+        "screenH": 76,
+        "bboxPx": [
+          428,
+          143,
+          506,
+          262
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "home",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  },
+  "home_desktop": {
+    "info": {
+      "calls": 83,
+      "triangles": 59524,
+      "geometries": 81,
+      "textures": 13,
+      "programs": 19
+    },
+    "metrics": {
+      "zoom": 147,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 1.047,
+        "screenH": 128,
+        "bboxPx": [
+          636,
+          319,
+          780,
+          526
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.064,
+        "screenH": 130,
+        "bboxPx": [
+          723,
+          358,
+          856,
+          562
+        ],
+        "fullyVisible": true
+      }
+    },
+    "location": "home",
+    "mood": "day",
+    "errors": [],
+    "http4xx": []
+  }
+}

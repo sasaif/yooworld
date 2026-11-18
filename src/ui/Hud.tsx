@@ -4,7 +4,7 @@ import { game } from '../app/services';
 import { AVATARS } from '../data/avatars';
 import { FURNITURE, CATEGORY_LABEL, RARITY_COLOR, type Category } from '../data/furniture';
 import { FLOORS, WALLS } from '../data/finishes';
-import { LOCATIONS } from '../data/locations';
+import { LOCATIONS, locationById } from '../data/locations';
 import { count } from '../game/inventory/Inventory';
 import { world } from '../game/world';
 import { enterLandscape } from '../app/screen';
@@ -13,7 +13,7 @@ const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision:
 
 export function Hud() {
   const s = useStore(game.store, (x) => x);
-  if (!s.ready) return <div className="loading">Chargement de l’appart…</div>;
+  if (!s.ready) return <div className="loading">Chargement…</div>;
   return (
     <>
       <TopBar />
@@ -40,20 +40,28 @@ function TopBar() {
       </button>
       <span className="chip coin">🪙 {coins}</span>
       <span className="spacer" />
-      <button className="chip" onClick={() => game.setPanel('places')}>🏠 <span className="hide-sm">Mon appart</span></button>
+      <LocationChip />
       {document.fullscreenEnabled && !document.fullscreenElement && matchMedia('(pointer: coarse)').matches && <button className="chip fs" title="Plein écran" aria-label="Plein écran" onClick={() => void enterLandscape()}>⛶</button>}
       <span className="chip net" title="Aucun serveur : seuls les personnages locaux sont présents">● Hors ligne</span>
     </div>
   );
 }
+function LocationChip() {
+  const loc = useStore(game.store, (s) => s.location); const l = locationById(loc);
+  return <button className="chip loc" onClick={() => game.setPanel('places')}>{l?.icon} <span className="hide-sm">{l?.name}</span></button>;
+}
+const MOOD = { day: ['☀️', 'Jour'], sunset: ['🌅', 'Coucher'], cycle: ['🔄', 'Auto'] } as const;
 function PlayDock() {
   const panel = useStore(game.store, (s) => s.panel); const active = useStore(game.store, (s) => s.activeChar);
+  const loc = useStore(game.store, (s) => s.location); const mood = useStore(game.store, (s) => s.mood);
   const emote = !!world.chars[active]?.emote;
   return (
     <nav className="dock">
       <button onClick={() => game.setPanel('places')} className={panel === 'places' ? 'on' : ''}>🗺️<span>Lieux</span></button>
-      <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
-      <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>
+      {loc === 'home' ? <>
+        <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
+        <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>
+      </> : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
       <button onClick={() => game.toggleEmote()} className={emote ? 'on' : ''}>🎉<span>Danse</span></button>
       <button onClick={() => game.setPanel('chat')} className={panel === 'chat' ? 'on' : ''}>💬<span>Chat</span></button>
     </nav>
@@ -147,7 +155,7 @@ function ChatSheet() {
         <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Dire quelque chose…" maxLength={80} />
         <button className="btn primary" type="submit">Envoyer</button>
       </form>
-      <div className="quick">{['Salut ! 👋', 'Bienvenue chez moi 🏠', 'Trop cool !', 'On danse ? 🎉'].map((q) => <button key={q} onClick={() => game.sendChat(q)}>{q}</button>)}</div>
+      <div className="quick">{(game.s.location === 'beach' ? ['Salut ! 👋', 'On se baigne ? 🌊', 'Un smoothie ? 🥭', 'On danse ? 🎉'] : ['Salut ! 👋', 'Bienvenue chez moi 🏠', 'Trop cool !', 'On danse ? 🎉']).map((q) => <button key={q} onClick={() => game.sendChat(q)}>{q}</button>)}</div>
     </div>
   );
 }
@@ -165,11 +173,14 @@ function ProfileSheet() {
   );
 }
 function PlacesSheet() {
+  const loc = useStore(game.store, (s) => s.location);
   return (
     <div className="sheet">
       <h3>Lieux <button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
-      <div className="grid">{LOCATIONS.map((l) => <button key={l.id} className="card" disabled={l.status !== 'playable'} onClick={() => game.setPanel(null)}>
-        <span className="big">{l.icon}</span><b>{l.name}</b><small>{l.status === 'playable' ? 'Tu y es' : 'Bientôt'}</small></button>)}</div>
+      <div className="grid">{LOCATIONS.map((l) => { const here = l.id === loc;
+        return <button key={l.id} className={'card' + (here ? ' here' : '')} disabled={l.status !== 'playable'} onClick={() => (here ? game.setPanel(null) : game.travelWithFade(l.id))}>
+          <span className="big">{l.icon}</span><b>{l.name}</b><small>{l.status !== 'playable' ? 'Bientôt' : here ? 'Tu y es' : <span className="places-card-go">Y aller →</span>}</small></button>; })}</div>
+      <p className="muted">Lieux publics hors ligne : seuls tes deux avatars locaux y sont (pas de faux joueurs).</p>
     </div>
   );
 }

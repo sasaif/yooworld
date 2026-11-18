@@ -1,7 +1,9 @@
 import type { ApartmentLayout } from '../game/apartment/ApartmentModel';
 import type { Inventory } from '../game/inventory/Inventory';
 export interface Appearance { body: string; hairTint?: string; outfit?: Record<string, string> } // slots: top, bottom, shoes, hat, ...
-export interface Profile { version: 1; id: string; name: string; appearance: Appearance; homeId: string; friends: string[]; createdAt: number }
+export interface Profile { version: 1; id: string; name: string; appearance: Appearance; homeId: string; friends: string[]; createdAt: number;
+  /** last location the player was in ('home' | 'beach' …); missing in older saves = 'home' */
+  location?: string }
 
 /** Persistence boundary. The game only talks to this interface: swap LocalStorageRepository for an
  *  HTTP/WebSocket-backed implementation later without touching game features. All methods are async. */
