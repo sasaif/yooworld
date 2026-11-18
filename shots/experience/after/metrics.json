@@ -1,0 +1,310 @@
+{
+  "iphone15_appart": {
+    "vw": 852,
+    "vh": 393,
+    "stage": [
+      852,
+      393
+    ],
+    "canvas": [
+      852,
+      393
+    ],
+    "zoom": 103.6,
+    "room": {
+      "roomPctOfScreen": 89.2,
+      "roomVisiblePct": 77,
+      "bbox": [
+        -27,
+        -145,
+        944,
+        521
+      ],
+      "floorPctOfScreen": 66.7
+    },
+    "avatarPx": 93,
+    "avatarVisible": true,
+    "other": 95,
+    "calls": 83,
+    "errors": []
+  },
+  "iphone15_perso": {
+    "vw": 852,
+    "vh": 393,
+    "stage": [
+      852,
+      393
+    ],
+    "canvas": [
+      852,
+      393
+    ],
+    "zoom": 172.7,
+    "room": {
+      "roomPctOfScreen": 100,
+      "roomVisiblePct": 31,
+      "bbox": [
+        -320,
+        -372,
+        1298,
+        739
+      ],
+      "floorPctOfScreen": 96.1
+    },
+    "avatarPx": 156,
+    "avatarVisible": true,
+    "other": 159,
+    "calls": 55,
+    "errors": []
+  },
+  "iphone15_plage": {
+    "vw": 852,
+    "vh": 393,
+    "stage": [
+      852,
+      393
+    ],
+    "canvas": [
+      852,
+      393
+    ],
+    "zoom": 103.6,
+    "room": null,
+    "avatarPx": 93,
+    "avatarVisible": true,
+    "other": 95,
+    "calls": 21,
+    "errors": []
+  },
+  "pixel7_appart": {
+    "vw": 915,
+    "vh": 412,
+    "stage": [
+      915,
+      412
+    ],
+    "canvas": [
+      915,
+      412
+    ],
+    "zoom": 111.3,
+    "room": {
+      "roomPctOfScreen": 90,
+      "roomVisiblePct": 75.7,
+      "bbox": [
+        -29,
+        -161,
+        1014,
+        554
+      ],
+      "floorPctOfScreen": 67.6
+    },
+    "avatarPx": 100,
+    "avatarVisible": true,
+    "other": 102,
+    "calls": 83,
+    "errors": []
+  },
+  "pixel7_perso": {
+    "vw": 915,
+    "vh": 412,
+    "stage": [
+      915,
+      412
+    ],
+    "canvas": [
+      915,
+      412
+    ],
+    "zoom": 185.5,
+    "room": {
+      "roomPctOfScreen": 100,
+      "roomVisiblePct": 30.3,
+      "bbox": [
+        -344,
+        -404,
+        1394,
+        789
+      ],
+      "floorPctOfScreen": 96.4
+    },
+    "avatarPx": 167,
+    "avatarVisible": true,
+    "other": 170,
+    "calls": 53,
+    "errors": []
+  },
+  "pixel7_plage": {
+    "vw": 915,
+    "vh": 412,
+    "stage": [
+      915,
+      412
+    ],
+    "canvas": [
+      915,
+      412
+    ],
+    "zoom": 111.3,
+    "room": null,
+    "avatarPx": 100,
+    "avatarVisible": true,
+    "other": 102,
+    "calls": 21,
+    "errors": []
+  },
+  "ipad_appart": {
+    "vw": 1024,
+    "vh": 768,
+    "stage": [
+      1024,
+      768
+    ],
+    "canvas": [
+      1024,
+      768
+    ],
+    "zoom": 150.5,
+    "room": {
+      "roomPctOfScreen": 84.2,
+      "roomVisiblePct": 80.9,
+      "bbox": [
+        -146,
+        -112,
+        1265,
+        855
+      ],
+      "floorPctOfScreen": 61.9
+    },
+    "avatarPx": 136,
+    "avatarVisible": true,
+    "other": 138,
+    "calls": 72,
+    "errors": []
+  },
+  "ipad_perso": {
+    "vw": 1024,
+    "vh": 768,
+    "stage": [
+      1024,
+      768
+    ],
+    "canvas": [
+      1024,
+      768
+    ],
+    "zoom": 250.9,
+    "room": {
+      "roomPctOfScreen": 100,
+      "roomVisiblePct": 34.6,
+      "bbox": [
+        -572,
+        -441,
+        1779,
+        1172
+      ],
+      "floorPctOfScreen": 93.8
+    },
+    "avatarPx": 226,
+    "avatarVisible": true,
+    "other": 230,
+    "calls": 58,
+    "errors": []
+  },
+  "ipad_plage": {
+    "vw": 1024,
+    "vh": 768,
+    "stage": [
+      1024,
+      768
+    ],
+    "canvas": [
+      1024,
+      768
+    ],
+    "zoom": 150.5,
+    "room": null,
+    "avatarPx": 136,
+    "avatarVisible": true,
+    "other": 138,
+    "calls": 21,
+    "errors": []
+  },
+  "desktop_appart": {
+    "vw": 1440,
+    "vh": 900,
+    "stage": [
+      1440,
+      900
+    ],
+    "canvas": [
+      1440,
+      900
+    ],
+    "zoom": 176.4,
+    "room": {
+      "roomPctOfScreen": 77.9,
+      "roomVisiblePct": 89.7,
+      "bbox": [
+        -51,
+        -132,
+        1602,
+        1002
+      ],
+      "floorPctOfScreen": 55.1
+    },
+    "avatarPx": 159,
+    "avatarVisible": true,
+    "other": 161,
+    "calls": 87,
+    "errors": []
+  },
+  "desktop_perso": {
+    "vw": 1440,
+    "vh": 900,
+    "stage": [
+      1440,
+      900
+    ],
+    "canvas": [
+      1440,
+      900
+    ],
+    "zoom": 294,
+    "room": {
+      "roomPctOfScreen": 99.9,
+      "roomVisiblePct": 41.5,
+      "bbox": [
+        -550,
+        -517,
+        2205,
+        1373
+      ],
+      "floorPctOfScreen": 90.7
+    },
+    "avatarPx": 265,
+    "avatarVisible": true,
+    "other": 269,
+    "calls": 62,
+    "errors": []
+  },
+  "desktop_plage": {
+    "vw": 1440,
+    "vh": 900,
+    "stage": [
+      1440,
+      900
+    ],
+    "canvas": [
+      1440,
+      900
+    ],
+    "zoom": 176.4,
+    "room": null,
+    "avatarPx": 158,
+    "avatarVisible": true,
+    "other": 161,
+    "calls": 21,
+    "errors": []
+  }
+}

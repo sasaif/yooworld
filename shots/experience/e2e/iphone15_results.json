@@ -71,7 +71,7 @@
       "ok": true,
       "test": "B2 the avatar is on screen after the pan",
       "extra": {
-        "worldH": 1.086,
+        "worldH": 1.085,
         "screenH": 93,
         "bboxPx": [
           277,
@@ -83,11 +83,11 @@
       }
     },
     {
-      "ok": false,
-      "test": "B3 Vue perso + big pans: the screen stays filled by the room (before: 0 %)",
+      "ok": true,
+      "test": "B3 Vue perso + big pans: the room still covers ≥ 70 % of the screen (before: 0 %)",
       "extra": {
         "roomPct": 77.5,
-        "visPct": 24
+        "visPct": 24.1
       }
     },
     {

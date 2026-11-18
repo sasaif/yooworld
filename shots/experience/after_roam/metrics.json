@@ -27,12 +27,12 @@
         "av": true
       },
       "afterPan": {
-        "room": 69.4,
-        "vis": 59.9,
+        "room": 69.9,
+        "vis": 60.3,
         "av": true
       }
     },
-    "worstRoomPct": 69.4,
+    "worstRoomPct": 69.9,
     "errors": []
   },
   "iphone15_roamperso": {
@@ -53,18 +53,18 @@
         "av": true
       },
       "door": {
-        "room": 100,
-        "vis": 31,
+        "room": 96.1,
+        "vis": 29.8,
         "av": true
       },
       "tv": {
-        "room": 100,
-        "vis": 31,
+        "room": 96.3,
+        "vis": 29.9,
         "av": true
       },
       "afterPan": {
-        "room": 100,
-        "vis": 31,
+        "room": 96.7,
+        "vis": 30,
         "av": true
       }
     },
@@ -110,8 +110,8 @@
   "desktop_roamperso": {
     "per": {
       "bed": {
-        "room": 99.9,
-        "vis": 41.5,
+        "room": 86.5,
+        "vis": 35.9,
         "av": true
       },
       "kitchen": {

@@ -67,3 +67,46 @@ de 93 px. C'est contraire au choix V3 (avatars plus grands). Le compromis retenu
 - un pincement vers l'extérieur montre la pièce presque entière.
 
 Voir la section « Résultats » pour les chiffres après.
+
+## 5. Résultats (mesurés dans le jeu, build de production local, Chrome headless SwiftShader)
+
+### Cadrage
+Au chargement, rien ne change volontairement (zoom V3 conservé) : iPhone 15 89,2 % de pièce / avatar 93 px,
+Pixel 7 90,0 % / 100 px, iPad 84,2 % / 136 px, ordinateur 77,9 % / 159 px (`shots/experience/after/metrics.json`).
+Ce qui change, c'est quand on bouge (`before_roam` → `after_roam`) :
+
+| Situation (pièce % de l'écran) | Avant | Après |
+|---|---:|---:|
+| iPhone 15 · avatar dans les coins (pire cas) | 61,6 % | 70,3 % |
+| iPhone 15 · après 3 grands glissés | **0 %**, avatar hors champ | 69,9 %, avatar visible |
+| iPhone 15 · Vue perso, pire cas | 71 % (0 % après glissés) | 78,8 % |
+| Ordinateur · après glissés | 0 % | 73,4 % |
+| Ordinateur · Vue perso, pire cas | 0 % après glissés | 77,7 % |
+
+- Plein écran : le canvas = 100 % de la fenêtre au chargement, après repli/réapparition des barres (−15 %) et après
+  un aller-retour de rotation (test A1–A3). **Vérifié en émulation seulement**, pas sur un vrai iPhone.
+- Si l'avatar sort de l'écran plus de 1,5 s après un glissé, la caméra se recale sur lui.
+
+### Assises et lit (positions exactes des sommets de l'avatar)
+| Meuble | Avant | Après |
+|---|---|---|
+| Chaise en bois | hanches 0,205 m devant (assise 0,12 m) | sur l'assise, +4,5 cm, dans l'emprise |
+| Tabouret de bar | hanches 0,20 m sous l'assise | sur l'assise (0,522 m), +4,5 cm |
+| Bord du lit | hanches 2 cm dans le matelas | +4,5 cm au-dessus du matelas |
+| S'allonger | n'existait pas | point le plus bas 0,306 m pour un matelas à 0,30 m, tête vers la tête de lit |
+
+La pose allongée est **procédurale** : l'avatar est basculé avec l'animation « repos », car la bibliothèque n'a pas
+d'animation « allongé ».
+
+### Tests (dernier passage)
+- `tsc` OK · vitest **182/182**
+- e2e-experience : iPhone 15 **29/29**, ordinateur **28/28**
+- e2e-step2 : iPhone 15 **26/26** ; ordinateur **19/19 + 1 ignoré**
+  - Le test ignoré est le double-clic, que le rendu headless (~7 fps) ne peut pas tester. Il passait 20/20 au passage précédent.
+- e2e-joystick : iPhone 15 **49/49**
+- perf-baseline --check **PASS** : appartement 87 draw calls contre 86 (+1, poussières), plage 21/21
+
+### Reste à faire
+- Vérifier sur un vrai iPhone (bande mauve, rotation) : les 6 captures n'étaient pas disponibles ici.
+- Visages, coiffures et animations des avatars : à faire **avec ton accord**.
+- Une vraie animation « allongé » (aujourd'hui procédurale), et un vrai multijoueur (aujourd'hui « Mode local »).

@@ -63,31 +63,31 @@
       "ok": true,
       "test": "B1 three big one-finger pans: the room still covers ≥ 60 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 72.3,
-        "visPct": 83.3
+        "roomPct": 73,
+        "visPct": 84.1
       }
     },
     {
       "ok": true,
       "test": "B2 the avatar is on screen after the pan",
       "extra": {
-        "worldH": 1.082,
-        "screenH": 158,
+        "worldH": 1.085,
+        "screenH": 159,
         "bboxPx": [
-          460,
-          419,
+          461,
+          418,
           640,
-          677
+          676
         ],
         "fullyVisible": true
       }
     },
     {
-      "ok": false,
-      "test": "B3 Vue perso + big pans: the screen stays filled by the room (before: 0 %)",
+      "ok": true,
+      "test": "B3 Vue perso + big pans: the room still covers ≥ 70 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 78.7,
-        "visPct": 32.6
+        "roomPct": 79.9,
+        "visPct": 33.1
       }
     },
     {

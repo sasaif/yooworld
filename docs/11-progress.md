@@ -2,8 +2,11 @@
 - [x] Branche + worktree /workspace/yooville/yooworld-exp (depuis feature/perf-foundations)
 - [x] Mesures « avant » : tools/exp-audit.mjs → shots/experience/before/metrics.json
 - [x] Hauteurs réelles des assises : tools/seat_heights.py
-- [x] 1 · Plein écran (bande mauve) + caméra bornée à la pièce + cadrage
-- [x] 2 · Assises / lit (ancres), s'allonger, regarder la télé, registre d'interactions
-- [x] 3 · Chat compact paysage + mode local clair
-- [ ] 4 · Petits détails d'ambiance (si le temps)
-- [ ] Déploiement experience/
+- [x] 1 · Plein écran (bande mauve) + caméra bornée à la pièce (enveloppe convexe) + recadrage auto
+- [x] 2 · Assises / lit (ancres par meuble), s'allonger, regarder la télé, registre d'interactions
+- [x] 3 · Chat compact paysage (bouton Envoyer entier) + « Mode local » clair + tag PNJ
+- [x] 4 · Ambiance : poussières dans les rayons, rayons qui respirent (+1 draw call)
+- [x] Mesures « après » + composites avant/après (shots/experience/before_after_*_iphone15.png)
+- [x] Tests : tsc, vitest 182, e2e-experience 29/29 + 28/28, step2, joystick 49/49, perf-baseline PASS
+- [x] Déploiement https://sasaif.github.io/yooworld/experience/
+- [ ] Vérification sur vrai iPhone · visages/animations avatars (avec accord)
