@@ -46,12 +46,17 @@ export function sampleFrame(dt: number, info: RendererInfo, uniques?: { geometri
   }
   const span = Math.max(1, now - oldest);
   const msAvg = k ? sum / k : 0;
+  // useFrame runs before the render: we usually see the previous frame. If this tick caught a reset/skipped
+  // frame (calls === 0), keep the last non-zero scene counters so __perf()/the HUD don't flicker to zero.
+  const keep = info.render.calls === 0 && snap.calls > 0;
   snap = {
     fps: k > 1 ? rnd((k - 1) * 1000 / span, 1) : (msAvg > 0 ? rnd(1000 / msAvg, 1) : 0),
     msAvg: rnd(msAvg, 2), msWorst: rnd(worst, 2),
-    calls: info.render.calls, triangles: info.render.triangles,
-    geometries: info.memory.geometries, textures: info.memory.textures,
-    programs: info.programs?.length ?? 0,
+    calls: keep ? snap.calls : info.render.calls,
+    triangles: keep ? snap.triangles : info.render.triangles,
+    geometries: info.memory.geometries || (keep ? snap.geometries : 0),
+    textures: info.memory.textures || (keep ? snap.textures : 0),
+    programs: (info.programs?.length ?? 0) || (keep ? snap.programs : 0),
     uniqueGeometries: uniques?.geometries ?? snap.uniqueGeometries,
     uniqueMaterials: uniques?.materials ?? snap.uniqueMaterials,
     visible: true, samples: k,

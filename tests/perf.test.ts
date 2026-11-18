@@ -46,6 +46,15 @@ describe('perf monitor', () => {
     togglePerf(); expect(perfEnabled()).toBe(true); expect(getPerfSnapshot().visible).toBe(true);
   });
 
+  it('keeps the last scene counters when a frame reports zero draw calls', () => {
+    let t = 0; vi.spyOn(performance, 'now').mockImplementation(() => t);
+    sampleFrame(0.016, info(86, 54000, 84, 13, 21));
+    t = 16; sampleFrame(0.016, info(0, 0, 0, 0, 0));
+    const s = getPerfSnapshot();
+    expect(s.calls).toBe(86); expect(s.triangles).toBe(54000); expect(s.geometries).toBe(84);
+    expect(s.textures).toBe(13); expect(s.programs).toBe(21);
+  });
+
   it('is available in vitest/dev (DEV) and also when ?perf=1 in a production-like check', () => {
     expect(isPerfAvailable()).toBe(true); // import.meta.env.DEV is true under vitest
   });
