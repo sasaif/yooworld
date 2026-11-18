@@ -4,10 +4,11 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows } from '@react-three/drei';
 import type { Look } from '../../fashion/types';
 import { AvatarFigure, FRAMES, type CamFrame } from './AvatarFigure';
+const _look = new THREE.Vector3(), _want = new THREE.Vector3();
 function Rig({ frame, zoom }: { frame: CamFrame; zoom: number }) {
   const { camera } = useThree(); const t = useRef(new THREE.Vector3(0, FRAMES.body.y, 0));
   useFrame((_, dt) => { const f = FRAMES[frame]; const cam = camera as THREE.PerspectiveCamera; const h = f.h / zoom; const d = h / 2 / Math.tan((cam.fov * Math.PI) / 360) * Math.max(1, 1.05 / cam.aspect);
-    t.current.lerp(new THREE.Vector3(0, f.y, 0), Math.min(1, dt * 6)); const want = new THREE.Vector3(0, t.current.y + d * 0.08, d); cam.position.lerp(want, Math.min(1, dt * 6)); cam.lookAt(t.current); });
+    t.current.lerp(_look.set(0, f.y, 0), Math.min(1, dt * 6)); cam.position.lerp(_want.set(0, t.current.y + d * 0.08, d), Math.min(1, dt * 6)); cam.lookAt(t.current); });
   return null;
 }
 /** Studio 3D preview: the player's own avatar on a podium, live try-on, drag to turn. */

@@ -17,6 +17,7 @@ useGLTF.preload(ANIM_LIBRARY);
 const LOCO_KEYS = ['idle', 'walk', 'run'] as const;
 type LocoKey = typeof LOCO_KEYS[number];
 const camDir = new THREE.Vector3();
+const sitFwd = new THREE.Vector3();
 /** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
 export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string }> = {};
 
@@ -74,8 +75,8 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         loco(s.speed, dt);
       } else if (!driven && s.pendingSeat) {
         const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting'; s.yaw = seat.yaw;
-        const fwd = new THREE.Vector3(Math.sin(seat.yaw), 0, Math.cos(seat.yaw));
-        s.pos.copy(seat.pos).addScaledVector(fwd, def.sitForward * def.scale); s.pos.y = 0.04 - (def.scale - 1) * 0.22; // hips stay on the cushion
+        sitFwd.set(Math.sin(seat.yaw), 0, Math.cos(seat.yaw));
+        s.pos.copy(seat.pos).addScaledVector(sitFwd, def.sitForward * def.scale); s.pos.y = 0.04 - (def.scale - 1) * 0.22; // hips stay on the cushion
         play('sit', 0.25);
       } else {
         if (s.pendingEmote) { s.pendingEmote = false; s.emote = true; } s.mode = s.emote ? 'emote' : 'idle';

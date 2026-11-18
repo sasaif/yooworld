@@ -9,8 +9,10 @@ export const beachTime = { value: 0 };
  * Stylised sea: depth gradient from the shoreline, animated ripples, a breaking foam line that
  * washes up and down the sand, a wet-sand band, and warm glints at sunset. One draw call, no textures.
  */
+let _water: THREE.ShaderMaterial | null = null;
 export function waterMaterial() {
-  return new THREE.ShaderMaterial({
+  if (_water) return _water;
+  return _water = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, fog: true,
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {
       uTime: { value: 0 }, uMood: { value: 0 },
@@ -55,8 +57,10 @@ export function waterMaterial() {
   });
 }
 
-/** Sand: warm base with speckles, ripples and a few darker patches (canvas texture, tiled). */
+/** Sand: warm base with speckles, ripples and a few darker patches (canvas texture, tiled). Cached: one GPU texture for the whole session. */
+let _sand: THREE.CanvasTexture | null = null;
 export function sandTexture() {
+  if (_sand) return _sand;
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d')!;
   g.fillStyle = '#f3d9ae'; g.fillRect(0, 0, 256, 256);
   let s = 7; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
@@ -64,11 +68,13 @@ export function sandTexture() {
   g.strokeStyle = 'rgba(214,176,128,0.25)'; g.lineWidth = 2;
   for (let k = 0; k < 9; k++) { g.beginPath(); for (let x = 0; x <= 256; x += 8) { const y = k * 29 + 10 + Math.sin(x / 22 + k) * 5; if (x) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke(); }
   for (let i = 0; i < 1400; i++) { g.fillStyle = rnd() > 0.5 ? 'rgba(190,150,100,0.35)' : 'rgba(255,250,235,0.6)'; g.fillRect(rnd() * 256, rnd() * 256, 1.2, 1.2); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return _sand = t;
 }
 /** Twinkles: sea glitter by day, fireflies / floating embers at sunset. One Points draw call. */
+let _sparkle: THREE.ShaderMaterial | null = null;
 export function sparkleMaterial() {
-  return new THREE.ShaderMaterial({
+  if (_sparkle) return _sparkle;
+  return _sparkle = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     uniforms: { uTime: { value: 0 }, uMood: { value: 0 }, uScale: { value: 1 } },
     vertexShader: /* glsl */`

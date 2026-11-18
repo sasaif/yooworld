@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CELL, type ApartmentLayout } from '../../game/apartment/ApartmentModel';
+import { disposeMesh } from '../dispose';
 
 /**
  * Static environment dressing (not part of the saved layout, not selectable): framed art, fairy lights,
@@ -68,6 +69,11 @@ export function Decor({ apt }: { apt: ApartmentLayout }) {
     built.bulbs.forEach((b, i) => { m.setMatrixAt(i, mx.makeTranslation(b.x, b.y, b.z)); m.setColorAt(i, c.set(pal[i % pal.length])); });
     m.raycast = () => {}; return m;
   }, [built]);
+  useEffect(() => () => {
+    built.frame?.dispose(); built.wire.dispose(); built.beams?.dispose(); built.beamTex.dispose(); built.matTex.dispose();
+    built.arts.forEach((a) => { a.geo.dispose(); a.tex.dispose(); });
+    disposeMesh(inst);
+  }, [built, inst]);
   return (
     <group>
       <mesh geometry={built.frame} castShadow raycast={() => {}}><meshLambertMaterial color="#c98f5f" /></mesh>

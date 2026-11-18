@@ -46,5 +46,9 @@ export function mergeSimple(gs: THREE.BufferGeometry[], uvFn?: (p: THREE.Vector3
     vo += P.count; io += g.index ? g.index.count : P.count;
   }
   const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-  if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); out.setIndex(new THREE.BufferAttribute(idx, 1)); return out;
+  if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); out.setIndex(new THREE.BufferAttribute(idx, 1));
+  // the merged result owns the data; drop the inputs (and any toNonIndexed() copies) so they are not left on the GPU / in RAM
+  for (const g of ng) { if (!gs.includes(g)) g.dispose(); }
+  for (const g of gs) g.dispose();
+  return out;
 }

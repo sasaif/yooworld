@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
@@ -9,8 +9,9 @@ import { Q } from '../quality';
 import { TapMarker } from '../TapMarker';
 import { onFloorTap } from '../../app/floorTap';
 import { swayMaterial } from './meshBuilder';
-import { buildBeachProps, buildBoat, lanternBulbs } from './beachProps';
+import { getBeachPropsGeometry, getBoatGeometry, lanternBulbs } from './beachProps';
 import { beachTime, mood, sandTexture, sparkleMaterial, waterMaterial } from './water';
+import { disposeMesh, useDispose } from '../dispose';
 
 /**
  * Yoo Plage scene. Draw-call budget (measured with window.__info): sand 1, sea 1, props batch 1 (+1 shadow),
@@ -24,7 +25,7 @@ const noRay = () => {};
 
 function Ground() {
   const tex = useMemo(() => { const t = sandTexture(); t.repeat.set(24, 24); return t; }, []);
-  const water = useMemo(() => waterMaterial(), []);
+  const water = waterMaterial();
   const lastTap = useRef({ t: 0, p: new THREE.Vector3() });
   useFrame(() => { water.uniforms.uTime.value = beachTime.value; water.uniforms.uMood.value = mood.value; });
   const onClick = (e: ThreeEvent<MouseEvent>) => {
@@ -41,24 +42,30 @@ function Ground() {
   );
 }
 
+let _propsMat: THREE.MeshLambertMaterial | null = null;
+function propsMat() { return _propsMat ??= swayMaterial(beachTime, { side: THREE.DoubleSide, flatShading: true }); }
 function Props() {
-  const { geometry } = useMemo(() => buildBeachProps(), []);
-  const mat = useMemo(() => swayMaterial(beachTime, { side: THREE.DoubleSide, flatShading: true }), []);
-  return <mesh geometry={geometry} material={mat} castShadow receiveShadow raycast={noRay} />;
+  return <mesh geometry={getBeachPropsGeometry()} material={propsMat()} castShadow receiveShadow raycast={noRay} />;
 }
+let _boatMat: THREE.MeshLambertMaterial | null = null;
+function boatMat() { return _boatMat ??= new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true }); }
 function Boat() {
-  const geo = useMemo(() => buildBoat(), []); const mat = useMemo(() => new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true }), []);
+  const geo = getBoatGeometry(); const mat = boatMat();
   const ref = useRef<THREE.Group>(null!);
   useFrame(() => { const t = beachTime.value; const g = ref.current; g.position.set(-2.2 + Math.sin(t * 0.05) * 1.2, Math.sin(t * 1.1) * 0.04, 6.4 + Math.sin(t * 0.03) * 0.8); g.rotation.set(Math.sin(t * 0.9) * 0.05, 0.5, Math.sin(t * 1.2) * 0.06); });
   return <group ref={ref}><mesh geometry={geo} material={mat} castShadow raycast={noRay} /></group>;
 }
 /** Painted signs: café front, menu board and the "Yoo Plage" welcome board. */
-function Signs() {
-  const t = useMemo(() => ({
+let _signTex: { cafe: THREE.CanvasTexture; menu: THREE.CanvasTexture; plage: THREE.CanvasTexture } | null = null;
+function signTextures() {
+  return _signTex ??= {
     cafe: canvasTex(512, 128, (g) => { g.fillStyle = '#fff6ee'; g.fillRect(0, 0, 512, 128); g.fillStyle = '#e2569b'; g.font = '900 74px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CAFÉ YOO', 256, 68); g.fillStyle = '#5cc2c9'; g.fillRect(0, 0, 512, 10); g.fillRect(0, 118, 512, 10); }),
     menu: canvasTex(256, 320, (g) => { g.fillStyle = '#2f3a3a'; g.fillRect(0, 0, 256, 320); g.strokeStyle = '#c98f5f'; g.lineWidth = 14; g.strokeRect(7, 7, 242, 306); g.fillStyle = '#fff6ee'; g.textAlign = 'center'; g.font = '800 34px system-ui'; g.fillText('MENU', 128, 56); g.font = '600 24px system-ui'; ['Smoothie 🥭', 'Glace 🍦', 'Café glacé', 'Coco frais 🥥'].forEach((s, i) => g.fillText(s, 128, 112 + i * 50)); }),
     plage: canvasTex(512, 200, (g) => { const s = g.createLinearGradient(0, 0, 512, 0); s.addColorStop(0, '#5cc2c9'); s.addColorStop(1, '#4f8be0'); g.fillStyle = s; g.fillRect(0, 0, 512, 200); g.fillStyle = '#fff'; g.font = '900 86px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Yoo Plage', 256, 92); g.font = '700 30px system-ui'; g.fillStyle = '#ffe7a8'; g.fillText('☀ café · DJ · détente ☀', 256, 160); }),
-  }), []);
+  };
+}
+function Signs() {
+  const t = signTextures();
   const sign = propById('sign')!;
   return (
     <group>
@@ -74,10 +81,12 @@ function Lanterns() {
   const inst = useMemo(() => {
     const m = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false }), all.length);
     const pal = ['#ffe3a3', '#ffc1d9', '#bfe3ff', '#fff1c9']; const c = new THREE.Color(); const mx = new THREE.Matrix4();
-    all.forEach((b, i) => { const s = i >= bulbs.length ? 0.075 : 0.03; m.setMatrixAt(i, mx.compose(b, new THREE.Quaternion(), new THREE.Vector3(s, s * (i >= bulbs.length ? 1.25 : 1), s))); m.setColorAt(i, c.set(i >= bulbs.length ? '#ffd27a' : pal[i % pal.length])); });
+    const q = new THREE.Quaternion(), sc = new THREE.Vector3();
+    all.forEach((b, i) => { const s = i >= bulbs.length ? 0.075 : 0.03; m.setMatrixAt(i, mx.compose(b, q, sc.set(s, s * (i >= bulbs.length ? 1.25 : 1), s))); m.setColorAt(i, c.set(i >= bulbs.length ? '#ffd27a' : pal[i % pal.length])); });
     m.raycast = noRay; return m;
   }, [all, bulbs.length]);
   const wireGeo = useMemo(() => new THREE.BufferGeometry().setFromPoints(wire), [wire]);
+  useEffect(() => () => { disposeMesh(inst); wireGeo.dispose(); }, [inst, wireGeo]);
   useFrame(() => { const k = 0.55 + mood.value * 0.75 + Math.sin(beachTime.value * 3) * 0.04 * mood.value; (inst.material as THREE.MeshBasicMaterial).color.setScalar(k); });
   return <><primitive object={inst} /><lineSegments geometry={wireGeo} raycast={noRay}><lineBasicMaterial color="#6b5a4e" transparent opacity={0.6} /></lineSegments></>;
 }
@@ -91,13 +100,14 @@ function DanceFloor() {
     m.receiveShadow = true; return m;
   }, [n, s]);
   const pal = useMemo(() => ['#e2569b', '#5cc2c9', '#ffc857', '#9b6be0', '#ff8a5c', '#4f8be0'].map((c) => new THREE.Color(c)), []);
-  const c = useMemo(() => new THREE.Color(), []); const last = useRef(-1);
+  const c = useMemo(() => new THREE.Color(), []); const idle = useMemo(() => new THREE.Color('#fff6ee'), []); const last = useRef(-1);
+  useEffect(() => () => disposeMesh(inst), [inst]);
   useFrame(() => {
     const beat = Math.floor(beachTime.value * 2.1); if (beat === last.current && !music) return; last.current = beat;
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const k = j * n + i;
       if (music) { const lit = (i + j + beat) % 3 === 0 || ((i * 7 + j * 3 + beat) % 5 === 0); c.copy(pal[(i + j * 2 + beat) % pal.length]); if (!lit) c.multiplyScalar(0.35); else c.multiplyScalar(1.25); }
-      else c.copy(pal[(i + j) % pal.length]).lerp(new THREE.Color('#fff6ee'), 0.55);
+      else c.copy(pal[(i + j) % pal.length]).lerp(idle, 0.55);
       inst.setColorAt(k, c);
     }
     inst.instanceColor!.needsUpdate = true;
@@ -109,6 +119,7 @@ function DjFx() {
   const music = useStore(game.store, (s) => s.beachMusic); const dj = propById('dj')!;
   const a = useRef<THREE.Mesh>(null!), b = useRef<THREE.Mesh>(null!);
   const geo = useMemo(() => { const g = new THREE.ConeGeometry(0.55, 2.1, 16, 1, true); g.translate(0, -1.05, 0); return g; }, []);
+  useDispose(geo);
   useFrame(() => { const t = beachTime.value; if (!a.current) return; a.current.rotation.set(0.35 + Math.sin(t * 1.3) * 0.3, 0, Math.sin(t * 0.9) * 0.45); b.current.rotation.set(0.35 + Math.cos(t * 1.1) * 0.3, 0, -Math.sin(t * 1.2) * 0.45); });
   if (!music) return null;
   return (
@@ -129,6 +140,7 @@ function Gulls() {
     ]); g.computeVertexNormals();
     const m = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide }), N); m.raycast = noRay; return m;
   }, []);
+  useEffect(() => () => disposeMesh(inst), [inst]);
   const mx = useMemo(() => new THREE.Matrix4(), []), q = useMemo(() => new THREE.Quaternion(), []), e = useMemo(() => new THREE.Euler(), []), p = useMemo(() => new THREE.Vector3(), []), sc = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     const t = beachTime.value;
@@ -150,6 +162,7 @@ function Sparkles() {
     for (let i = 0; i < 46; i++) { const near = i % 2 ? [DANCE_FLOOR.x, DANCE_FLOOR.z] : [7.5 + r() * 2, 6 + r() * 3]; pts.push(near[0] + (r() - 0.5) * 3.2, 0.5 + r() * 1.6, near[1] + (r() - 0.5) * 3.2); seed.push(r()); kind.push(1); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 1)); g.setAttribute('aKind', new THREE.Float32BufferAttribute(kind, 1)); return g;
   }, []);
+  useDispose(geo);
   useFrame(() => { mat.uniforms.uTime.value = beachTime.value; mat.uniforms.uMood.value = mood.value; mat.uniforms.uScale.value = gl.getPixelRatio(); });
   return <points geometry={geo} material={mat} raycast={noRay} frustumCulled={false} />;
 }

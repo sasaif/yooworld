@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
@@ -14,6 +14,7 @@ import { floorTexture, wallTexture } from './finishTextures';
 import { InteractionMenu } from '../../ui/InteractionMenu';
 import { Decor } from './Decor';
 import { TapMarker } from '../TapMarker';
+import { useDispose } from '../dispose';
 import { onFloorTap } from '../../app/floorTap';
 
 const URL = (m: string) => `${import.meta.env.BASE_URL}models/furniture/${m}.glb`;
@@ -30,9 +31,9 @@ function FurnitureBatch({ defId, items, apt }: { defId: string; items: PlacedIte
   const parts = useParts(defId);
   const refs = useRef<(THREE.InstancedMesh | null)[]>([]);
   useLayoutEffect(() => {
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
     items.forEach((it, i) => {
-      const t = itemTransform(it, FURNITURE); m.compose(new THREE.Vector3(t.x, baseHeight(apt, FURNITURE, it), t.z), q.setFromAxisAngle(up, t.yaw), one);
+      const t = itemTransform(it, FURNITURE); m.compose(pos.set(t.x, baseHeight(apt, FURNITURE, it), t.z), q.setFromAxisAngle(up, t.yaw), one);
       refs.current.forEach((im) => im?.setMatrixAt(i, m));
     });
     refs.current.forEach((im) => { if (im) { im.count = items.length; im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); } });
@@ -61,6 +62,7 @@ function Walls({ apt }: { apt: ApartmentLayout }) {
     groups.forEach((gs, key) => out.push({ key, src: mats.get(key)!, geo: mergeSimple(gs, key.startsWith('paint') ? (p) => (key === 'paint_back' ? [p.x / 1.2, p.y / 1.2] : [p.z / 1.2, p.y / 1.2]) : undefined) }));
     return out;
   }, [gl]);
+  useEffect(() => () => { built.forEach((b) => b.geo.dispose()); }, [built]);
   const tex = fin.kind === 'paint' ? null : wallTexture(fin);
   return <>{built.map(({ key, geo, src }) => (
     <mesh key={key} geometry={geo} castShadow receiveShadow>
@@ -74,7 +76,7 @@ function Walls({ apt }: { apt: ApartmentLayout }) {
 
 function Floor({ apt }: { apt: ApartmentLayout }) {
   const W = apt.cols * CELL, D = apt.rows * CELL; const fin = floorById(apt.floor);
-  const tex = useMemo(() => { const t = floorTexture(fin).clone(); t.repeat.set(W / 2.4, D / 2.4); t.needsUpdate = true; return t; }, [fin, W, D]);
+  const tex = useMemo(() => { const t = floorTexture(fin); t.repeat.set(W / 2.4, D / 2.4); t.needsUpdate = true; return t; }, [fin, W, D]);
   const placing = useStore(game.store, (s) => !!s.placing);
   const lastTap = useRef({ t: 0, p: new THREE.Vector3() });
   const onClick = (e: ThreeEvent<MouseEvent>) => {
@@ -105,6 +107,7 @@ function GridOverlay({ W, D }: { W: number; D: number }) {
     for (let z = 0; z <= D + 1e-6; z += CELL) v.push(0, 0, z, W, 0, z);
     return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
   }, [W, D]);
+  useDispose(geo);
   return <lineSegments geometry={geo} position-y={0.004}><lineBasicMaterial color="#ffffff" transparent opacity={0.22} /></lineSegments>;
 }
 export { TapMarker } from '../TapMarker';
@@ -155,6 +158,7 @@ function Footprint({ it, color }: { it: Pick<PlacedItem, 'defId' | 'x' | 'z' | '
 function Ghost({ apt }: { apt: ApartmentLayout }) {
   const placing = useStore(game.store, (s) => s.placing)!; const parts = useParts(placing.defId);
   const ok = placing.valid.ok; const mat = useMemo(() => new THREE.MeshLambertMaterial({ transparent: true, opacity: 0.6, depthWrite: false }), []);
+  useDispose(mat);
   mat.color.set(ok ? '#9ff0b8' : '#ff8a8a');
   const pseudo = { ...placing, uid: placing.moving ?? '__ghost' } as PlacedItem;
   const t = itemTransform(pseudo, FURNITURE);

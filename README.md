@@ -32,6 +32,10 @@ Dock : **Lieux** (Mon appart ↔ Yoo Plage) · **Décorer** (Ajouter, Sol & murs
 - `docs/04-plan.md` — plan phases 1 à 5 (effort, dépendances, statut)
 - `docs/05-technique.md` — pipeline avatar, scène, persistance, interactions, multijoueur
 - `docs/06-yoo-plage.md` — Yoo Plage : second lieu, architecture, perf, limites
+- `docs/07-direction-artistique-lieux-sociaux.md` — direction artistique des lieux sociaux
+- `docs/08-avatar-fashion-economy.md` — customisation, boutique, économie Or / Diamant
+- `docs/09-movement-controls.md` — joystick et toucher / cliquer pour aller
+- `docs/10-performance-foundations.md` — overlay FPS (dev / ?perf=1), règles, baseline
 - `docs/LICENCES.md` — licences
 
 ## Branches

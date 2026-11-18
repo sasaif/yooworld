@@ -233,3 +233,9 @@ export function lanternBulbs() {
   for (const [x, z] of LANTERN_POSTS) glow.push(new THREE.Vector3(x, 1.76, z));
   return { bulbs, glow, wire };
 }
+
+/** Module-level caches: the beach is rebuilt identically on every visit, so keep one geometry. */
+let _propsGeo: THREE.BufferGeometry | null = null;
+let _boatGeo: THREE.BufferGeometry | null = null;
+export function getBeachPropsGeometry() { return _propsGeo ??= buildBeachProps().geometry; }
+export function getBoatGeometry() { return _boatGeo ??= buildBoat(); }

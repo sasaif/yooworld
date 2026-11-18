@@ -1,0 +1,14 @@
+{
+  "recordedAt": "2026-11-18T13:37:00.000Z",
+  "note": "Headless Chrome + SwiftShader. FPS is not representative. Guard uses draw calls only (+20 %). First-load figures (apartment / beach, desktop 1440×900 and iPhone 15 landscape). unique* counts come from scene traversal via window.__perf().",
+  "scenes": {
+    "apartment": {
+      "desktop": { "calls": 86, "triangles": 54267, "geometries": 84, "textures": 13, "programs": 21, "uniqueGeometries": 87, "uniqueMaterials": 46 },
+      "iphone15": { "calls": 82, "triangles": 54037, "geometries": 82, "textures": 12, "programs": 21, "uniqueGeometries": 87, "uniqueMaterials": 46 }
+    },
+    "beach": {
+      "desktop": { "calls": 21, "triangles": 68213, "geometries": 20, "textures": 11, "programs": 16, "uniqueGeometries": 46, "uniqueMaterials": 48 },
+      "iphone15": { "calls": 21, "triangles": 68213, "geometries": 20, "textures": 11, "programs": 16, "uniqueGeometries": 46, "uniqueMaterials": 48 }
+    }
+  }
+}
