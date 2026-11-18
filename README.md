@@ -1,29 +1,41 @@
-# Yooville – Appartement (prototype YoWorld-like)
+# YooWorld — prototype de jeu social 3D (inspiré de YoWorld)
 
-Vite + React Three Fiber. Une pièce isométrique (vue orthographique) avec meubles, Juanita (F) et Juan (H).
+Appartement isométrique décorable, deux avatars (Juanita & Juan), mobile d’abord.
+Vite 5 · React 18 · React Three Fiber 8 · three 0.170 · TypeScript · vitest.
 
 ## Lancer
-```
+```bash
 npm install
-npm run dev        # puis ouvrir http://localhost:5173
+npm run dev          # http://localhost:5173  (ajouter ?fresh pour une partie neuve non sauvegardée, ?q=low|high pour forcer la qualité)
+npm test             # 26 tests vitest (logique pure)
+npm run build        # build de production dans dist/
 ```
-- Clic sur le sol : l'avatar sélectionné marche (pathfinding A* sur grille, contourne les meubles).
-- Clic sur un avatar ou boutons en haut à gauche : changer d'avatar.
-- 🛋️ Canapé / 🪑 Fauteuil : va s'asseoir. Cliquer le sol pour se relever et repartir.
-- 🎉 Danse : animation Victory. 💬 : bulle de chat locale (pas de réseau).
-- Molette = zoom, clic droit = déplacer, clic gauche glissé = tourner (limité).
-- Captures : `?shot=overview|close|walk|sit` (script `tools/shot.mjs`, Chrome + playwright-core).
+Test de bout en bout mobile (optionnel, Chrome + playwright-core) : lancer `npx vite --port 5202` puis `node tools/e2e.mjs`.
+Captures : `node tools/shot.mjs overview,ui_m@mobile` → `shots/`.
 
-## Code
-- `src/layout.ts` : taille de la pièce, murs, liste des meubles (x, z, orientation), palette de couleurs.
-- `src/Room.tsx` : sol (parquet procédural), murs Kenney, placement des meubles, sièges.
-- `src/nav.ts` : grille d'occupation + A* + lissage du chemin.
-- `src/Character.tsx` : avatar, retarget runtime des clips Quaternius 23 os (Idle, Walk, SitDown, StandUp, Victory) vers le squelette Mixamo de Juanita, machine d'états marche/assis.
-- `src/avatar/` : retarget + tables d'os (repris du prototype avatar).
+## Commandes
+| | Mobile | Ordinateur |
+|---|---|---|
+| Marcher | toucher le sol | clic gauche sur le sol |
+| Courir | double-toucher | double-clic |
+| Déplacer la vue | glisser 1 doigt | glisser clic gauche |
+| Zoom / rotation | pincer / 2 doigts | molette / clic droit |
+| Objet | toucher → menu (s’asseoir, allumer, regarder, déplacer…) | clic |
+| Changer d’avatar | toucher l’autre avatar | clic |
 
-## Licences des assets
-- Juanita (F) : 100Avatars R3, Polygonal Mind, CC0 (crédit facultatif : "Juanita, 100Avatars by Polygonal Mind").
-- Juan (H) : dérivé de Juanita (Yooville), CC0 par héritage.
-- Meubles / murs : Kenney Furniture Kit 2.0, CC0 (`public/models/furniture/LICENSE_Kenney_FurnitureKit.txt`).
-- Animations : Quaternius (Animated Characters Pack, 23 os), CC0.
-- Code : à toi (aucune dépendance copyleft ; three / R3F / drei sont MIT).
+Dock : **Lieux** · **Décorer** (Ajouter, Sol & murs, Tourner / Déplacer / Ranger) · **Sac** (Mon sac / Boutique en pièces virtuelles) · **Danse** · **Chat** (local, hors ligne).
+
+## Documentation (français)
+- `docs/01-audit.md` — audit du projet appartement d’origine
+- `docs/02-avatars.md` — évaluation des avatars (squelettes, matériaux, poids, corrections)
+- `docs/03-architecture.md` — architecture cible et modules
+- `docs/04-plan.md` — plan phases 1 à 5 (effort, dépendances, statut)
+- `docs/05-technique.md` — pipeline avatar, scène, persistance, interactions, multijoueur
+- `docs/LICENCES.md` — licences
+
+## Branches
+`main` ← `phase-1` (fondations, avatars) ← `phase-2` (appartement éditable). Le jeu est jouable à chaque fusion.
+
+## Licences
+Tous les assets sont CC0 (Polygonal Mind 100Avatars, Kenney, Quaternius) ; bibliothèques MIT. Détails : `docs/LICENCES.md`.
+Multijoueur : **non implémenté** — le second avatar est local, l’interface affiche « Hors ligne ».
