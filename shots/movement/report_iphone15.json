@@ -6,21 +6,21 @@
     393
   ],
   "dpr": 3,
-  "fps": 9,
+  "fps": 8,
   "maxSpeed": 1.9,
   "dirs": [
     {
       "stickDeg": 0,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.613,
-      "longFrames": 1,
+      "wallClockSpeed": 1.912,
+      "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.3,
+      "endInLane": 2.6,
       "frames": 5,
       "blocked": false,
       "retries": 0
@@ -29,14 +29,14 @@
       "stickDeg": 45,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.898,
+      "wallClockSpeed": 1.892,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.55,
+      "endInLane": 2.69,
       "frames": 8,
       "blocked": false,
       "retries": 0
@@ -45,8 +45,8 @@
       "stickDeg": 90,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.891,
-      "longFrames": 0,
+      "wallClockSpeed": 1.828,
+      "longFrames": 1,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
@@ -61,14 +61,14 @@
       "stickDeg": 135,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.898,
-      "longFrames": 0,
+      "wallClockSpeed": 1.751,
+      "longFrames": 1,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.54,
+      "endInLane": 3.03,
       "frames": 6,
       "blocked": false,
       "retries": 0
@@ -77,14 +77,14 @@
       "stickDeg": 180,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.899,
+      "wallClockSpeed": 1.898,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.53,
+      "endInLane": 2.54,
       "frames": 7,
       "blocked": false,
       "retries": 0
@@ -100,7 +100,7 @@
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.43,
+      "endInLane": 2.68,
       "frames": 7,
       "blocked": false,
       "retries": 0
@@ -109,15 +109,15 @@
       "stickDeg": 270,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.899,
-      "longFrames": 0,
+      "wallClockSpeed": 1.876,
+      "longFrames": 1,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.44,
-      "frames": 6,
+      "endInLane": 2.98,
+      "frames": 7,
       "blocked": false,
       "retries": 0
     },
@@ -125,22 +125,6 @@
       "stickDeg": 315,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.899,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "lane": 3.4,
-      "windowMs": 900,
-      "endInLane": 2.45,
-      "frames": 6,
-      "blocked": false,
-      "retries": 0
-    },
-    {
-      "stickDeg": 22.5,
-      "diagonal": true,
-      "speed": 1.899,
       "wallClockSpeed": 1.901,
       "longFrames": 0,
       "pctMax": 100,
@@ -148,8 +132,24 @@
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.35,
-      "frames": 8,
+      "endInLane": 2.74,
+      "frames": 7,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 22.5,
+      "diagonal": true,
+      "speed": 1.9,
+      "wallClockSpeed": 1.9,
+      "longFrames": 0,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.48,
+      "frames": 7,
       "blocked": false,
       "retries": 0
     },
@@ -157,14 +157,14 @@
       "stickDeg": 112.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.905,
-      "longFrames": 0,
+      "wallClockSpeed": 1.878,
+      "longFrames": 1,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.6,
+      "endInLane": 2.69,
       "frames": 6,
       "blocked": false,
       "retries": 0
@@ -173,15 +173,15 @@
       "stickDeg": 202.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.898,
+      "wallClockSpeed": 1.901,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.55,
-      "frames": 5,
+      "endInLane": 2.71,
+      "frames": 7,
       "blocked": false,
       "retries": 0
     },
@@ -189,15 +189,15 @@
       "stickDeg": 292.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.899,
+      "wallClockSpeed": 1.9,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.37,
-      "frames": 6,
+      "endInLane": 2.72,
+      "frames": 7,
       "blocked": false,
       "retries": 0
     }
@@ -232,16 +232,16 @@
       "inputD": 0.15,
       "factor": 0.087,
       "speed": 0.165,
-      "wallClockSpeed": 0.156,
-      "longFrames": 2,
+      "wallClockSpeed": 0.165,
+      "longFrames": 0,
       "pctMax": 9,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 7,
+      "frames": 9,
       "blocked": false,
       "anim": {
         "s": 0.165,
-        "walk": 0.58,
+        "walk": 0.6,
         "run": 0,
         "walkTS": 0.17,
         "runTS": 0.076
@@ -254,16 +254,16 @@
       "inputD": 0.225,
       "factor": 0.3,
       "speed": 0.57,
-      "wallClockSpeed": 0.523,
+      "wallClockSpeed": 0.553,
       "longFrames": 1,
       "pctMax": 30,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 8,
+      "frames": 9,
       "blocked": false,
       "anim": {
         "s": 0.57,
-        "walk": 0.99,
+        "walk": 1,
         "run": 0,
         "walkTS": 0.588,
         "runTS": 0.263
@@ -276,12 +276,12 @@
       "inputD": 0.3,
       "factor": 0.402,
       "speed": 0.765,
-      "wallClockSpeed": 0.715,
-      "longFrames": 2,
+      "wallClockSpeed": 0.765,
+      "longFrames": 0,
       "pctMax": 40,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 8,
+      "frames": 10,
       "blocked": false,
       "anim": {
         "s": 0.765,
@@ -303,7 +303,7 @@
       "pctMax": 60,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 8,
+      "frames": 10,
       "blocked": false,
       "anim": {
         "s": 1.14,
@@ -320,12 +320,12 @@
       "inputD": 0.6,
       "factor": 0.695,
       "speed": 1.32,
-      "wallClockSpeed": 1.321,
+      "wallClockSpeed": 1.32,
       "longFrames": 0,
       "pctMax": 69,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 7,
+      "frames": 11,
       "blocked": false,
       "anim": {
         "s": 1.32,
@@ -342,8 +342,8 @@
       "inputD": 0.775,
       "factor": 0.85,
       "speed": 1.615,
-      "wallClockSpeed": 1.613,
-      "longFrames": 0,
+      "wallClockSpeed": 1.564,
+      "longFrames": 1,
       "pctMax": 85,
       "lane": 3.4,
       "windowMs": 1200,
@@ -351,8 +351,8 @@
       "blocked": false,
       "anim": {
         "s": 1.615,
-        "walk": 0.01,
-        "run": 0.98,
+        "walk": 0,
+        "run": 1,
         "walkTS": 1.6,
         "runTS": 0.746
       }
@@ -364,17 +364,17 @@
       "inputD": 0.95,
       "factor": 1,
       "speed": 1.9,
-      "wallClockSpeed": 1.89,
-      "longFrames": 1,
+      "wallClockSpeed": 1.901,
+      "longFrames": 0,
       "pctMax": 100,
       "lane": 3.4,
-      "windowMs": 1150,
-      "frames": 6,
+      "windowMs": 1035,
+      "frames": 8,
       "blocked": false,
       "anim": {
         "s": 1.9,
-        "walk": 0.01,
-        "run": 0.98,
+        "walk": 0,
+        "run": 1,
         "walkTS": 1.6,
         "runTS": 0.877
       }
@@ -386,17 +386,17 @@
       "inputD": 1,
       "factor": 1,
       "speed": 1.9,
-      "wallClockSpeed": 1.899,
+      "wallClockSpeed": 1.9,
       "longFrames": 0,
       "pctMax": 100,
       "lane": 3.4,
-      "windowMs": 1063,
-      "frames": 8,
+      "windowMs": 1040,
+      "frames": 9,
       "blocked": false,
       "anim": {
         "s": 1.9,
-        "walk": 0.01,
-        "run": 0.99,
+        "walk": 0,
+        "run": 1,
         "walkTS": 1.6,
         "runTS": 0.877
       }
@@ -406,97 +406,97 @@
   "diagAvg": 1.9,
   "accelSamples": [
     [
-      73238,
-      44.659,
+      74832,
+      47.186,
       4.3,
       3.1,
       0,
       0
     ],
     [
-      73371,
-      44.659,
+      74960,
+      47.186,
       4.3,
       3.1,
       0,
       0
     ],
     [
-      73613,
-      44.903,
-      3.991,
-      2.981,
-      1.84,
+      75082,
+      47.308,
+      4.187,
+      3.057,
+      1.56,
       1
     ],
     [
-      73639,
-      44.929,
-      3.945,
-      2.963,
-      1.86,
+      75215,
+      47.442,
+      3.969,
+      2.973,
+      1.85,
       1
     ],
     [
-      73766,
-      45.056,
-      3.723,
-      2.878,
+      75328,
+      47.554,
+      3.773,
+      2.897,
       1.89,
       1
     ],
     [
-      73904,
-      45.194,
-      3.478,
-      2.784,
+      75454,
+      47.68,
+      3.551,
+      2.812,
       1.9,
       1
     ],
     [
-      74046,
-      45.336,
-      3.227,
-      2.687,
+      75588,
+      47.814,
+      3.314,
+      2.721,
       1.9,
       1
     ],
     [
-      74266,
-      45.555,
-      2.838,
-      2.537,
+      75715,
+      47.941,
+      3.088,
+      2.634,
       1.9,
       1
     ],
     [
-      74387,
-      45.676,
-      2.623,
-      2.455,
+      75839,
+      48.065,
+      2.867,
+      2.549,
       1.9,
       1
     ],
     [
-      74396,
-      45.687,
-      2.605,
-      2.448,
+      75965,
+      48.191,
+      2.644,
+      2.463,
       1.9,
       1
     ]
   ],
   "accelRamp": {
-    "windowS": 0.396,
-    "distRatio": 0.821,
-    "theory": 0.821
+    "windowS": 0.368,
+    "distRatio": 0.807,
+    "theory": 0.807
   },
   "stop": {
-    "coastM": 0.059,
+    "coastM": 0.058,
     "theoryM": 0.059,
-    "under5pctMs": 122,
-    "frames": 2,
-    "gameMs": 234
+    "under5pctMs": 132,
+    "frames": 1,
+    "gameMs": 132
   },
   "drift": 0,
   "results": [
@@ -539,7 +539,7 @@
       "test": "direction 0° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.3,
+        "end": 2.6,
         "win": 900,
         "frames": 5,
         "blocked": false
@@ -550,7 +550,7 @@
       "test": "direction 45° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.55,
+        "end": 2.69,
         "win": 900,
         "frames": 8,
         "blocked": false
@@ -572,7 +572,7 @@
       "test": "direction 135° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.54,
+        "end": 3.03,
         "win": 900,
         "frames": 6,
         "blocked": false
@@ -583,7 +583,7 @@
       "test": "direction 180° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.53,
+        "end": 2.54,
         "win": 900,
         "frames": 7,
         "blocked": false
@@ -594,7 +594,7 @@
       "test": "direction 225° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.43,
+        "end": 2.68,
         "win": 900,
         "frames": 7,
         "blocked": false
@@ -605,9 +605,9 @@
       "test": "direction 270° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.44,
+        "end": 2.98,
         "win": 900,
-        "frames": 6,
+        "frames": 7,
         "blocked": false
       }
     },
@@ -616,9 +616,9 @@
       "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.45,
+        "end": 2.74,
         "win": 900,
-        "frames": 6,
+        "frames": 7,
         "blocked": false
       }
     },
@@ -627,9 +627,9 @@
       "test": "direction 22.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.35,
+        "end": 2.48,
         "win": 900,
-        "frames": 8,
+        "frames": 7,
         "blocked": false
       }
     },
@@ -638,7 +638,7 @@
       "test": "direction 112.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.6,
+        "end": 2.69,
         "win": 900,
         "frames": 6,
         "blocked": false
@@ -649,9 +649,9 @@
       "test": "direction 202.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.55,
+        "end": 2.71,
         "win": 900,
-        "frames": 5,
+        "frames": 7,
         "blocked": false
       }
     },
@@ -660,9 +660,9 @@
       "test": "direction 292.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.37,
+        "end": 2.72,
         "win": 900,
-        "frames": 6,
+        "frames": 7,
         "blocked": false
       }
     },
@@ -722,7 +722,7 @@
     },
     {
       "ok": true,
-      "test": "animation: slow = walk (0.99), max = run (0.99)"
+      "test": "animation: slow = walk (1), max = run (1)"
     },
     {
       "ok": true,
@@ -768,15 +768,15 @@
     },
     {
       "ok": true,
-      "test": "smooth acceleration: in the first 396 ms the avatar covers 82 % of the full-speed distance (model 82 %, ≈95 % speed after 0.21 s)"
+      "test": "smooth acceleration: in the first 368 ms the avatar covers 81 % of the full-speed distance (model 81 %, ≈95 % speed after 0.21 s)"
     },
     {
       "ok": true,
-      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), below 5 % speed after 122 ms, fully at rest after 2 frame(s) / 234 ms game time, no drift"
+      "test": "immediate stop after release: coasts 5.8 cm (model 5.9 cm), below 5 % speed after 132 ms, fully at rest after 1 frame(s) / 132 ms game time, no drift"
     },
     {
       "ok": true,
-      "test": "stick recentred, avatar idle (checked 905 ms after release)",
+      "test": "stick recentred, avatar idle (checked 907 ms after release)",
       "extra": {
         "active": false,
         "mode": "idle",
@@ -790,7 +790,7 @@
     },
     {
       "ok": true,
-      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.34 m along, min x 0.82 m)"
+      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.32 m along, min x 0.82 m)"
     },
     {
       "ok": true,
@@ -819,7 +819,13 @@
     },
     {
       "ok": true,
-      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.71 m)"
+      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.71 m)",
+      "extra": {
+        "ctrlD": [
+          0.6,
+          0.6
+        ]
+      }
     },
     {
       "ok": true,
@@ -831,7 +837,12 @@
     },
     {
       "ok": true,
-      "test": "tap-to-move still works after the joystick is released"
+      "test": "tap-to-move still works after the joystick is released (walking to a spot 1.5 m away, 0.38 m covered after 625 ms)",
+      "extra": {
+        "tapOk": true,
+        "mode": "walk",
+        "path": 1
+      }
     },
     {
       "ok": true,
@@ -846,7 +857,7 @@
         ],
         "last": [
           "walk",
-          0.73
+          0.67
         ]
       }
     },
@@ -860,7 +871,7 @@
     },
     {
       "ok": true,
-      "test": "hidden in decorate mode, back in play mode (visible again after 10 ms)",
+      "test": "hidden in decorate mode, back in play mode (visible again after 17 ms)",
       "extra": {
         "edit": [
           false
@@ -873,7 +884,7 @@
     },
     {
       "ok": true,
-      "test": "Yoo Plage: joystick walks on the sand/boardwalk (7.38 m), never into the sea or props"
+      "test": "Yoo Plage: joystick walks on the sand/boardwalk (6.25 m), never into the sea or props"
     },
     {
       "ok": true,

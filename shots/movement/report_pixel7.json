@@ -6,22 +6,22 @@
     412
   ],
   "dpr": 2.625,
-  "fps": 8,
+  "fps": 9,
   "maxSpeed": 1.9,
   "dirs": [
     {
       "stickDeg": 0,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.901,
-      "longFrames": 0,
+      "wallClockSpeed": 1.734,
+      "longFrames": 1,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.38,
-      "frames": 7,
+      "endInLane": 2.94,
+      "frames": 8,
       "blocked": false,
       "retries": 0
     },
@@ -36,8 +36,8 @@
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.26,
-      "frames": 6,
+      "endInLane": 2.62,
+      "frames": 9,
       "blocked": false,
       "retries": 0
     },
@@ -45,39 +45,7 @@
       "stickDeg": 90,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.9,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "lane": 3.4,
-      "windowMs": 900,
-      "endInLane": 2.64,
-      "frames": 8,
-      "blocked": false,
-      "retries": 0
-    },
-    {
-      "stickDeg": 135,
-      "diagonal": true,
-      "speed": 1.9,
-      "wallClockSpeed": 1.9,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "lane": 3.4,
-      "windowMs": 900,
-      "endInLane": 2.39,
-      "frames": 5,
-      "blocked": false,
-      "retries": 0
-    },
-    {
-      "stickDeg": 180,
-      "diagonal": false,
-      "speed": 1.9,
-      "wallClockSpeed": 1.913,
+      "wallClockSpeed": 1.902,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
@@ -85,7 +53,39 @@
       "lane": 3.4,
       "windowMs": 900,
       "endInLane": 2.55,
+      "frames": 9,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 135,
+      "diagonal": true,
+      "speed": 1.9,
+      "wallClockSpeed": 1.827,
+      "longFrames": 1,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.36,
       "frames": 6,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 180,
+      "diagonal": false,
+      "speed": 1.9,
+      "wallClockSpeed": 1.901,
+      "longFrames": 0,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.82,
+      "frames": 7,
       "blocked": false,
       "retries": 0
     },
@@ -93,15 +93,15 @@
       "stickDeg": 225,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.906,
+      "wallClockSpeed": 1.901,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.49,
-      "frames": 7,
+      "endInLane": 2.58,
+      "frames": 8,
       "blocked": false,
       "retries": 0
     },
@@ -109,15 +109,15 @@
       "stickDeg": 270,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.908,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.2,
-      "frames": 5,
+      "endInLane": 2.56,
+      "frames": 8,
       "blocked": false,
       "retries": 0
     },
@@ -125,15 +125,15 @@
       "stickDeg": 315,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.886,
+      "wallClockSpeed": 1.9,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.19,
-      "frames": 4,
+      "endInLane": 2.42,
+      "frames": 9,
       "blocked": false,
       "retries": 0
     },
@@ -148,8 +148,8 @@
       "screenErrDeg": 0,
       "lane": 3.4,
       "windowMs": 900,
-      "endInLane": 2.46,
-      "frames": 5,
+      "endInLane": 2.49,
+      "frames": 7,
       "blocked": false,
       "retries": 0
     },
@@ -157,39 +157,7 @@
       "stickDeg": 112.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.897,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "lane": 3.4,
-      "windowMs": 900,
-      "endInLane": 2.48,
-      "frames": 6,
-      "blocked": false,
-      "retries": 0
-    },
-    {
-      "stickDeg": 202.5,
-      "diagonal": true,
-      "speed": 1.9,
-      "wallClockSpeed": 1.899,
-      "longFrames": 0,
-      "pctMax": 100,
-      "worldErrDeg": 0,
-      "screenErrDeg": 0,
-      "lane": 3.4,
-      "windowMs": 900,
-      "endInLane": 2.5,
-      "frames": 7,
-      "blocked": false,
-      "retries": 0
-    },
-    {
-      "stickDeg": 292.5,
-      "diagonal": true,
-      "speed": 1.9,
-      "wallClockSpeed": 1.9,
+      "wallClockSpeed": 1.903,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
@@ -197,7 +165,39 @@
       "lane": 3.4,
       "windowMs": 900,
       "endInLane": 2.47,
-      "frames": 7,
+      "frames": 8,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 202.5,
+      "diagonal": true,
+      "speed": 1.9,
+      "wallClockSpeed": 1.903,
+      "longFrames": 0,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.71,
+      "frames": 6,
+      "blocked": false,
+      "retries": 0
+    },
+    {
+      "stickDeg": 292.5,
+      "diagonal": true,
+      "speed": 1.9,
+      "wallClockSpeed": 1.564,
+      "longFrames": 1,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
+      "lane": 3.4,
+      "windowMs": 900,
+      "endInLane": 2.38,
+      "frames": 6,
       "blocked": false,
       "retries": 0
     }
@@ -232,12 +232,12 @@
       "inputD": 0.15,
       "factor": 0.087,
       "speed": 0.165,
-      "wallClockSpeed": 0.165,
-      "longFrames": 0,
+      "wallClockSpeed": 0.164,
+      "longFrames": 1,
       "pctMax": 9,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 11,
+      "frames": 8,
       "blocked": false,
       "anim": {
         "s": 0.165,
@@ -254,16 +254,16 @@
       "inputD": 0.225,
       "factor": 0.3,
       "speed": 0.57,
-      "wallClockSpeed": 0.545,
-      "longFrames": 1,
+      "wallClockSpeed": 0.569,
+      "longFrames": 0,
       "pctMax": 30,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 7,
+      "frames": 9,
       "blocked": false,
       "anim": {
         "s": 0.57,
-        "walk": 0.98,
+        "walk": 1,
         "run": 0,
         "walkTS": 0.588,
         "runTS": 0.263
@@ -276,8 +276,8 @@
       "inputD": 0.3,
       "factor": 0.402,
       "speed": 0.765,
-      "wallClockSpeed": 0.765,
-      "longFrames": 0,
+      "wallClockSpeed": 0.727,
+      "longFrames": 2,
       "pctMax": 40,
       "lane": 3.4,
       "windowMs": 1200,
@@ -298,12 +298,12 @@
       "inputD": 0.5,
       "factor": 0.6,
       "speed": 1.14,
-      "wallClockSpeed": 1.14,
+      "wallClockSpeed": 1.143,
       "longFrames": 0,
       "pctMax": 60,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 8,
+      "frames": 10,
       "blocked": false,
       "anim": {
         "s": 1.14,
@@ -320,8 +320,8 @@
       "inputD": 0.6,
       "factor": 0.695,
       "speed": 1.32,
-      "wallClockSpeed": 1.31,
-      "longFrames": 1,
+      "wallClockSpeed": 1.32,
+      "longFrames": 0,
       "pctMax": 69,
       "lane": 3.4,
       "windowMs": 1200,
@@ -342,17 +342,17 @@
       "inputD": 0.775,
       "factor": 0.85,
       "speed": 1.615,
-      "wallClockSpeed": 1.191,
-      "longFrames": 2,
+      "wallClockSpeed": 1.612,
+      "longFrames": 1,
       "pctMax": 85,
       "lane": 3.4,
       "windowMs": 1200,
-      "frames": 3,
+      "frames": 9,
       "blocked": false,
       "anim": {
         "s": 1.615,
-        "walk": 0.11,
-        "run": 0.87,
+        "walk": 0,
+        "run": 1,
         "walkTS": 1.6,
         "runTS": 0.746
       }
@@ -364,17 +364,17 @@
       "inputD": 0.95,
       "factor": 1,
       "speed": 1.9,
-      "wallClockSpeed": 1.726,
-      "longFrames": 2,
+      "wallClockSpeed": 1.9,
+      "longFrames": 0,
       "pctMax": 100,
       "lane": 3.4,
-      "windowMs": 1105,
+      "windowMs": 1037,
       "frames": 7,
       "blocked": false,
       "anim": {
         "s": 1.9,
-        "walk": 0.02,
-        "run": 0.97,
+        "walk": 0,
+        "run": 1,
         "walkTS": 1.6,
         "runTS": 0.877
       }
@@ -386,17 +386,17 @@
       "inputD": 1,
       "factor": 1,
       "speed": 1.9,
-      "wallClockSpeed": 1.894,
-      "longFrames": 0,
+      "wallClockSpeed": 1.883,
+      "longFrames": 1,
       "pctMax": 100,
       "lane": 3.4,
-      "windowMs": 1119,
-      "frames": 7,
+      "windowMs": 1093,
+      "frames": 9,
       "blocked": false,
       "anim": {
         "s": 1.9,
         "walk": 0,
-        "run": 0.99,
+        "run": 1,
         "walkTS": 1.6,
         "runTS": 0.877
       }
@@ -406,97 +406,97 @@
   "diagAvg": 1.9,
   "accelSamples": [
     [
-      73354,
-      45.258,
+      74760,
+      46.036,
       4.3,
       3.1,
       0,
       0
     ],
     [
-      73486,
-      45.258,
+      74893,
+      46.036,
       4.3,
       3.1,
       0,
       0
     ],
     [
-      73727,
-      45.5,
-      3.994,
-      2.982,
-      1.84,
+      75032,
+      46.176,
+      4.16,
+      3.046,
+      1.63,
       1
     ],
     [
-      73748,
-      45.522,
-      3.956,
-      2.968,
-      1.85,
+      75176,
+      46.32,
+      3.92,
+      2.954,
+      1.86,
       1
     ],
     [
-      73862,
-      45.635,
-      3.758,
-      2.891,
+      75299,
+      46.442,
+      3.705,
+      2.871,
       1.89,
       1
     ],
     [
-      73998,
-      45.771,
-      3.517,
-      2.799,
+      75439,
+      46.583,
+      3.457,
+      2.776,
       1.9,
       1
     ],
     [
-      74118,
-      45.889,
-      3.307,
-      2.718,
+      75564,
+      46.708,
+      3.234,
+      2.69,
       1.9,
       1
     ],
     [
-      74360,
-      46.132,
-      2.877,
-      2.553,
+      75682,
+      46.826,
+      3.024,
+      2.609,
       1.9,
       1
     ],
     [
-      74482,
-      46.256,
-      2.658,
-      2.468,
+      75807,
+      46.951,
+      2.804,
+      2.524,
       1.9,
       1
     ],
     [
-      74497,
-      46.27,
-      2.632,
-      2.458,
+      75932,
+      47.076,
+      2.582,
+      2.439,
       1.9,
       1
     ]
   ],
   "accelRamp": {
-    "windowS": 0.377,
-    "distRatio": 0.811,
-    "theory": 0.811
+    "windowS": 0.407,
+    "distRatio": 0.825,
+    "theory": 0.825
   },
   "stop": {
     "coastM": 0.059,
     "theoryM": 0.059,
-    "under5pctMs": 119,
+    "under5pctMs": 109,
     "frames": 2,
-    "gameMs": 242
+    "gameMs": 230
   },
   "drift": 0,
   "results": [
@@ -539,9 +539,9 @@
       "test": "direction 0° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.38,
+        "end": 2.94,
         "win": 900,
-        "frames": 7,
+        "frames": 8,
         "blocked": false
       }
     },
@@ -550,9 +550,9 @@
       "test": "direction 45° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.26,
+        "end": 2.62,
         "win": 900,
-        "frames": 6,
+        "frames": 9,
         "blocked": false
       }
     },
@@ -561,9 +561,9 @@
       "test": "direction 90° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.64,
+        "end": 2.55,
         "win": 900,
-        "frames": 8,
+        "frames": 9,
         "blocked": false
       }
     },
@@ -572,9 +572,9 @@
       "test": "direction 135° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.39,
+        "end": 2.36,
         "win": 900,
-        "frames": 5,
+        "frames": 6,
         "blocked": false
       }
     },
@@ -583,15 +583,48 @@
       "test": "direction 180° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.55,
+        "end": 2.82,
         "win": 900,
-        "frames": 6,
+        "frames": 7,
         "blocked": false
       }
     },
     {
       "ok": true,
       "test": "direction 225° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.58,
+        "win": 900,
+        "frames": 8,
+        "blocked": false
+      }
+    },
+    {
+      "ok": true,
+      "test": "direction 270° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.56,
+        "win": 900,
+        "frames": 8,
+        "blocked": false
+      }
+    },
+    {
+      "ok": true,
+      "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
+      "extra": {
+        "lane": 3.4,
+        "end": 2.42,
+        "win": 900,
+        "frames": 9,
+        "blocked": false
+      }
+    },
+    {
+      "ok": true,
+      "test": "direction 22.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
         "end": 2.49,
@@ -602,45 +635,12 @@
     },
     {
       "ok": true,
-      "test": "direction 270° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
-      "extra": {
-        "lane": 3.4,
-        "end": 2.2,
-        "win": 900,
-        "frames": 5,
-        "blocked": false
-      }
-    },
-    {
-      "ok": true,
-      "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
-      "extra": {
-        "lane": 3.4,
-        "end": 2.19,
-        "win": 900,
-        "frames": 4,
-        "blocked": false
-      }
-    },
-    {
-      "ok": true,
-      "test": "direction 22.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
-      "extra": {
-        "lane": 3.4,
-        "end": 2.46,
-        "win": 900,
-        "frames": 5,
-        "blocked": false
-      }
-    },
-    {
-      "ok": true,
       "test": "direction 112.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.48,
+        "end": 2.47,
         "win": 900,
-        "frames": 6,
+        "frames": 8,
         "blocked": false
       }
     },
@@ -649,9 +649,9 @@
       "test": "direction 202.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.5,
+        "end": 2.71,
         "win": 900,
-        "frames": 7,
+        "frames": 6,
         "blocked": false
       }
     },
@@ -660,9 +660,9 @@
       "test": "direction 292.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen",
       "extra": {
         "lane": 3.4,
-        "end": 2.47,
+        "end": 2.38,
         "win": 900,
-        "frames": 7,
+        "frames": 6,
         "blocked": false
       }
     },
@@ -722,7 +722,7 @@
     },
     {
       "ok": true,
-      "test": "animation: slow = walk (0.98), max = run (0.99)"
+      "test": "animation: slow = walk (1), max = run (1)"
     },
     {
       "ok": true,
@@ -768,11 +768,11 @@
     },
     {
       "ok": true,
-      "test": "smooth acceleration: in the first 377 ms the avatar covers 81 % of the full-speed distance (model 81 %, ≈95 % speed after 0.21 s)"
+      "test": "smooth acceleration: in the first 407 ms the avatar covers 82 % of the full-speed distance (model 82 %, ≈95 % speed after 0.21 s)"
     },
     {
       "ok": true,
-      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), below 5 % speed after 119 ms, fully at rest after 2 frame(s) / 242 ms game time, no drift"
+      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), below 5 % speed after 109 ms, fully at rest after 2 frame(s) / 230 ms game time, no drift"
     },
     {
       "ok": true,
@@ -790,7 +790,7 @@
     },
     {
       "ok": true,
-      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.29 m along, min x 0.84 m)"
+      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.34 m along, min x 0.81 m)"
     },
     {
       "ok": true,
@@ -819,7 +819,13 @@
     },
     {
       "ok": true,
-      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.71 m)"
+      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.69 m)",
+      "extra": {
+        "ctrlD": [
+          0.6,
+          0.6
+        ]
+      }
     },
     {
       "ok": true,
@@ -831,7 +837,12 @@
     },
     {
       "ok": true,
-      "test": "tap-to-move still works after the joystick is released"
+      "test": "tap-to-move still works after the joystick is released (walking to a spot 1.5 m away, 0.37 m covered after 525 ms)",
+      "extra": {
+        "tapOk": true,
+        "mode": "walk",
+        "path": 1
+      }
     },
     {
       "ok": true,
@@ -846,7 +857,7 @@
         ],
         "last": [
           "walk",
-          0.27
+          0.79
         ]
       }
     },
@@ -860,7 +871,7 @@
     },
     {
       "ok": true,
-      "test": "hidden in decorate mode, back in play mode (visible again after 10 ms)",
+      "test": "hidden in decorate mode, back in play mode (visible again after 11 ms)",
       "extra": {
         "edit": [
           false
@@ -873,7 +884,7 @@
     },
     {
       "ok": true,
-      "test": "Yoo Plage: joystick walks on the sand/boardwalk (6.25 m), never into the sea or props"
+      "test": "Yoo Plage: joystick walks on the sand/boardwalk (7.30 m), never into the sea or props"
     },
     {
       "ok": true,

@@ -31,3 +31,17 @@ les réglages, click-to-move desktop) **n'est pas commencée**.
   collisions/glissement/bornes, animation, reset du stick, clavier, cohabitation tap-to-move / assis / danse.
 * `tools/e2e-joystick.mjs` : vrai jeu, vrais évènements tactiles (CDP `Input.dispatchTouchEvent`) — `DEV=iphone15|pixel7|se|ipad`.
 * `tools/e2e-desktop-move.mjs` : desktop (pas de joystick, clavier, chat, molette, `?joystick=1`).
+
+## Audit des échecs e2e (18/11) — causes et corrections
+
+| Échec observé | Cause | Correction |
+|---|---|---|
+| 22,5° à 64–88 %, « butée » d=1 à 82 %, anim max = run 0,56 | **Harnais** : couloir vérifié sur 2,4 m mais l'avatar parcourait ~2,6 m avant la fin de la fenêtre (le doigt glisse pendant ~0,3–0,6 s à 5 fps) → il arrivait au meuble en bout de couloir pendant la mesure | couloirs de 3,4 m, fenêtre dimensionnée pour finir dans la partie libre (distance déjà parcourue + 0,3 s + fenêtre ≤ couloir − 0,25 m) ; être bloqué dans un couloir libre = échec réel, jamais retenté |
+| « butée » lue d≈0,973 | **Jeu** : rayon de course du stick calculé avec `getBoundingClientRect` pendant la transition `scale(1.03)` de la base → rayon faux de ~3 % selon le moment de l'appui | rayon depuis les tailles de mise en page (`offsetWidth`), test unitaire ; le test « butée » pousse le doigt au-delà du bord (1,25 R) et exige d = 1 exactement |
+| NaN à 0° / 180° (iPad), erreur de cap 60° | **Harnais** : aucune image rendue dans la fenêtre (gel du rendu SwiftShader) ; le cap et la vitesse réutilisaient alors les points de la mesure précédente | état de mesure remis à zéro à chaque essai ; fenêtre inutilisable (0 image / < 3 images) = nouvel essai journalisé (max 2) |
+| « stick recentré, avatar idle » (iPhone 15) | **Harnais** : lecture unique alors que le knob revient avec une transition CSS de 0,14 s et que la pose idle est posée par l'image suivante (5 fps) | vérification répétée ≤ 1,5 s après relâchement, détails journalisés |
+| « assis + joystick → se lever » (Pixel 7, une fois) | **Harnais** : modes lus par sondage depuis node toutes les 120 ms + latence → phase « standing » manquée | modes enregistrés à chaque image par l'échantillonneur dans la page |
+| « caché en mode Décorer, de retour en jeu » (iPad) | **Harnais** : 300 ms fixes alors que le fondu d'opacité avance par image (gels de compilation de shaders en mode Décorer) | attente de la visibilité réelle ≤ 3 s |
+| iPad sans `?joystick=1` | Chrome headless 1024×768 ; un vrai iPad annonce `pointer: coarse` | **Jeu** : joystick aussi sur tout écran tactile sans pointeur fin survolant (`maxTouchPoints > 0` et pas `(hover: hover) and (pointer: fine)`) ; l'iPad est maintenant testé sans paramètre |
+| tap-to-move après le joystick : 0,34 m en 2,4 s (iPad, en ligne) | **Jeu** : `Character` bornait dt à 0,05 s par image → sous 20 fps, tap-to-move et animations tournaient au ralenti (25 % à 5 fps, pieds en retard sur le corps piloté par le joystick) | dt borné à 0,25 s comme le contrôleur, tap-to-move en sous-pas de ≤ 0,05 s (trajet identique), test unitaire 5 fps = 60 fps |
+| pincement : d 0,45 → 0,60 | **Harnais** : Chrome livre les mouvements tactiles alignés sur l'image suivante → dernier mouvement pas encore reçu | `stickTo` attend que le stick du jeu lise le déplacement demandé ; comparaison sur `stick.mag` |
