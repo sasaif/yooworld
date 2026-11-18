@@ -32,3 +32,17 @@ Aucun nouvel asset téléchargé, aucun achat.
 | Teaser vidéo et captures | `shots/surprise/*` | œuvre du projet | rendus du jeu (Chrome headless) ; carton-titre en police Poppins (SIL Open Font License, utilisée seulement pour le rendu de l’image, non embarquée dans le jeu) |
 
 Aucun nouvel asset téléchargé, aucun achat, aucun service tiers.
+
+## Ajouts branche `feature/avatar-fashion-economy` (Style, boutique mode, économie)
+| Élément | Fichier(s) | Licence | Source |
+|---|---|---|---|
+| Base des avatars personnalisés | Juanita / Juan (ci-dessus) | **CC0** | 100Avatars R3 — Polygonal Mind (Juan : dérivé du projet) |
+| Correction UV des jambes de Juan (permet les shorts) | `public/models/avatars/juanita_male.glb` (original dans `assets-src/`) | **CC0** (dérivé) | script `tools/fashion/build_parts.py` |
+| Masque d'atlas, métadonnées de pièces | `public/models/avatars/atlas_mask.png`, `*.parts.json` | code du projet | générés par `tools/fashion/build_parts.py` à partir des GLB CC0 |
+| Morphs du visage (formes de visage, yeux, nez, bouche, sourcils) | `src/render/avatar/custom/faceMorphs.ts` | code du projet | calculés en code sur la géométrie CC0 |
+| Coiffures, barbes, bottes, capuche/col fourrure, tous les accessoires | `src/render/avatar/custom/builders.ts` | code du projet | géométrie **100 % procédurale** ou réutilisation des mèches/chignons CC0 de Juanita/Juan |
+| Recoloration, motifs, imprimés, maquillage, taches de rousseur | `src/render/avatar/custom/composite.ts`, `decals.ts` | code du projet | peints par code (Canvas 2D) |
+| Miniatures de la boutique | `public/thumbs/fashion/*.webp` | **CC0** (dérivé) | rendus automatiques du jeu (`tools/fashion/thumbs.mjs`) |
+| Icônes | emoji système | — | aucune image téléchargée |
+
+Aucun nouvel asset téléchargé, aucun achat, aucun fournisseur de paiement connecté.
