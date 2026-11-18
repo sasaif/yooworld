@@ -23,7 +23,7 @@ import { useActivityRewards } from '../fashion/useActivityRewards';
 import { SHOT, SHOT_CAM, runShotScript } from './shots';
 import { RotateOverlay } from '../ui/RotateOverlay';
 import { BeachAmbience, BeachView } from '../render/beach/BeachView';
-import { BEACH_CENTER, BEACH_FRAME } from '../game/beach/beachLayout';
+import { BEACH, BEACH_CENTER, BEACH_FRAME } from '../game/beach/beachLayout';
 import { TravelFade } from '../ui/TravelFade';
 import { VARIANT } from './variant';
 import { camStore, camViewFollow, camViewZoomMul } from './camView';
@@ -48,6 +48,8 @@ world.chars.f = makeChar('f', 'Juanita', 3.0, 2.85, 0.5);
 world.chars.m = makeChar('m', 'Juan', 3.7, 2.85, -0.3);
 const small = Math.min(innerWidth, innerHeight) < 600;
 const ROOM = { w: W, d: D, wallH: WALL_H };
+/** Yoo Plage: the camera stays over the walkable beach (16 m × 11 m), like it stays on the room at home */
+const BEACH_BOUNDS = { x0: 0, z0: 0, x1: BEACH.w, z1: BEACH.d, h: 1.5 };
 const JOY = !SHOT && wantsJoystick();
 installGlobalInput({ keyboard: !SHOT });
 installMoveDebug();
@@ -91,7 +93,7 @@ export default function App() {
         </Suspense>
         <Stats />
         <PerfCollectorGate />
-        <CameraRig key={loc} target={cam.target} zoom={cam.zoom} dir={cam.dir} interactive={!SHOT} panEnabled={!placing} room={SHOT ? undefined : beach ? BEACH_FRAME : ROOM}
+        <CameraRig key={loc} target={cam.target} zoom={cam.zoom} dir={cam.dir} interactive={!SHOT} panEnabled={!placing} room={SHOT ? undefined : beach ? BEACH_FRAME : ROOM} bounds={beach ? BEACH_BOUNDS : undefined}
           zoomMul={camViewZoomMul(view, VARIANT.zoomMul)} followLean={camViewFollow(view, beach ? 0.22 : VARIANT.follow)}
           follow={SHOT ? undefined : () => world.chars[game.s.activeChar]?.pos ?? null} />
       </Canvas>

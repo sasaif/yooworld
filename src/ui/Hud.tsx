@@ -13,6 +13,7 @@ import { world } from '../game/world';
 import { enterLandscape } from '../app/screen';
 import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
+import { chatScopeNote, netBadge } from '../net/netStatus';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
@@ -53,7 +54,7 @@ function TopBar() {
       <CamViewChip />
       <button className={'chip settings' + (panel === 'settings' ? ' on' : '')} title="Réglages des contrôles" aria-label="Réglages des contrôles" onClick={() => game.setPanel('settings')}>⚙️</button>
       {document.fullscreenEnabled && !document.fullscreenElement && matchMedia('(pointer: coarse)').matches && <button className="chip fs" title="Plein écran" aria-label="Plein écran" onClick={() => void enterLandscape()}>⛶</button>}
-      <span className="chip net" title="Aucun serveur : seuls les personnages locaux sont présents">● Hors ligne</span>
+      <NetChip />
     </div>
   );
 }
@@ -187,12 +188,24 @@ function FinishesSheet() {
     </div>
   );
 }
+/** Connectivity badge: 'Mode local' (offline prototype) until a real server is connected; tap = what it means. */
+function NetChip() {
+  const [open, setOpen] = useState(false); const b = netBadge(game.net.status);
+  useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 6000); return () => clearTimeout(t); }, [open]);
+  return (
+    <span className="netwrap">
+      <button className={'chip net net-' + b.tone} aria-label={b.label + ' : ' + b.detail} aria-expanded={open} onClick={() => setOpen(!open)}><i className="net-dot" />{b.label}</button>
+      {open && <div className="net-pop" role="status" onClick={() => setOpen(false)}><b>{b.tone === 'local' ? 'Mode local — prototype hors ligne' : b.label}</b><span>{b.detail}</span></div>}
+    </span>
+  );
+}
 function ChatSheet() {
   const [msg, setMsg] = useState(''); const [, f] = useState(0);
   useEffect(() => game.chat.onMessage(() => f((n) => n + 1)), []);
   return (
-    <div className="sheet">
-      <h3>Chat <small className="muted">local · hors ligne</small><button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
+    <div className="sheet chat-sheet">
+      <h3>Chat <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{netBadge(game.net.status).tone === 'local' ? 'Mode local · hors ligne' : netBadge(game.net.status).short}</span><button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
+      <p className="chat-scope">{chatScopeNote(game.net.status)}</p>
       <div className="chatlog">{game.chat.history().slice(-6).map((m, i) => <div key={i}><b>{world.chars[m.from]?.name ?? m.from}</b> {m.text}</div>)}</div>
       <form className="chatbar" onSubmit={(e) => { e.preventDefault(); if (msg.trim()) game.sendChat(msg); setMsg(''); }}>
         <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Dire quelque chose…" maxLength={80} />

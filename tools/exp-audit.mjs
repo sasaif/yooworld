@@ -17,12 +17,12 @@ for (const [name, o] of Object.entries(DEV)) {
   for (const sc of scenes) {
     const ctx = await b.newContext({ ...o, deviceScaleFactor: DPR ?? o.deviceScaleFactor }); const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message));
-    await ctx.addInitScript((sc) => { try { sessionStorage.setItem('yw.portrait', '1'); localStorage.setItem('yw.camView', sc === 'perso' ? 'avatar' : 'room'); } catch { /* */ } }, sc);
+    await ctx.addInitScript((sc) => { try { sessionStorage.setItem('yw.portrait', '1'); localStorage.setItem('yw.camView', sc.includes('perso') ? 'avatar' : 'room'); } catch { /* */ } }, sc);
     const sep = url.includes('?') ? '&' : '?';
     await p.goto(url + sep + 'fresh=1' + (sc === 'plage' ? '&lieu=plage' : '&lieu=appart'), { timeout: 120000 });
     await p.waitForFunction(() => window.game?.s.ready && window.__cam, null, { timeout: 180000 });
     await p.waitForTimeout(Number(process.env.WAIT ?? 8000));
-    const m = await p.evaluate((beach) => {
+    const measure = () => p.evaluate((beach) => {
       const cam = window.__cam; const V = cam.position.constructor; const W = innerWidth, H = innerHeight;
       const room = beach ? null : { w: 7.2, d: 6.0, h: window.__wallH ?? 1.55 };
       const proj = (x, y, z) => { const v = new V(x, y, z).project(cam); return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H]; };
@@ -45,6 +45,24 @@ for (const [name, o] of Object.entries(DEV)) {
       const met = window.__metrics?.() ?? {}; const act = window.game.s.activeChar;
       return { vw: W, vh: H, stage: [Math.round(st.width), Math.round(st.height)], canvas: [Math.round(cv.width), Math.round(cv.height)], zoom: met.zoom, room: r, avatarPx: met[act]?.screenH, avatarVisible: met[act]?.fullyVisible, other: met[act === 'f' ? 'm' : 'f']?.screenH, calls: window.__info?.calls };
     }, sc === 'plage');
+    let m;
+    if (sc === 'roam' || sc === 'roamperso') {
+      // avatar walks to the room corners (bed, kitchen, dining table, door): worst-case framing while following
+      const spots = { bed: [1.9, 4.6], kitchen: [6.4, 1.3], table: [5.4, 5.0], door: [5.3, 0.9], tv: [1.2, 1.7] }; const per = {};
+      for (const [k, [x, z]] of Object.entries(spots)) {
+        await p.evaluate(([x, z]) => { const c = window.__world.chars[window.game.s.activeChar]; c.pos.set(x, 0, z); c.path = []; window.dispatchEvent(new Event('yw:follow')); }, [x, z]);
+        await p.waitForTimeout(5000); const r = await measure(); per[k] = { room: r.room?.roomPctOfScreen, vis: r.room?.roomVisiblePct, av: r.avatarVisible };
+        if (k === 'bed') await p.screenshot({ path: `${out}/${name}_${sc}_bed.png` });
+      }
+      // one-finger pan far away (touch) or mouse drag: does the camera leave the room?
+      const W = o.viewport.width, H = o.viewport.height;
+      if (o.hasTouch) { const cdp = await ctx.newCDPSession(p); const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
+        for (let rep = 0; rep < 3; rep++) { await T('touchStart', W * 0.6, H * 0.25); for (let i = 1; i <= 8; i++) await T('touchMove', W * 0.6 - i * W * 0.05, H * 0.25 + i * H * 0.09); await T('touchEnd'); await p.waitForTimeout(400); } }
+      else { for (let rep = 0; rep < 3; rep++) { await p.mouse.move(W * 0.6, H * 0.25); await p.mouse.down(); for (let i = 1; i <= 8; i++) await p.mouse.move(W * 0.6 - i * W * 0.05, H * 0.25 + i * H * 0.09); await p.mouse.up(); await p.waitForTimeout(400); } }
+      await p.waitForTimeout(2500); const r = await measure(); per.afterPan = { room: r.room?.roomPctOfScreen, vis: r.room?.roomVisiblePct, av: r.avatarVisible };
+      await p.screenshot({ path: `${out}/${name}_${sc}_pan.png` });
+      const vals = Object.values(per).map((q) => q.room); m = { per, worstRoomPct: Math.min(...vals) };
+    } else m = await measure();
     await p.screenshot({ path: `${out}/${name}_${sc}.png` });
     res[`${name}_${sc}`] = { ...m, errors: errs.slice(0, 3) }; console.log(name, sc, JSON.stringify(res[`${name}_${sc}`]));
     await ctx.close();

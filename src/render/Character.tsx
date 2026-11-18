@@ -109,7 +109,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div className="tagwrap">
             <div ref={bubble} className="bubble" />
-            <div className="nametag" style={{ background: def.tagColor }}>{c.name}</div>
+            <div className="nametag" style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">PNJ</span>}</div>
           </div>
         </Html>
       </group>
