@@ -210,7 +210,7 @@ if (TOUCH) {
     await p.waitForFunction(() => { const m = window.__move(); return !m.stick.active && m.speed < 0.02 && !m.driving; }, null, { timeout: 3000, polling: 40 }).catch(() => {}); const m3 = await mv();
     const drove = Math.hypot(m2.pos[0] - m1.pos[0], m2.pos[1] - m1.pos[1]);
     ok(r && m0.path > 0 && m1.path === 0 && m1.engaged && m1.marker.phase !== 'active' && drove > 0.2 && m3.path === 0 && m3.speed < 0.02,
-      `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick drives (${drove.toFixed(2)} m in 0.9 s), stops on release`, { m0path: m0.path, m1: { path: m1.path, engaged: m1.engaged, mk: m1.marker.phase }, m3: { path: m3.path, speed: +m3.speed.toFixed(3), mode: m3.mode } }); }
+      `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick drives (${drove.toFixed(2)} m in 0.9 s), stops on release`, { m0path: m0.path, m1: { path: m1.path, engaged: m1.engaged, mk: m1.marker.phase }, m3: { path: m3.path, speed: +m3.speed.toFixed(3), mode: m3.mode }, m2: { stick: m2.stick, speed: m2.speed, blocked: m2.blocked, pos: m2.pos, p1: m1.pos, frames: [m1.frames, m2.frames], input: m2.input, mode: m2.mode } }); }
   // --- furniture menu still opens with tap-to-move ON, and does not walk to the floor behind
   { await closeMenu(); const c0 = await mv(); const f = await tapFurniture(); ok(!!f && f.el && f.floorTaps === 0, `ON: tapping furniture still opens its menu (${f?.it.name ?? 'none found'}), no floor walk triggered`);
     if (f) await p.screenshot({ path: `${SHOTS}/${tag}${devName}_furniture_menu_on.png` }); await closeMenu(); }
