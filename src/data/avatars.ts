@@ -3,10 +3,13 @@ export type RigId = 'mixamo';
 export interface AvatarDef {
   id: string; label: string; url: string; rig: RigId; facing: 'negZ' | 'posZ'; tagColor: string;
   sitForward: number; // metres the hips sit in front of the seat centre (avoid legs clipping into box sofas)
+  scale: number;      // visual scale vs the authored 0.96 m model (checked against door opening 1.18 m, fridge 1.10 m, sofa seat)
 }
+/** +10%: avatar 0.96 m -> 1.06 m = 90% of the door opening (1.18 m), just under the fridge top (1.10 m). See docs/POLISH_AUDIT.md. */
+export const AVATAR_SCALE = 1.1;
 export const AVATARS: Record<string, AvatarDef> = {
-  f: { id: 'f', label: 'Femme (Juanita)', url: import.meta.env.BASE_URL + 'models/avatars/juanita_female.glb', rig: 'mixamo', facing: 'negZ', tagColor: '#e2569b', sitForward: 0.13 },
-  m: { id: 'm', label: 'Homme (Juan)', url: import.meta.env.BASE_URL + 'models/avatars/juanita_male.glb', rig: 'mixamo', facing: 'negZ', tagColor: '#4f8be0', sitForward: 0.13 },
+  f: { id: 'f', label: 'Femme (Juanita)', url: import.meta.env.BASE_URL + 'models/avatars/juanita_female.glb', rig: 'mixamo', facing: 'negZ', tagColor: '#e2569b', sitForward: 0.13, scale: AVATAR_SCALE },
+  m: { id: 'm', label: 'Homme (Juan)', url: import.meta.env.BASE_URL + 'models/avatars/juanita_male.glb', rig: 'mixamo', facing: 'negZ', tagColor: '#4f8be0', sitForward: 0.13, scale: AVATAR_SCALE },
 };
 /** Shared animation library (Quaternius 23-bone, CC0) retargeted at runtime onto each avatar. */
 export const ANIM_LIBRARY = import.meta.env.BASE_URL + 'models/anim/QACP_Casual_Female_23bones.glb';

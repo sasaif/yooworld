@@ -23,3 +23,14 @@ describe('camera fit', () => {
     const l = zoomLimits(100); expect(l.min).toBeLessThan(100); expect(l.max).toBeGreaterThan(300);
   });
 });
+
+import { AVATARS, AVATAR_SCALE } from '../src/data/avatars';
+describe('avatar scale vs room', () => {
+  it('avatars are 1.05-1.15x and stay under the door opening (1.18 m)', () => {
+    expect(AVATAR_SCALE).toBeGreaterThanOrEqual(1.05); expect(AVATAR_SCALE).toBeLessThanOrEqual(1.15);
+    Object.values(AVATARS).forEach((a) => expect(0.97 * a.scale).toBeLessThan(1.18));
+  });
+  it('on an iPhone in landscape the avatar is >= 25% taller on screen than before (zoom 70, scale 1)', () => {
+    const z = fitZoom(852, 393, room, ISO); expect((z * AVATAR_SCALE) / 70).toBeGreaterThan(1.25);
+  });
+});

@@ -33,22 +33,23 @@ export function Character({ c, def, selected, onSelect }: { c: CharState; def: A
         s.mode = 'walk';
         const run = s.speed > (LOCO.walk + LOCO.run) / 2;
         play(run ? 'run' : 'walk', 0.2);
-        built.actions[run ? 'run' : 'walk'].timeScale = THREE.MathUtils.clamp(s.speed / (run ? LOCO.run : LOCO.walk), 0.45, 1.3);
+        // stride grows with the avatar scale: play the cycle slower so feet don't slide
+        built.actions[run ? 'run' : 'walk'].timeScale = THREE.MathUtils.clamp(s.speed / ((run ? LOCO.run : LOCO.walk) * def.scale), 0.45, 1.3);
       } else if (s.pendingSeat) {
         const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting'; s.yaw = seat.yaw;
         const fwd = new THREE.Vector3(Math.sin(seat.yaw), 0, Math.cos(seat.yaw));
-        s.pos.copy(seat.pos).addScaledVector(fwd, def.sitForward); s.pos.y = 0.04;
+        s.pos.copy(seat.pos).addScaledVector(fwd, def.sitForward * def.scale); s.pos.y = 0.04 - (def.scale - 1) * 0.22; // hips stay on the cushion
         play('sit', 0.25);
       } else { s.mode = s.emote ? 'emote' : 'idle'; play(s.emote ? 'emote' : 'idle', 0.3); }
     }
     built.mixer.update(dt);
     outer.current.position.copy(s.pos); outer.current.rotation.y = s.yaw;
-    tag.current.position.y += ((s.mode === 'sitting' ? 0.86 : 1.12) - tag.current.position.y) * Math.min(1, dt * 6);
+    tag.current.position.y += ((s.mode === 'sitting' ? 0.95 : 1.14) - tag.current.position.y) * Math.min(1, dt * 6);
     if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
   });
 
   return (
-    <group ref={outer} onClick={(e) => { if (e.delta > 8) return; e.stopPropagation(); onSelect(); }}>
+    <group ref={outer} scale={def.scale} onClick={(e) => { if (e.delta > 8) return; e.stopPropagation(); onSelect(); }}>
       <primitive object={built.holder} />
       {/* soft blob shadow: cheap contact shadow that also works when real shadows are off (mobile) */}
       <mesh rotation-x={-Math.PI / 2} position-y={0.006} renderOrder={-1}><circleGeometry args={[0.2, 24]} /><meshBasicMaterial color="#2a1530" transparent opacity={0.22} depthWrite={false} /></mesh>
