@@ -31,9 +31,7 @@ export function VirtualJoystick({ hidden, panelOpen }: { hidden?: boolean; panel
       onPointerDown={(e) => {
         e.preventDefault(); e.stopPropagation();
         if (stick.active && stick.pointerId !== e.pointerId) return; // one finger drives the stick
-        const r = base.current!.getBoundingClientRect(); const kn = knob.current!.getBoundingClientRect();
-        // max thumb travel: knob centre may reach the base rim
-        geo.current = { cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: Math.max(20, r.width / 2 - kn.width * 0.18) };
+        geo.current = joyGeometry(base.current!, knob.current!);
         try { base.current!.setPointerCapture(e.pointerId); } catch { /* synthetic pointers */ }
         move(e);
       }}
@@ -46,8 +44,28 @@ export function VirtualJoystick({ hidden, panelOpen }: { hidden?: boolean; panel
     </div>
   );
 }
-/** Joystick on touch-first devices (coarse primary pointer); `?joystick=1` forces it, `?joystick=0` hides it. */
-export function wantsJoystick(search = typeof location !== 'undefined' ? location.search : '', coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches) {
+/**
+ * Stick geometry in CSS px. Uses the LAYOUT sizes (offsetWidth), not getBoundingClientRect sizes: the base has a
+ * scale() press / release transition, so a rect read mid-transition used to give a travel radius up to ~3 % off
+ * (a thumb on the rim then read d≈0.97). The centre is taken from the rect (a centred scale does not move it).
+ * Max thumb travel: the knob centre may reach the base rim.
+ */
+export function joyGeometry(base: HTMLElement, knob: HTMLElement) {
+  const r = base.getBoundingClientRect();
+  return { cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: stickRadius(base.offsetWidth, knob.offsetWidth) };
+}
+export const stickRadius = (baseW: number, knobW: number) => Math.max(20, baseW / 2 - knobW * 0.18);
+
+const mq = (q: string) => typeof matchMedia !== 'undefined' && matchMedia(q).matches;
+/**
+ * Joystick on touch-first devices: a coarse primary pointer, OR any touch screen without a fine hovering primary
+ * pointer (iPadOS Safari in "desktop" mode reports a Mac UA; some Android tablets / Chromebooks in tablet mode
+ * misreport pointer:coarse). A touch laptop driven by its trackpad (fine + hover) keeps click / keyboard controls.
+ * `?joystick=1` forces it, `?joystick=0` hides it.
+ */
+export function wantsJoystick(search = typeof location !== 'undefined' ? location.search : '', coarse = mq('(pointer: coarse)'),
+  touchPoints = typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0, fineHover = mq('(hover: hover) and (pointer: fine)')) {
   const q = new URLSearchParams(search).get('joystick');
-  if (q === '1') return true; if (q === '0') return false; return coarse;
+  if (q === '1') return true; if (q === '0') return false;
+  return coarse || (touchPoints > 0 && !fineHover);
 }

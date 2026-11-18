@@ -5,7 +5,7 @@ import { MOVE_DEFAULTS, camBasisFromDir, newMoveState, screenToWorldDir, stepMov
 import { gridCollider, discBlocked } from '../src/game/movement/collision';
 import { locoBlend } from '../src/game/movement/animBlend';
 import { keyboardVector, readInput, resetStick, setStick, stick, stickFromOffset, onStickReset } from '../src/input/joystick/joystickState';
-import { wantsJoystick } from '../src/input/joystick/VirtualJoystick';
+import { stickRadius, wantsJoystick } from '../src/input/joystick/VirtualJoystick';
 import { NavGrid } from '../src/game/nav/NavGrid';
 import { ISO_DIR } from '../src/render/CameraRig';
 import { LOCO } from '../src/game/character/locomotion';
@@ -174,8 +174,15 @@ describe('joystick input state', () => {
     const d = keyboardVector(['KeyW', 'KeyD'], false); expect(Math.hypot(d.x, d.y)).toBeCloseTo(1, 9);
     expect(keyboardVector(['ArrowLeft'], true).mag).toBe(0.5); expect(keyboardVector(['KeyW', 'KeyS'], false).mag).toBe(0);
   });
+  it('stick travel radius comes from layout sizes (148 px base, 44 % knob → 62.3 px), never below 20 px', () => {
+    expect(stickRadius(148, 148 * 0.44)).toBeCloseTo(74 - 148 * 0.44 * 0.18, 9); expect(stickRadius(124, 124 * 0.44)).toBeCloseTo(52.18, 2); expect(stickRadius(10, 5)).toBe(20);
+  });
   it('shown on touch devices only (?joystick=1 / 0 override)', () => {
     expect(wantsJoystick('', true)).toBe(true); expect(wantsJoystick('', false)).toBe(false);
+    // iPad / touch tablet that does not report pointer:coarse: touch points and no fine hovering pointer → joystick
+    expect(wantsJoystick('', false, 5, false)).toBe(true);
+    // touch laptop driven by a trackpad (fine + hover) → click / keyboard, no stick; plain desktop → none
+    expect(wantsJoystick('', false, 10, true)).toBe(false); expect(wantsJoystick('', false, 0, false)).toBe(false);
     expect(wantsJoystick('?joystick=1', false)).toBe(true); expect(wantsJoystick('?joystick=0', true)).toBe(false);
   });
 });
