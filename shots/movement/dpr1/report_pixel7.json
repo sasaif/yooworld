@@ -13,51 +13,51 @@
       "stickDeg": 0,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.916,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
-      "worldErrDeg": 1.8,
-      "screenErrDeg": 1,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
       "run": 2.4
     },
     {
       "stickDeg": 45,
       "diagonal": true,
-      "speed": 1.669,
-      "wallClockSpeed": 1.671,
+      "speed": 1.9,
+      "wallClockSpeed": 1.901,
       "longFrames": 0,
-      "pctMax": 88,
-      "worldErrDeg": 1.8,
-      "screenErrDeg": 2.2,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
       "run": 2.4
     },
     {
       "stickDeg": 90,
       "diagonal": false,
-      "speed": 1.792,
-      "wallClockSpeed": 1.785,
+      "speed": 1.9,
+      "wallClockSpeed": 1.896,
       "longFrames": 0,
-      "pctMax": 94,
-      "worldErrDeg": 1.1,
-      "screenErrDeg": 1.9,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
       "run": 2.4
     },
     {
       "stickDeg": 135,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.897,
+      "wallClockSpeed": 1.9,
       "longFrames": 0,
       "pctMax": 100,
-      "worldErrDeg": 2.4,
-      "screenErrDeg": 3,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
       "run": 2.4
     },
     {
       "stickDeg": 180,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.897,
+      "wallClockSpeed": 1.9,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
@@ -79,7 +79,7 @@
       "stickDeg": 270,
       "diagonal": false,
       "speed": 1.9,
-      "wallClockSpeed": 1.903,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
@@ -100,30 +100,30 @@
     {
       "stickDeg": 22.5,
       "diagonal": true,
-      "speed": 1.653,
-      "wallClockSpeed": 1.654,
+      "speed": 1.899,
+      "wallClockSpeed": 1.897,
       "longFrames": 0,
-      "pctMax": 87,
-      "worldErrDeg": 3.1,
-      "screenErrDeg": 2.2,
+      "pctMax": 100,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
       "run": 2.4
     },
     {
       "stickDeg": 112.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.908,
+      "wallClockSpeed": 1.898,
       "longFrames": 0,
       "pctMax": 100,
-      "worldErrDeg": 1.2,
-      "screenErrDeg": 1.9,
+      "worldErrDeg": 0,
+      "screenErrDeg": 0,
       "run": 2.4
     },
     {
       "stickDeg": 202.5,
       "diagonal": true,
       "speed": 1.9,
-      "wallClockSpeed": 1.9,
+      "wallClockSpeed": 1.899,
       "longFrames": 0,
       "pctMax": 100,
       "worldErrDeg": 0,
@@ -222,7 +222,7 @@
       "inputD": 0.5,
       "factor": 0.6,
       "speed": 1.14,
-      "wallClockSpeed": 1.14,
+      "wallClockSpeed": 1.141,
       "longFrames": 0,
       "pctMax": 60,
       "anim": {
@@ -240,7 +240,7 @@
       "inputD": 0.6,
       "factor": 0.695,
       "speed": 1.32,
-      "wallClockSpeed": 1.319,
+      "wallClockSpeed": 1.322,
       "longFrames": 0,
       "pctMax": 69,
       "anim": {
@@ -258,7 +258,7 @@
       "inputD": 0.775,
       "factor": 0.85,
       "speed": 1.615,
-      "wallClockSpeed": 1.617,
+      "wallClockSpeed": 1.616,
       "longFrames": 0,
       "pctMax": 85,
       "anim": {
@@ -275,10 +275,10 @@
       "target": 1,
       "inputD": 0.95,
       "factor": 1,
-      "speed": 1.843,
-      "wallClockSpeed": 1.844,
+      "speed": 1.9,
+      "wallClockSpeed": 1.901,
       "longFrames": 0,
-      "pctMax": 97,
+      "pctMax": 100,
       "anim": {
         "s": 1.9,
         "walk": 0,
@@ -293,10 +293,10 @@
       "target": 1,
       "inputD": 1,
       "factor": 1,
-      "speed": 1.805,
-      "wallClockSpeed": 1.806,
+      "speed": 1.9,
+      "wallClockSpeed": 1.902,
       "longFrames": 0,
-      "pctMax": 95,
+      "pctMax": 100,
       "anim": {
         "s": 1.9,
         "walk": 0,
@@ -306,100 +306,101 @@
       }
     }
   ],
-  "straightAvg": 1.873,
-  "diagAvg": 1.84,
+  "straightAvg": 1.9,
+  "diagAvg": 1.9,
   "accelSamples": [
     [
-      62968,
-      39.438,
+      63819,
+      39.139,
       3.5,
-      2.7,
+      3.1,
       0,
       0
     ],
     [
-      63047,
-      39.438,
+      63926,
+      39.139,
       3.5,
-      2.7,
+      3.1,
       0,
       0
     ],
     [
-      63125,
-      39.516,
-      3.446,
-      2.679,
-      1.26,
+      63982,
+      39.194,
+      3.471,
+      3.089,
+      1.02,
       1
     ],
     [
-      63147,
-      39.539,
-      3.417,
-      2.668,
-      1.44,
+      64128,
+      39.342,
+      3.26,
+      3.008,
+      1.79,
       1
     ],
     [
-      63222,
-      39.613,
-      3.305,
-      2.625,
-      1.74,
+      64156,
+      39.369,
+      3.213,
+      2.99,
+      1.82,
       1
     ],
     [
-      63311,
-      39.703,
-      3.154,
-      2.567,
-      1.85,
-      1
-    ],
-    [
-      63382,
-      39.773,
-      3.031,
-      2.52,
-      1.88,
-      1
-    ],
-    [
-      63451,
-      39.843,
-      2.909,
-      2.473,
+      64294,
+      39.506,
+      2.975,
+      2.898,
       1.89,
       1
     ],
     [
-      63523,
-      39.915,
-      2.781,
-      2.423,
+      64376,
+      39.589,
+      2.828,
+      2.841,
       1.9,
       1
     ],
     [
-      63595,
-      39.986,
-      2.655,
-      2.375,
+      64536,
+      39.75,
+      2.543,
+      2.732,
+      1.9,
+      1
+    ],
+    [
+      64627,
+      39.84,
+      2.384,
+      2.671,
+      1.9,
+      1
+    ],
+    [
+      64711,
+      39.924,
+      2.235,
+      2.613,
       1.9,
       1
     ]
   ],
   "accelRamp": {
-    "windowS": 0.335,
-    "distRatio": 0.789,
-    "theory": 0.789
+    "windowS": 0.367,
+    "distRatio": 0.807,
+    "theory": 0.807
   },
   "stop": {
     "coastM": 0.059,
     "theoryM": 0.059,
+    "under5pctMs": 162,
     "frames": 2,
-    "gameMs": 194
+    "gameMs": 162
   },
   "drift": 0,
   "results": [
@@ -439,19 +440,19 @@
     },
     {
       "ok": true,
-      "test": "direction 0° → 1.90 m/s (100 %), heading error 1.8° world / 1.0° on screen"
-    },
-    {
-      "ok": false,
-      "test": "direction 45° → 1.67 m/s (88 %), heading error 1.8° world / 2.2° on screen"
+      "test": "direction 0° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
     },
     {
       "ok": true,
-      "test": "direction 90° → 1.79 m/s (94 %), heading error 1.1° world / 1.9° on screen"
+      "test": "direction 45° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
     },
     {
       "ok": true,
-      "test": "direction 135° → 1.90 m/s (100 %), heading error 2.4° world / 3.0° on screen"
+      "test": "direction 90° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
+    },
+    {
+      "ok": true,
+      "test": "direction 135° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
     },
     {
       "ok": true,
@@ -470,12 +471,12 @@
       "test": "direction 315° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
     },
     {
-      "ok": false,
-      "test": "direction 22.5° → 1.65 m/s (87 %), heading error 3.1° world / 2.2° on screen"
+      "ok": true,
+      "test": "direction 22.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
     },
     {
       "ok": true,
-      "test": "direction 112.5° → 1.90 m/s (100 %), heading error 1.2° world / 1.9° on screen"
+      "test": "direction 112.5° → 1.90 m/s (100 %), heading error 0.0° world / 0.0° on screen"
     },
     {
       "ok": true,
@@ -487,7 +488,7 @@
     },
     {
       "ok": true,
-      "test": "diagonals not faster: straight 1.87 m/s vs diagonal 1.84 m/s"
+      "test": "diagonals not faster: straight 1.90 m/s vs diagonal 1.90 m/s"
     },
     {
       "ok": true,
@@ -519,14 +520,14 @@
     },
     {
       "ok": true,
-      "test": "max band d=0.95: 1.84 m/s = 97 % of max (target ≈100 %)"
+      "test": "max band d=0.95: 1.90 m/s = 100 % of max (target ≈100 %)"
     },
     {
       "ok": true,
-      "test": "max (butée) band d=1: 1.81 m/s = 95 % of max (target ≈100 %)"
+      "test": "max (butée) band d=1: 1.90 m/s = 100 % of max (target ≈100 %)"
     },
     {
-      "ok": false,
+      "ok": true,
       "test": "speed increases progressively with displacement",
       "extra": [
         0.165,
@@ -535,8 +536,8 @@
         1.14,
         1.32,
         1.615,
-        1.843,
-        1.805
+        1.9,
+        1.9
       ]
     },
     {
@@ -587,11 +588,11 @@
     },
     {
       "ok": true,
-      "test": "smooth acceleration: in the first 335 ms the avatar covers 79 % of the full-speed distance (model 79 %, ≈95 % speed after 0.21 s)"
+      "test": "smooth acceleration: in the first 367 ms the avatar covers 81 % of the full-speed distance (model 81 %, ≈95 % speed after 0.21 s)"
     },
     {
       "ok": true,
-      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), at rest after 2 frame(s) / 194 ms game time, no drift"
+      "test": "immediate stop after release: coasts 5.9 cm (model 5.9 cm), below 5 % speed after 162 ms, fully at rest after 2 frame(s) / 162 ms game time, no drift"
     },
     {
       "ok": true,
@@ -603,11 +604,11 @@
     },
     {
       "ok": true,
-      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.24 m along, min x 0.86 m)"
+      "test": "wall slide: pushing diagonally into a wall (or the furniture line along it) slides along it (+2.26 m along, min x 0.86 m)"
     },
     {
       "ok": true,
-      "test": "furniture: avatar never enters the furniture footprint (obstacle 0.70 m ahead; advanced 0.85 m, 0.92 m travelled incl. sliding around it)",
+      "test": "furniture: avatar never enters the furniture footprint (obstacle 0.70 m ahead; advanced 0.84 m, 0.92 m travelled incl. sliding around it)",
       "extra": {
         "blockedCells": 202
       }
@@ -632,7 +633,7 @@
     },
     {
       "ok": true,
-      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.08 m)"
+      "test": "joystick unaffected by the pinch (same pointer, d 0.60 → 0.60, avatar kept walking 3.13 m)"
     },
     {
       "ok": true,
@@ -670,7 +671,7 @@
     },
     {
       "ok": true,
-      "test": "Yoo Plage: joystick walks on the sand/boardwalk (7.29 m), never into the sea or props"
+      "test": "Yoo Plage: joystick walks on the sand/boardwalk (7.26 m), never into the sea or props"
     },
     {
       "ok": true,

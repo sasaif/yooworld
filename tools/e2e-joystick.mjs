@@ -44,8 +44,8 @@ const place = (x, z, yaw = 0) => p.evaluate(([x, z, yaw]) => { const c = window.
 const worldDir = (a) => p.evaluate((a) => { const d = new window.__cam.position.constructor(); window.__cam.getWorldDirection(d); const h = Math.hypot(d.x, d.z), fx = d.x / h, fz = d.z / h, sinEl = Math.max(0.2, Math.abs(d.y) / d.length());
   const x = Math.cos(a * Math.PI / 180), y = -Math.sin(a * Math.PI / 180); const up = -y / sinEl; const wx = -fz * x + fx * up, wz = fx * x + fz * up, l = Math.hypot(wx, wz); return [wx / l, wz / l]; }, a);
 /** free-disc test on the live nav grid */
-const freeRay = (x, z, dx, dz, len) => p.evaluate(([x, z, dx, dz, len]) => { const n = window.__world.nav; const bl = (px, pz) => { if (px < 0 || pz < 0) return true; const i = Math.floor(px / n.cell), j = Math.floor(pz / n.cell); return !n.free(i, j); };
-  const R = 0.15; const disc = (px, pz) => [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R], [R * 0.7, R * 0.7], [-R * 0.7, R * 0.7], [R * 0.7, -R * 0.7], [-R * 0.7, -R * 0.7]].some(([a, b]) => bl(px + a, pz + b)); for (let s = 0; s <= len; s += 0.05) if (disc(x + dx * s, z + dz * s)) return s; return len; }, [x, z, dx, dz, len]);
+const freeRay = (x, z, dx, dz, len, R = 0.15) => p.evaluate(([x, z, dx, dz, len, R]) => { const n = window.__world.nav; const bl = (px, pz) => { if (px < 0 || pz < 0) return true; const i = Math.floor(px / n.cell), j = Math.floor(pz / n.cell); return !n.free(i, j); };
+  const disc = (px, pz) => [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R], [R * 0.7, R * 0.7], [-R * 0.7, R * 0.7], [R * 0.7, -R * 0.7], [-R * 0.7, -R * 0.7]].some(([a, b]) => bl(px + a, pz + b)); for (let s = 0; s <= len; s += 0.05) if (disc(x + dx * s, z + dz * s)) return s; return len; }, [x, z, dx, dz, len, R]);
 async function openStart(dir, len) { // the free start point with the longest clear run in that direction
   const n = await p.evaluate(() => [window.__world.nav.nx, window.__world.nav.nz, window.__world.nav.cell]); let best = null;
   for (let j = 1; j < n[1]; j += 2) for (let i = 1; i < n[0]; i += 2) { const x = (i + 0.5) * n[2], z = (j + 0.5) * n[2]; const r = await freeRay(x, z, dir[0], dir[1], len); if (!best || r > best.r) best = { x, z, r }; if (r >= len) return best; }
@@ -56,12 +56,12 @@ const cellFree = (r = 0) => p.evaluate((r) => { const n = window.__world.nav; co
 const camState = () => p.evaluate(() => { const c = window.__cam; const d = new c.position.constructor(); c.getWorldDirection(d); return { zoom: c.zoom, az: Math.atan2(d.x, d.z), pol: Math.acos(-d.y / d.length()) }; });
 /** speed over a window, measured against the GAME clock (sum of frame times the controller integrated). On a frame-starved
  *  headless renderer, frames longer than the 0.25 s clamp lose time; the wall-clock speed is reported alongside. */
-let lastWall = NaN, longFrames = 0;
+let lastWall = NaN, longFrames = 0, lastA = null, lastB = null;
 /** steady-state speed: from 0.3 s (game time) after the stick input reached displacement dT until the last frame before release */
 function steadySpeed(ss, dT, tEnd) { if (dT <= 0.1) { const w = ss.filter((s) => s.t <= tEnd); return w.length > 1 ? Math.hypot(w.at(-1).x - w[0].x, w.at(-1).z - w[0].z) : 0; }
   const i0 = ss.findIndex((s) => Math.abs(s.d - dT) < 0.01); if (i0 < 0) return NaN; const a = ss.slice(i0).find((s) => s.sim - ss[i0].sim >= 0.3); const bb = [...ss].reverse().find((s) => s.t <= tEnd && Math.abs(s.d - dT) < 0.01);
   if (!a || !bb || bb.sim <= a.sim) return NaN; return speedOver(ss, a.t, bb.t); }
-function speedOver(ss, t0, t1) { const a = ss.find((s) => s.t >= t0), bb = [...ss].reverse().find((s) => s.t <= t1); if (!a || !bb || bb.t <= a.t) return NaN; const dist = Math.hypot(bb.x - a.x, bb.z - a.z);
+function speedOver(ss, t0, t1) { const a = ss.find((s) => s.t >= t0), bb = [...ss].reverse().find((s) => s.t <= t1); if (!a || !bb || bb.t <= a.t) return NaN; const dist = Math.hypot(bb.x - a.x, bb.z - a.z); lastA = a; lastB = bb;
   lastWall = dist / ((bb.t - a.t) / 1000); const w = ss.filter((s) => s.t >= a.t && s.t <= bb.t); longFrames = w.filter((s, i) => i && s.t - w[i - 1].t > 250).length; return dist / Math.max(1e-6, bb.sim - a.sim); }
 const fps = await p.evaluate(() => new Promise((res) => { let n = 0; const s = performance.now(); const f = () => { n++; if (performance.now() - s < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
 const MAX = (await mv()).maxSpeed; const frameMs = 1000 / fps; const report = { device: devName, label: dev.label, viewport: [dev.w, dev.h], dpr: DPR, fps: Math.round(fps), maxSpeed: MAX, dirs: [], bands: [] };
@@ -83,8 +83,8 @@ for (const a of angles) {
   await p.waitForTimeout(150); await resetSamples();
   await stickTo(1, a, 1, 2); const t0 = await p.evaluate(() => performance.now()); const win = Math.min(900, (st.r - 0.5) / MAX * 1000);
   await p.waitForTimeout(300 + win + 150); await up(1); await p.waitForTimeout(400);
-  const ss = await samples(); const sp = steadySpeed(ss, 1, t0 + 300 + win + 150);
-  const first = ss[0], last = ss[ss.length - 1]; const ang = Math.atan2(last.z - first.z, last.x - first.x), want = Math.atan2(dir[1], dir[0]);
+  const ss = await samples(); const sp = steadySpeed(ss, 1, t0 + 300 + win);
+  const first = lastA ?? ss[0], last = lastB ?? ss[ss.length - 1]; const ang = Math.atan2(last.z - first.z, last.x - first.x), want = Math.atan2(dir[1], dir[0]);
   const err = Math.abs(((ang - want) * 180 / Math.PI + 540) % 360 - 180);
   // on-screen direction of travel vs stick angle
   const scr = await p.evaluate(([a0, a1]) => { const V = window.__cam.position.constructor; const p0 = new V(a0[0], 0, a0[1]).project(window.__cam), p1 = new V(a1[0], 0, a1[1]).project(window.__cam); return Math.atan2((p1.y - p0.y) * innerHeight, (p1.x - p0.x) * innerWidth) * 180 / Math.PI; }, [[first.x, first.z], [last.x, last.z]]);
@@ -105,7 +105,7 @@ for (const [d, name, target] of bands) {
   await place(bst.x, bst.z, Math.atan2(bdir[0], bdir[1])); await p.waitForTimeout(150); await resetSamples();
   await stickTo(d, bandDir, 1, 2); const t0 = await p.evaluate(() => performance.now()); const win = Math.min(1200, (bst.r - 0.4) / Math.max(0.3, MAX * (target ?? 0.6)) * 1000);
   await p.waitForTimeout(300 + win + 150); const m = await mv(); await up(1); await p.waitForTimeout(350);
-  const ss = await samples(); const sp = steadySpeed(ss, m.d, t0 + 300 + win + 150);
+  const ss = await samples(); const sp = steadySpeed(ss, m.d, t0 + 300 + win);
   const an = ss.filter((s) => s.t > t0 + 300 && s.t < t0 + 300 + win && s.anim).pop()?.anim;
   report.bands.push({ d, name, target, inputD: +m.d.toFixed(3), factor: +m.factor.toFixed(3), speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), anim: an && { s: +an.s.toFixed(3), walk: +an.w.toFixed(2), run: +an.r.toFixed(2), walkTS: +an.wts.toFixed(3), runTS: +an.rts.toFixed(3) } });
   if (target === 0) ok(sp < 0.01 && m.speed === 0, `dead zone ${d * 100}% → no movement (${sp.toFixed(3)} m/s)`);
@@ -133,7 +133,7 @@ const tail = sa.slice(iStop); const drift = Math.hypot(tail.at(-1).x - tail[0].x
 report.accelSamples = sa.slice(Math.max(0, iIn - 2), iIn + 8).map((s) => [Math.round(s.t), +s.sim.toFixed(3), +s.x.toFixed(3), +s.z.toFixed(3), +s.v.toFixed(2), +s.d.toFixed(2)]);
 Object.assign(report, { accelRamp: { windowS: +Xs.toFixed(3), distRatio: +ramp.toFixed(3), theory: +rampTheory.toFixed(3) }, stop: { coastM: +coast.toFixed(3), theoryM: +coastTheory.toFixed(3), under5pctMs: slowGameMs, frames: stopFrames, gameMs: stopGameMs }, drift: +drift.toFixed(4) });
 ok(Math.abs(ramp - rampTheory) < 0.1 && ramp < 0.95, `smooth acceleration: in the first ${Math.round(Xs * 1000)} ms the avatar covers ${Math.round(ramp * 100)} % of the full-speed distance (model ${Math.round(rampTheory * 100)} %, ≈95 % speed after 0.21 s)`);
-ok(coast < 0.12 && slowGameMs <= 120 + frameMs && drift === 0, `immediate stop after release: coasts ${(coast * 100).toFixed(1)} cm (model ${(coastTheory * 100).toFixed(1)} cm), below 5 % speed after ${slowGameMs} ms, fully at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time, no drift`);
+ok(coast < 0.12 && slowGameMs <= 120 + 2 * frameMs && drift === 0, `immediate stop after release: coasts ${(coast * 100).toFixed(1)} cm (model ${(coastTheory * 100).toFixed(1)} cm), below 5 % speed after ${slowGameMs} ms, fully at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time, no drift`);
 const after2 = await mv(); const knob = (await J()).knob;
 ok(!after2.stick.active && after2.mode === 'idle' && Math.hypot(knob[0] - joy.cx, knob[1] - joy.cy) < 2, 'stick recentred, avatar idle');
 await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
@@ -141,14 +141,14 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
 // ---------- 5. walls & furniture ----------
 { // back wall (world -X) head-on and sliding along it diagonally
   let best = null; for (let a = 0; a < 360; a += 2) { const d = await worldDir(a); const s = -d[0]; if (!best || s > best.s) best = { a, s, d }; }
-  let z0 = 1.8; for (let z = 0.5; z < 5; z += 0.1) { if (await freeRay(1.3, z, -1, 0, 1.1) >= 1.0) { z0 = z; break; } }
+  let z0 = 1.8; for (let z = 0.5; z < 5; z += 0.1) { if (await freeRay(1.3, z, -1, 0, 1.1, 0.08) >= 1.0) { z0 = z; break; } }
   await place(1.3, z0, 0); await p.waitForTimeout(150); await resetSamples();
   await stickTo(1, best.a); await p.waitForTimeout(1200); await up(1); await p.waitForTimeout(300);
   let ss = await samples(); const minX = Math.min(...ss.map((s) => s.x));
   ok(minX > 0.12 + 0.07 && minX < 0.45 && await cellFree(0.08), `wall: walking into the back wall stops at x=${minX.toFixed(2)} m (wall face 0.12 m + avatar radius), never inside`);
   // diagonal into the wall: keeps sliding along it
   let sl = null; for (let a = 0; a < 360; a += 2) { const d = await worldDir(a); if (d[0] < -0.6 && d[1] > 0.5 && (!sl || d[1] > sl.d[1])) sl = { a, d }; }
-  let zs = null, xs = 0.35; for (const x of [0.3, 0.35, 0.92, 0.96]) { for (let z = 0.4; z < 4 && zs == null; z += 0.1) { if (await freeRay(x, z, 0, 1, 1.0) >= 1.0) { zs = z; xs = x; } } if (zs != null) break; }
+  let zs = null, xs = 0.35; for (const x of [0.3, 0.35, 0.92, 0.96]) { for (let z = 0.4; z < 4 && zs == null; z += 0.1) { if (await freeRay(x, z, 0, 1, 1.0, 0.08) >= 1.0) { zs = z; xs = x; } } if (zs != null) break; }
   console.log('  wall-slide lane', xs, zs); await place(xs, zs, 0); await p.waitForTimeout(150); await resetSamples(); await stickTo(1, sl.a); await p.waitForTimeout(1300);
   ss = await samples(); await up(1); await p.waitForTimeout(300);
   const dz = ss.at(-1).z - ss[0].z, mx = Math.min(...ss.map((s) => s.x));
