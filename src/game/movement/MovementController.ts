@@ -20,10 +20,10 @@ export interface MoveConfig {
   turnRate: number;   // 1/s – exponential yaw smoothing
   anchors: readonly Anchor[];
   stopEps: number;    // m/s – below this with no input, snap to a full stop
-  maxDt: number;      // s – frame time clamp
+  maxDt: number;      // s – frame time clamp (slow devices keep full speed; a long hitch never teleports)
   subStep: number;    // m – max displacement per collision sub-step
 }
-export const MOVE_DEFAULTS: MoveConfig = { maxSpeed: 1.9, accel: 14, decel: 32, turnRate: 12, anchors: DEFAULT_ANCHORS, stopEps: 0.03, maxDt: 0.1, subStep: 0.04 };
+export const MOVE_DEFAULTS: MoveConfig = { maxSpeed: 1.9, accel: 14, decel: 32, turnRate: 12, anchors: DEFAULT_ANCHORS, stopEps: 0.03, maxDt: 0.25, subStep: 0.04 };
 
 export interface MoveState { x: number; z: number; vx: number; vz: number; yaw: number; speed: number; d: number; factor: number; blocked: boolean }
 export const newMoveState = (x = 0, z = 0, yaw = 0): MoveState => ({ x, z, vx: 0, vz: 0, yaw, speed: 0, d: 0, factor: 0, blocked: false });

@@ -59,7 +59,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     const dt = Math.min(dtRaw, 0.05); const s = c;
     // analog stick / keyboard (player's avatar only): may stand the avatar up, then drives it
     let driven = false;
-    if (controlled) { state.camera.getWorldDirection(camDir); driven = driveCharacter(s, Math.min(dtRaw, 0.1), camDir, world.nav); }
+    if (controlled) { state.camera.getWorldDirection(camDir); driven = driveCharacter(s, dtRaw, camDir, world.nav); } // the controller clamps dt itself
     if (s.mode === 'standing') {
       play('stand', 0.15);
       const a = built.actions.stand;

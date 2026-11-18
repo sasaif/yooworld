@@ -26,9 +26,15 @@ export function discBlocked(nav: NavGrid, x: number, z: number, r: number) {
 export function gridCollider(nav: NavGrid, radius = 0.08, slip = 0.22): Collider {
   return (x, z, dx, dz) => {
     // already overlapping (spawned / stood up against furniture): only the centre point has to stay free,
-    // so the player can always walk out; if even the centre is blocked, let them move to escape.
+    // so the player can always walk out; if even the centre is blocked, only moves towards the nearest free cell are allowed (never through a wall).
     const r = discBlocked(nav, x, z, radius) ? 0 : radius;
-    const blocked = (px: number, pz: number) => (r === 0 && cellBlocked(nav, x, z) ? false : discBlocked(nav, px, pz, r));
+    const stuck = r === 0 && cellBlocked(nav, x, z);
+    const outside = (px: number, pz: number) => !(px >= 0 && pz >= 0 && px < nav.nx * nav.cell && pz < nav.nz * nav.cell);
+    // stuck inside an obstacle cell: only moves that get closer to the nearest free cell are allowed
+    let exit: [number, number] | null = null;
+    if (stuck) { const [fi, fj] = nav.nearestFree(Math.min(nav.nx - 1, Math.max(0, Math.floor(x / nav.cell))), Math.min(nav.nz - 1, Math.max(0, Math.floor(z / nav.cell)))); exit = [(fi + 0.5) * nav.cell, (fj + 0.5) * nav.cell]; }
+    const d0 = exit ? Math.hypot(exit[0] - x, exit[1] - z) : 0;
+    const blocked = (px: number, pz: number) => (stuck ? outside(px, pz) || (cellBlocked(nav, px, pz) && Math.hypot(exit![0] - px, exit![1] - pz) >= d0) : discBlocked(nav, px, pz, r));
     if (!blocked(x + dx, z + dz)) return { x: x + dx, z: z + dz, hitX: false, hitZ: false };
     const okX = dx !== 0 && !blocked(x + dx, z), okZ = dz !== 0 && !blocked(x, z + dz);
     if (okX && (!okZ || Math.abs(dx) >= Math.abs(dz))) return { x: x + dx, z, hitX: false, hitZ: true };

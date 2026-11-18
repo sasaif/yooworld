@@ -23,6 +23,8 @@ export const motion = {
   onEngage: null as null | ((c: CharState) => void),
   last: { inputX: 0, inputY: 0, d: 0, source: 'none' as string },
   frames: 0,
+  /** sum of the frame times seen by the controller (debug: compare with wall-clock time) */
+  simTime: 0,
 };
 let colNav: NavGrid | null = null, col: Collider | null = null;
 function collider(nav: NavGrid | null) { if (!nav) return undefined; if (nav !== colNav) { colNav = nav; col = gridCollider(nav, motion.radius); } return col!; }
@@ -39,15 +41,15 @@ export function driveCharacter(c: CharState, dt: number, camDir: { x: number; y:
     if (!motion.driving) motion.st = newMoveState(c.pos.x, c.pos.z, c.yaw);
   }
   motion.engaged = engaged;
-  if (c.mode === 'sitting' || c.mode === 'standing') { motion.st.vx = motion.st.vz = 0; motion.driving = false; return false; }
+  if (c.mode === 'sitting' || c.mode === 'standing') { motion.st.vx = motion.st.vz = 0; motion.st.speed = 0; motion.driving = false; return false; }
   if (engaged && c.path.length) c.path = [];
   const st = motion.st, rest = st.vx === 0 && st.vz === 0;
-  if (!engaged && (rest || c.path.length)) { st.vx = st.vz = 0; motion.driving = false; return false; } // tap-to-move / idle
+  if (!engaged && (rest || c.path.length)) { st.vx = st.vz = 0; st.speed = 0; st.d = inp.mag; st.factor = 0; motion.driving = false; return false; } // tap-to-move / idle
   // keep in sync with anything else that moved the character (travel, seat, tap path)
   if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st.x = c.pos.x; st.z = c.pos.z; st.yaw = c.yaw; } // teleported (travel) or moved by something else
   dirV.x = camDir.x; dirV.y = camDir.y; dirV.z = camDir.z;
   const next: MoveState = stepMove(st, inp, camBasisFromDir(dirV.x, dirV.y, dirV.z), dt, motion.cfg, collider(nav));
-  motion.st = next; motion.frames++;
+  motion.st = next; motion.frames++; motion.simTime += dt;
   c.pos.x = next.x; c.pos.z = next.z; c.yaw = next.yaw; c.speed = next.speed;
   motion.driving = !(next.vx === 0 && next.vz === 0 && !engaged);
   return true;
