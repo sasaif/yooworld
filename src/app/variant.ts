@@ -11,7 +11,7 @@ export const VARIANTS: Record<VariantId, Variant> = {
   // V2 avatar size + closer framing centred on the avatars (crops a little of the room edges; the camera follows)
   3: { id: 3, label: 'V3 · caméra rapprochée', scale: 1.14, zoomMul: 1.2, follow: 0.12 },
 };
-export const DEFAULT_VARIANT: VariantId = 1;
+export const DEFAULT_VARIANT: VariantId = 3;
 export function parseVariant(search: string): VariantId {
   const v = Number(new URLSearchParams(search).get('v'));
   return v === 1 || v === 2 || v === 3 ? v : DEFAULT_VARIANT;
