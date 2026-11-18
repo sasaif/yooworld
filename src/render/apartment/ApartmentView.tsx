@@ -82,7 +82,7 @@ function Floor({ apt }: { apt: ApartmentLayout }) {
     if (game.s.placing) { game.ghostAt(e.point.x, e.point.z); return; }
     if (game.s.mode === 'edit') { game.store.set({ selItem: null }); return; }
     e.stopPropagation();
-    const now = performance.now(); const dbl = now - lastTap.current.t < 380 && e.point.distanceTo(lastTap.current.p) < 0.6; lastTap.current = { t: now, p: e.point.clone() };
+    const now = performance.now(); const dbl = (now - lastTap.current.t < 380 && e.point.distanceTo(lastTap.current.p) < 0.6) || (e.nativeEvent?.detail ?? 0) >= 2; // timing, or the browser's own click count (double-click) lastTap.current = { t: now, p: e.point.clone() };
     onFloorTap(e.point.clone(), dbl);
   };
   return (

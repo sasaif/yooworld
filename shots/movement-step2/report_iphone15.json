@@ -2,7 +2,7 @@
   "device": "iphone15",
   "label": "iPhone 15 paysage",
   "url": "http://127.0.0.1:5230/",
-  "fps": 7,
+  "fps": 8,
   "results": [
     {
       "ok": true,
@@ -68,15 +68,15 @@
       "test": "destination marker visible on the target while walking",
       "extra": {
         "phase": "active",
-        "x": 1.308276932936078,
-        "z": 3.502671830271993,
+        "x": 1.3082769329360708,
+        "z": 3.5026718302719893,
         "alpha": 1,
         "seq": 1
       }
     },
     {
       "ok": true,
-      "test": "arrives at the destination (error 0.0 cm, 3097 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
+      "test": "arrives at the destination (error 0.0 cm, 3378 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
     },
     {
       "ok": true,
@@ -92,7 +92,7 @@
     },
     {
       "ok": true,
-      "test": "tap elsewhere mid-walk re-targets smoothly (speed never dropped below 0.72 m/s, arrived 0.0 cm from the new spot)"
+      "test": "tap elsewhere mid-walk re-targets smoothly (speed never dropped below 0.39 m/s, arrived 0.0 cm from the new spot)"
     },
     {
       "ok": true,
@@ -100,10 +100,10 @@
     },
     {
       "ok": true,
-      "test": "tap behind furniture: routes around it (straight line 3.79 m crosses 2.05 m of furniture, walked 4.37 m, 0 frames inside a blocked cell)",
+      "test": "tap behind furniture: routes around it (straight line 3.80 m crosses 2.10 m of furniture, walked 4.22 m, 0 frames inside a blocked cell)",
       "extra": {
         "result": "moved",
-        "dist": 0.01
+        "dist": 0.015
       }
     },
     {
@@ -119,7 +119,20 @@
     },
     {
       "ok": true,
-      "test": "joystick interrupts the tap path (path 1 → 0, marker hidden), stick drives, stops on release"
+      "test": "joystick interrupts the tap path (path 1 → 0, marker hidden), stick drives (1.54 m in 0.9 s), stops on release",
+      "extra": {
+        "m0path": 1,
+        "m1": {
+          "path": 0,
+          "engaged": true,
+          "mk": "hidden"
+        },
+        "m3": {
+          "path": 0,
+          "speed": 0.015,
+          "mode": "walk"
+        }
+      }
     },
     {
       "ok": true,
@@ -154,7 +167,7 @@
   "skipped": [
     {
       "test": "double tap = run",
-      "why": "harness: the headless renderer (~7 fps) delivered the 2nd tap 389 ms after the 1st (> 380 ms double-tap window), cannot test here"
+      "why": "harness: the headless renderer (~8 fps) delivered the 2nd tap 449 ms after the 1st (> 380 ms double-tap window), cannot test here"
     }
   ]
 }

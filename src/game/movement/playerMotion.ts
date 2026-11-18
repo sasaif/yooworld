@@ -33,8 +33,11 @@ export const motion = {
   /** debug counters: path frames driven by the controller, arrivals, re-plans, give-ups */
   pathStats: { frames: 0, arrived: 0, replans: 0, gaveUp: 0 },
 };
-let colNav: NavGrid | null = null, col: Collider | null = null;
-function collider(nav: NavGrid | null) { if (!nav) return undefined; if (nav !== colNav) { colNav = nav; col = gridCollider(nav, motion.radius); } return col!; }
+let colNav: NavGrid | null = null, col: Collider | null = null, pathCol: Collider | null = null;
+function collider(nav: NavGrid | null) { if (!nav) return undefined; if (nav !== colNav) { colNav = nav; col = gridCollider(nav, motion.radius); pathCol = gridCollider(nav, 0); } return col!; }
+/** Path following collides as a POINT against the nav cells: the A* path lives on that grid (furniture is already padded by
+ *  12 cm), and interaction targets (seat fronts, dance spots) may lie closer than the stick's 8 cm disc to a padded cell. */
+function pathCollider(nav: NavGrid | null) { if (!nav) return undefined; collider(nav); return pathCol!; }
 const dirV = { x: 0, y: 0, z: 0 };
 
 /** The destination marker belongs to the player's current path: it fades as soon as the path ends (arrival),
@@ -51,7 +54,7 @@ function followTapPath(c: CharState, dt: number, nav: NavGrid | null): boolean {
   if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st = motion.st = { ...st, x: c.pos.x, z: c.pos.z, yaw: c.yaw, vx: motion.driving ? st.vx : 0, vz: motion.driving ? st.vz : 0 }; }
   if (motion.followPath !== c.path) { motion.followPath = c.path; motion.follow = newFollow(c.pos.x, c.pos.z); }
   const goal = c.path[c.path.length - 1];
-  const r = followPath(st, c.path, c.running, dt, motion.cfg, collider(nav), motion.follow);
+  const r = followPath(st, c.path, c.running, dt, motion.cfg, pathCollider(nav), motion.follow);
   motion.st = r.st; motion.frames++; motion.simTime += Math.min(Math.max(dt, 0), motion.cfg.maxDt); motion.pathStats.frames++;
   c.pos.x = r.st.x; c.pos.z = r.st.z; c.yaw = r.st.yaw; c.speed = r.st.speed;
   if (r.arrived) {

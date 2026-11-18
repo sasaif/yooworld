@@ -1,0 +1,176 @@
+{
+  "device": "iphone15",
+  "label": "iPhone 15 paysage",
+  "url": "http://127.0.0.1:5230/",
+  "fps": 11,
+  "results": [
+    {
+      "ok": true,
+      "test": "joystick shown (default mobile control)"
+    },
+    {
+      "ok": true,
+      "test": "default setting = \"Joystick seul\" (tap-to-move OFF, nothing saved yet)",
+      "extra": {
+        "s": {
+          "touchTapToMove": false
+        },
+        "raw": null
+      }
+    },
+    {
+      "ok": true,
+      "test": "OFF: tap on the floor 1.5 m away is ignored (moved 0.000 m, no marker)",
+      "extra": {
+        "result": "ignored",
+        "kind": "touch"
+      }
+    },
+    {
+      "ok": true,
+      "test": "OFF: tapping furniture still opens its menu (Canapé rose)",
+      "extra": {
+        "uid": "start_1"
+      }
+    },
+    {
+      "ok": true,
+      "test": "settings panel opens from the ⚙️ chip, \"Joystick seul\" selected"
+    },
+    {
+      "ok": true,
+      "test": "choosing \"Joystick + toucher pour aller\" enables it and saves it on the device",
+      "extra": {
+        "s": {
+          "touchTapToMove": true
+        },
+        "raw": "{\"touchTapToMove\":true}",
+        "sel": "tap"
+      }
+    },
+    {
+      "ok": true,
+      "test": "settings panel closes"
+    },
+    {
+      "ok": true,
+      "test": "setting kept after reload (game loads normally)",
+      "extra": {
+        "touchTapToMove": true
+      }
+    },
+    {
+      "ok": true,
+      "test": "tap on a free floor spot 1.8 m away starts a walk (moved, pointer touch)"
+    },
+    {
+      "ok": true,
+      "test": "destination marker visible on the target while walking",
+      "extra": {
+        "phase": "active",
+        "x": 1.308276932936078,
+        "z": 3.502671830271993,
+        "alpha": 1,
+        "seq": 1
+      }
+    },
+    {
+      "ok": true,
+      "test": "arrives at the destination (error 0.0 cm, 3007 ms, top speed 0.85 m/s ≈ natural walk 0.85)"
+    },
+    {
+      "ok": true,
+      "test": "marker fades out after arrival; walk speed natural",
+      "extra": {
+        "phase": "hidden",
+        "vmax": 0.85
+      }
+    },
+    {
+      "ok": true,
+      "test": "path stayed on walkable floor (never in a wall / furniture cell)"
+    },
+    {
+      "ok": true,
+      "test": "tap elsewhere mid-walk re-targets smoothly (speed never dropped below 0.72 m/s, arrived 0.0 cm from the new spot)"
+    },
+    {
+      "ok": true,
+      "test": "re-targeted walk stayed on walkable floor"
+    },
+    {
+      "ok": true,
+      "test": "tap behind furniture: routes around it (straight line 3.80 m crosses 2.10 m of furniture, walked 4.14 m, 0 frames inside a blocked cell)",
+      "extra": {
+        "result": "moved",
+        "dist": 0.016
+      }
+    },
+    {
+      "ok": true,
+      "test": "tap on a blocked floor cell snaps to the nearest free point (0.20 m away) and stops on free floor",
+      "extra": {
+        "result": "snapped"
+      }
+    },
+    {
+      "ok": true,
+      "test": "tap on the back wall never walks through it (tap not taken by the floor)"
+    },
+    {
+      "ok": true,
+      "test": "double tap = run (running true, gap between the two taps as seen by the game 239 ms)",
+      "extra": {
+        "dbl": true,
+        "result": "moved"
+      }
+    },
+    {
+      "ok": true,
+      "test": "joystick interrupts the tap path (path 1 → 0, marker hidden), stick drives (0.63 m in 0.9 s), stops on release",
+      "extra": {
+        "m0path": 1,
+        "m1": {
+          "path": 0,
+          "engaged": true,
+          "mk": "hidden"
+        },
+        "m3": {
+          "path": 0,
+          "speed": 0,
+          "mode": "idle"
+        }
+      }
+    },
+    {
+      "ok": true,
+      "test": "ON: tapping furniture still opens its menu (Canapé rose), no floor walk triggered"
+    },
+    {
+      "ok": true,
+      "test": "Yoo Plage: tap on the sand walks there (0.0 cm), never into the sea or props"
+    },
+    {
+      "ok": true,
+      "test": "Yoo Plage: tap in the sea is refused (invalid:blocked), short \"invalid\" ripple, no movement"
+    },
+    {
+      "ok": true,
+      "test": "ON: pinch-zoom works (104 → 276) and is never taken as a floor tap",
+      "extra": {
+        "taps": 0
+      }
+    },
+    {
+      "ok": true,
+      "test": "no console / page errors",
+      "extra": []
+    },
+    {
+      "ok": true,
+      "test": "no HTTP errors",
+      "extra": []
+    }
+  ],
+  "skipped": []
+}

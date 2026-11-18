@@ -18,7 +18,7 @@ const DIR = { x: -ISO_DIR.x, y: -ISO_DIR.y, z: -ISO_DIR.z };
 function room() { const n = new NavGrid(6, 5, 0.2); n.blockBox(2.4, 2.1, 3.6, 2.9); return n; }
 const sofaHit = (x: number, z: number) => x > 2.4 && x < 3.6 && z > 2.1 && z < 2.9; // raw footprint (no pad)
 
-function resetMotion() { resetStick(); motion.st = newMoveState(); motion.engaged = false; motion.driving = false; motion.followPath = null; motion.onEngage = null; resetMarker(); }
+function resetMotion() { resetStick(); motion.st = newMoveState(); motion.engaged = false; motion.driving = false; motion.followPath = null; motion.onEngage = null; motion.pathStats = { frames: 0, arrived: 0, replans: 0, gaveUp: 0 }; resetMarker(); }
 /** Run the player glue like <Character> does: controller first, the old stepMover never touches the player while driven. */
 function run(c: ReturnType<typeof makeChar>, nav: NavGrid, secs: number, fps = 60, each?: (t: number) => void) {
   const dt = 1 / fps; let t = 0;
@@ -168,5 +168,17 @@ describe('destination marker lifecycle', () => {
     goTo('p', new THREE.Vector3(5, 0, 1.1)); showMarker(5, 1.1, 'p'); run(c, nav, 0.2); expect(marker.phase).toBe('active'); // re-target: new marker
     goTo('p', new THREE.Vector3(1, 0, 4)); driveCharacter(c, 1 / 60, DIR, nav); expect(marker.phase).toBe('fading'); // seat / other walk elsewhere
     goTo('p', new THREE.Vector3(4, 0, 1)); showMarker(4, 1, 'p'); run(c, nav, 8); expect(marker.phase).toBe('hidden'); expect(c.path).toHaveLength(0);
+  });
+});
+
+describe('interaction targets next to furniture', () => {
+  beforeEach(resetMotion);
+  it('a seat front 5 cm from a padded furniture cell is reached exactly and hands the seat back (point collision on the path)', () => {
+    const nav = room(); const c = makeChar('p', 'P', 1, 1); world.nav = nav; world.chars.p = c;
+    const front = new THREE.Vector3(3, 0, 1.75); // the sofa's padded cells start at z = 1.8
+    const seat = { id: 's', pos: new THREE.Vector3(3, 0, 2.3), yaw: 0, front };
+    expect(nav.free(...nav.toCell(front.x, front.z))).toBe(true); expect(discBlocked(nav, front.x, front.z, 0.08)).toBe(true);
+    goTo('p', front, { seat }); let driven = true; for (let i = 0; i < 900 && driven; i++) driven = driveCharacter(c, 1 / 60, DIR, nav);
+    expect(driven).toBe(false); expect(c.pendingSeat).toBe(seat); expect(c.pos.distanceTo(front)).toBeLessThan(0.04); expect(motion.pathStats.gaveUp).toBe(0);
   });
 });

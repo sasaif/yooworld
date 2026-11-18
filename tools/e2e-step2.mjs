@@ -170,6 +170,7 @@ const KIND = TOUCH ? 'tap' : 'click';
     const r = await tapFloor(pair.B.x, pair.B.z); const a = await waitArrive(pair.B.x, pair.B.z); const ss = await samples();
     let len = 0; for (let i = 1; i < ss.length; i++) len += Math.hypot(ss[i].x - ss[i - 1].x, ss[i].z - ss[i - 1].z);
     const inBlocked = await allFree();
+    if (!(r.hit && a.dist < 0.08)) fs.writeFileSync(`${SHOTS}/${tag}debug_behind_${devName}.json`, JSON.stringify({ pair, r, a, ss: ss.slice(0, 80), m: await mv() }, null, 1));
     ok(r.hit && a.dist < 0.08 && inBlocked === 0 && len > pair.L * 1.05, `${KIND} behind furniture: routes around it (straight line ${pair.L.toFixed(2)} m crosses ${pair.crossed.toFixed(2)} m of furniture, walked ${len.toFixed(2)} m, ${inBlocked} frames inside a blocked cell)`, { result: r.last?.result, dist: +a.dist.toFixed(3) });
   }
 }
@@ -204,9 +205,12 @@ const KIND = TOUCH ? 'tap' : 'click';
 if (TOUCH) {
   // --- joystick interrupts a tap path at any time
   { const far = await floorSpots({ minDist: 2.2, maxDist: 4 }); const r = await tapSomeFloor(far); await p.waitForFunction(() => window.__move().speed > 0.4, null, { timeout: 8000, polling: 40 }).catch(() => {});
-    const m0 = await mv(); await stickTo(0.9, 90); await p.waitForTimeout(500); const m1 = await mv(); await p.waitForTimeout(500); const m2 = await mv(); await up(1); await p.waitForTimeout(600); const m3 = await mv();
-    ok(r && m0.path > 0 && m1.path === 0 && m1.engaged && m1.marker.phase !== 'active' && Math.hypot(m2.pos[0] - m1.pos[0], m2.pos[1] - m1.pos[1]) > 0.2 && m3.path === 0 && m3.speed < 0.02,
-      `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick drives, stops on release`); }
+    const m0 = await mv(); await stickTo(0.9, 90); await p.waitForFunction(() => window.__move().engaged && window.__move().frames > 0, null, { timeout: 3000, polling: 40 }).catch(() => {}); await p.waitForTimeout(300);
+    const m1 = await mv(); await p.waitForTimeout(900); const m2 = await mv(); await up(1);
+    await p.waitForFunction(() => { const m = window.__move(); return !m.stick.active && m.speed < 0.02 && !m.driving; }, null, { timeout: 3000, polling: 40 }).catch(() => {}); const m3 = await mv();
+    const drove = Math.hypot(m2.pos[0] - m1.pos[0], m2.pos[1] - m1.pos[1]);
+    ok(r && m0.path > 0 && m1.path === 0 && m1.engaged && m1.marker.phase !== 'active' && drove > 0.2 && m3.path === 0 && m3.speed < 0.02,
+      `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick drives (${drove.toFixed(2)} m in 0.9 s), stops on release`, { m0path: m0.path, m1: { path: m1.path, engaged: m1.engaged, mk: m1.marker.phase }, m3: { path: m3.path, speed: +m3.speed.toFixed(3), mode: m3.mode } }); }
   // --- furniture menu still opens with tap-to-move ON, and does not walk to the floor behind
   { await closeMenu(); const c0 = await mv(); const f = await tapFurniture(); ok(!!f && f.el && f.floorTaps === 0, `ON: tapping furniture still opens its menu (${f?.it.name ?? 'none found'}), no floor walk triggered`);
     if (f) await p.screenshot({ path: `${SHOTS}/${tag}${devName}_furniture_menu_on.png` }); await closeMenu(); }
