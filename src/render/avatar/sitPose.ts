@@ -44,6 +44,21 @@ export class SitPose {
     }
   }
   get ok() { return !!this.hips && this.legs.length === 2; }
+  /** bones this layer rotates (+ the hips position): saved right after the mixer, restored before the next mixer update.
+   *  THREE's PropertyMixer only writes a bone when the animated value CHANGED since its last write, so without this the
+   *  layer's edits survived into frames where the idle clip held still and were applied again on top of themselves
+   *  (measured: hips bouncing up to 16 cm per frame while the weight ramped). */
+  private touched: THREE.Bone[] = []; private saveQ: THREE.Quaternion[] = []; private saveP = new THREE.Vector3(); dirty = false;
+  private initTouched() {
+    if (this.touched.length || !this.ok) return;
+    const T = this.touched; if (this.spine) T.push(this.spine); if (this.neck) T.push(this.neck);
+    for (const g of this.legs) T.push(g.up.bone, g.low.bone, g.foot.bone); for (const a of this.arms) T.push(a.up.bone, a.low.bone);
+    this.saveQ = T.map(() => new THREE.Quaternion());
+  }
+  /** Call right after mixer.update(), before apply(): remember the animated pose. */
+  snapshot() { this.initTouched(); if (!this.ok) return; this.saveP.copy(this.hips!.position); this.touched.forEach((b, i) => this.saveQ[i].copy(b.quaternion)); }
+  /** Call before mixer.update() when the previous frame applied the layer: put the animated pose back. */
+  restore() { if (!this.dirty || !this.ok) return; this.hips!.position.copy(this.saveP); this.touched.forEach((b, i) => b.quaternion.copy(this.saveQ[i])); this.dirty = false; }
   /** Rotate `l.bone` (minimal arc, weight w) so that bone -> child points along `dir` (world, unit). */
   private aim(l: Limb, dir: THREE.Vector3, w: number) {
     const bone = l.bone; _p.setFromMatrixPosition(bone.matrixWorld); _c.setFromMatrixPosition(l.child.matrixWorld);
@@ -61,10 +76,11 @@ export class SitPose {
   }
   /** Apply the layer. `hip` = world point where the Hips bone must sit, `yaw` = seat facing, w = blend weight.
    *  `lie` (bed only) blends the seated limbs towards the lying ones while the caller tips the group back. */
-  apply(w: number, hip: THREE.Vector3, yaw: number, st: SitStyle, lie?: LieBlend) {
+  apply(w: number, hip: THREE.Vector3, yaw: number, st: SitStyle, lie?: LieBlend, hipW = w) {
     if (w <= 0.001 || !this.ok) return;
+    this.dirty = true;
     const hips = this.hips!; hips.parent!.updateWorldMatrix(true, false);
-    _t.copy(hip); hips.parent!.worldToLocal(_t); hips.position.lerp(_t, w); hips.updateWorldMatrix(false, true);
+    _t.copy(hip); hips.parent!.worldToLocal(_t); hips.position.lerp(_t, hipW); hips.updateWorldMatrix(false, true);
     _F.set(Math.sin(yaw), 0, Math.cos(yaw)); _U.set(0, 1, 0);
     const lk = lie ? lie.legs : 0, bk = lie ? lie.body : 0;
     if (lie) { _UL.set(0, 1, 0).applyQuaternion(lie.qLie); _FL.set(0, 0, 1).applyQuaternion(lie.qLie); _UB.set(0, 1, 0).applyQuaternion(lie.q); _FB.set(0, 0, 1).applyQuaternion(lie.q); }

@@ -28,7 +28,7 @@ export interface PosePreset {
 }
 const D = Math.PI / 180;
 export const PRESETS: Record<PresetId, PosePreset> = {
-  stool: { kind: 'stool', style: { droop: 2 * D, shinBack: 5 * D, splay: 0.12, footDown: 12 * D, lean: 3 * D }, approach: 0.22, feet: 'dangle', turn: 0.45, sitIn: 0.65, sitOut: 0.55 },
+  stool: { kind: 'stool', style: { droop: 2 * D, shinBack: 5 * D, splay: 0.12, footDown: 12 * D, lean: 3 * D }, approach: 0.28, feet: 'dangle', turn: 0.45, sitIn: 0.7, sitOut: 0.55 },
   chair: { kind: 'chair', style: { droop: 4 * D, shinBack: -4 * D, splay: 0.08, footDown: 0, lean: 0 }, approach: 0.2, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
   deskChair: { kind: 'chair', style: { droop: 4 * D, shinBack: -4 * D, splay: 0.1, footDown: 0, lean: 0 }, approach: 0.22, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
   sofa: { kind: 'sofa', style: { droop: 0, shinBack: -12 * D, splay: 0.1, footDown: 0, lean: -4 * D }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },

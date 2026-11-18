@@ -1,7 +1,7 @@
 import { motion } from './playerMotion';
 import { stick } from '../../input/joystick/joystickState';
 import { world } from '../world';
-import { animDebug } from '../../render/Character';
+import { animDebug, seatDebug } from '../../render/Character';
 import { marker } from './marker';
 import { floorTapLog } from '../../app/floorTap';
 import { moveSettings, lastPointerKind } from '../../input/moveSettings';
@@ -23,6 +23,7 @@ export function installMoveDebug() {
       pos: c ? [c.pos.x, c.pos.z] : null, yaw: c?.yaw, mode: c?.mode, path: c?.path.length ?? 0, anim: animDebug[id] ?? null,
       location: world.location, t: performance.now(),
       marker: { phase: marker.phase, x: marker.x, z: marker.z, alpha: marker.alpha, seq: marker.seq }, tap: { ...floorTapLog }, settings: moveSettings.get(), pointerKind: lastPointerKind(),
+      seat: seatDebug[id] ? { ...seatDebug[id] } : null,
       pathStats: { ...motion.pathStats }, pathPts: c ? c.path.map((p) => [p.x, p.z]) : [], running: c?.running,
     };
   };

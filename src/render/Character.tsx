@@ -82,8 +82,10 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     const P = pose.current;
     if (M.phase !== 'none' && (s.mode === 'sitting' || s.mode === 'standing')) {
       // registry seats: turn round, sit down, (bed) lie back; standing up = the same curves backwards from wherever we are
-      const free = stepSeat(M, dt, s.mode === 'standing'); loco(0, dt);
+      const free = stepSeat(M, dt, s.mode === 'standing'); const px = s.pos.x, pz = s.pos.z;
       seatPose(M, SP);
+      // the last steps to the approach point are walked (feet move), the rest of the transition stands on idle
+      loco(M.phase === 'turn' && dt > 0 ? Math.hypot(SP.root.x - px, SP.root.z - pz) / dt : 0, dt);
       if (free) { M.phase = 'none'; SP.sitW = 0; SP.pitch = 0; s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
       s.pos.copy(SP.root); s.yaw = SP.yaw;
       if (M.seat?.pose === 'lie' && SP.slide > 0) s.pos.lerp(lieRoot(M.seat, def.scale, _lr), SP.slide);
@@ -116,7 +118,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     }
     if (s.mode !== 'sitting' && s.mode !== 'standing') { P.pitch = 0; if (M.phase !== 'none') { M.phase = 'none'; SP.sitW = 0; SP.pitch = 0; } }
     outer.current.position.copy(s.pos); outer.current.rotation.set(P.pitch, s.yaw, 0, 'YXZ');
-    built.mixer.update(dt);
+    sit.restore(); built.mixer.update(dt); sit.snapshot();
     if (M.phase !== 'none' && SP.sitW > 0.001 && M.seat) {
       const seat = M.seat; const st = presetOf(seat).style;
       if (seat.pose === 'lie' && (SP.legs > 0 || SP.pitch > 0)) {
@@ -128,7 +130,14 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         // hips scoot from the bed edge to the lying spot, lifted a little on the way (never dragged through the mattress)
         _H.lerpVectors(SP.hip, _hw, SP.slide); _H.y += 0.03 * Math.sin(Math.PI * SP.slide);
         lieBlend.legs = SP.legs; lieBlend.body = SP.pitch; sit.apply(SP.sitW, _H, seat.yaw, st, lieBlend);
-      } else sit.apply(SP.sitW, SP.hip, seat.yaw, st);
+      } else {
+        // getting onto the seat: the hips rise to the cushion height first, then move back over it (and the reverse when
+        // standing up), so the pelvis never cuts through the front edge of a high stool or a chair
+        sit.hips!.updateWorldMatrix(true, false); _hw.setFromMatrixPosition(sit.hips!.matrixWorld);
+        const e = SP.sitW, ey = smooth(e / 0.6), exz = smooth((e - 0.25) / 0.75);
+        _H.set(_hw.x + (SP.hip.x - _hw.x) * exz, _hw.y + (SP.hip.y - _hw.y) * ey, _hw.z + (SP.hip.z - _hw.z) * exz);
+        sit.apply(e, _H, seat.yaw, st, undefined, 1);
+      }
     }
     // lying on the back: the backpack is put aside (it would hold the body up off the mattress): shrinks away as the back
     // comes down instead of popping

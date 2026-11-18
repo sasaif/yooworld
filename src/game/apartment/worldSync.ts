@@ -10,7 +10,7 @@ export function syncWorld(layout: ApartmentLayout, cat: Catalog) {
   const nav = new NavGrid(W, D, 0.2);
   nav.blockBox(0, 0, W, 0.12, 0); nav.blockBox(0, 0, 0.12, D, 0);
   for (const f of blockingFootprints(layout, cat)) nav.blockBox(f.x * CELL, f.z * CELL, (f.x + f.w) * CELL, (f.z + f.d) * CELL, 0.06);
-  world.nav = nav; world.seats = computeSeats(layout, cat);
+  world.nav = nav; world.seats = computeSeats(layout, cat); resolveApproaches(world.seats, nav);
   for (const c of Object.values(world.chars)) {
     if (c.sitOn && !world.seats.some((s) => s.id === c.sitOn!.id)) { c.mode = 'idle'; c.sitOn = undefined; c.pos.y = 0; }
     if (c.mode === 'sitting') continue;
@@ -49,6 +49,24 @@ export function computeSeats(layout: ApartmentLayout, cat: Catalog): Seat[] {
     });
   }
   return out;
+}
+/**
+ * A seat whose front is blocked (dining chair pushed under the table, sofa against a bed…): get on it from the side
+ * instead (walk-to point and approach point beside the seat, the avatar then slides sideways onto it), so the last
+ * metres are walked, never slid through furniture. Sides are tried nearest-free first.
+ */
+export function resolveApproaches(seats: Seat[], nav: NavGrid) {
+  const freeAt = (p: THREE.Vector3) => { const [i, j] = nav.toCell(p.x, p.z); return nav.free(i, j); };
+  const R = new THREE.Vector3(), q = new THREE.Vector3();
+  for (const s of seats) {
+    if (!s.hip || !s.approach || freeAt(s.front)) continue;
+    const hip = s.edgeHip ?? s.hip; R.set(Math.cos(s.yaw), 0, -Math.sin(s.yaw));
+    for (const side of [1, -1]) {
+      q.copy(hip).addScaledVector(R, side * 0.45).setY(0);
+      if (!freeAt(q)) continue;
+      s.front = q.clone(); s.approach = hip.clone().addScaledVector(R, side * 0.32).setY(0); break;
+    }
+  }
 }
 /** Nearest seat slot of an item that nobody uses. */
 export function freeSeat(uid: string, from: THREE.Vector3, selfId: string, pose: 'sit' | 'lie' = 'sit') {
