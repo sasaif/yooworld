@@ -58,12 +58,14 @@ export function computeSeats(layout: ApartmentLayout, cat: Catalog): Seat[] {
 export function resolveApproaches(seats: Seat[], nav: NavGrid) {
   const freeAt = (p: THREE.Vector3) => { const [i, j] = nav.toCell(p.x, p.z); return nav.free(i, j); };
   const R = new THREE.Vector3(), q = new THREE.Vector3();
+  const clear = (p: THREE.Vector3) => freeAt(p) && [[0.1, 0], [-0.1, 0], [0, 0.1], [0, -0.1]].every(([dx, dz]) => freeAt(q.set(p.x + dx, 0, p.z + dz)));
   for (const s of seats) {
-    if (!s.hip || !s.approach || freeAt(s.front)) continue;
+    if (!s.hip || !s.approach) continue;
+    if (freeAt(s.front)) { if (!clear(s.approach)) s.approach = s.front.clone(); continue; } // stand up on a spot the joystick can leave
     // walk-to point just inside the furniture padding: step a little further out first
     const F = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw)); let moved = false;
     for (const d of [0.1, 0.2]) { q.copy(s.front).addScaledVector(F, d); if (freeAt(q)) { s.front = q.clone(); moved = true; break; } }
-    if (moved) continue;
+    if (moved) { if (!clear(s.approach)) s.approach = s.front.clone(); continue; }
     const hip = s.edgeHip ?? s.hip; R.set(Math.cos(s.yaw), 0, -Math.sin(s.yaw));
     found: for (const [lat, fw] of [[0.45, 0], [0.45, 0.15], [0.6, 0], [0.6, 0.2], [0.45, -0.1]]) for (const side of [1, -1]) {
       q.copy(hip).addScaledVector(R, side * lat).addScaledVector(F, fw).setY(0);

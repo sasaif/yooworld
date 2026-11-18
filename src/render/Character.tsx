@@ -134,7 +134,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         // getting onto the seat: the hips rise to the cushion height first, then move back over it (and the reverse when
         // standing up), so the pelvis never cuts through the front edge of a high stool or a chair
         sit.hips!.updateWorldMatrix(true, false); _hw.setFromMatrixPosition(sit.hips!.matrixWorld);
-        const e = SP.sitW, ey = smooth(e / 0.6), exz = smooth((e - 0.25) / 0.75);
+        const e = SP.sitW, ey = smooth(e / 0.5), exz = smooth((e - 0.4) / 0.6);
         _H.set(_hw.x + (SP.hip.x - _hw.x) * exz, _hw.y + (SP.hip.y - _hw.y) * ey, _hw.z + (SP.hip.z - _hw.z) * exz);
         sit.apply(e, _H, seat.yaw, st, undefined, 1);
       }

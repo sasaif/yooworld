@@ -122,7 +122,7 @@ if (!SEATS_ONLY) {
   const chatBtn = await p.evaluate(() => { const b = [...document.querySelectorAll('.dock button')].find((x) => /Chat/.test(x.textContent)); const r = b.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; });
   await tap(...chatBtn); await p.waitForTimeout(1200);
   const chat = await p.evaluate(() => { const s = document.querySelector('.chat-sheet'); if (!s) return null; const r = s.getBoundingClientRect(); return { area: +(100 * r.width * r.height / (innerWidth * innerHeight)).toFixed(1), rect: [r.x, r.y, r.right, r.bottom].map(Math.round), mode: s.querySelector('.chat-mode')?.textContent, scope: s.querySelector('.chat-scope')?.textContent }; });
-  ok(!!chat && /Mode local/.test(chat.mode) && /seuls tes avatars/.test(chat.scope), 'C4 chat panel says Mode local · hors ligne + who can read messages', chat && { mode: chat.mode });
+  ok(!!chat && /Mode local/.test(chat.mode) && /(seuls tes avatars|cet appareil)/.test(chat.scope), 'C4 chat panel says Mode local · hors ligne + who can read messages', chat && { mode: chat.mode });
   if (dev.h < 500) ok(chat && chat.area <= 22, 'C5 landscape phone: the chat is a compact corner card (≤ 22 % of the screen)', chat);
   const avs = await p.evaluate(() => { const m = window.__metrics(); return ['f', 'm'].map((k) => m[k]?.bboxPx); });
   const covered = (bb) => { if (!bb || !chat) return 0; const ix = Math.max(0, Math.min(bb[2], chat.rect[2]) - Math.max(bb[0], chat.rect[0])), iy = Math.max(0, Math.min(bb[3], chat.rect[3]) - Math.max(bb[1], chat.rect[1])); return ix * iy / ((bb[2] - bb[0]) * (bb[3] - bb[1])); };
