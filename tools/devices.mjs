@@ -25,6 +25,7 @@ for (const d of DEVICES) {
   await p.goto(url, { timeout: 120000 });
   try { await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 }); } catch { console.log('TIMEOUT', name); }
   await p.waitForTimeout(Number(process.env.WAIT ?? 9000));
+  if (process.env.BG_PROBE) { await p.addStyleTag({ content: '.stage{background:#00ff00 !important} .hud-top,.dock,.rotate,.tagwrap{display:none !important}' }); await p.waitForTimeout(400); }
   if (process.env.PANEL) { await p.evaluate((x) => window.game.setPanel(x), process.env.PANEL); await p.waitForTimeout(600); }
   await p.screenshot({ path: `${out}/${name}${process.env.PANEL ? '_' + process.env.PANEL : ''}${process.env.SKIP_ROTATE ? '_continue' : ''}.png` });
   const m = await p.evaluate(() => {

@@ -1,0 +1,30 @@
+{
+ "desktop": {
+  "room_before_%": 43.5,
+  "room_after_%": 62.9
+ },
+ "ipad_landscape": {
+  "room_before_%": 68.0,
+  "room_after_%": 71.0
+ },
+ "ipad_portrait": {
+  "room_before_%": 58.2,
+  "room_after_%": 74.2
+ },
+ "iphone15_landscape": {
+  "room_before_%": 54.2,
+  "room_after_%": 76.0
+ },
+ "iphone15_portrait": {
+  "room_before_%": 41.7,
+  "room_after_%": 45.6
+ },
+ "pixel7_landscape": {
+  "room_before_%": 48.7,
+  "room_after_%": 76.9
+ },
+ "pixel7_portrait": {
+  "room_before_%": 38.2,
+  "room_after_%": 44.6
+ }
+}

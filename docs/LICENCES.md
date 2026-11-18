@@ -13,3 +13,12 @@
 - Aucun asset Daydaze ni aucun asset sous licence restrictive n’est inclus.
 - Aucun achat, aucun compte créé.
 - « YoWorld » est une marque d’un tiers : le nom du projet (« YooWorld ») est un nom de travail ; ne pas reprendre logos, assets ou noms de YoWorld. À vérifier avec un juriste avant toute publication commerciale.
+
+## Ajouts branche `polish-mobile`
+| Élément | Fichier(s) | Licence | Source |
+|---|---|---|---|
+| Icônes PWA | `public/icons/*.png` | code/œuvre du projet | générées par script Python (PIL) |
+| Tableaux, guirlande, tapis « Bienvenue », rayons de soleil | `src/render/apartment/Decor.tsx` | code du projet | textures procédurales (canvas), aucun asset externe |
+| Expressions faciales | blendshapes déjà présents dans Juanita/Juan (CC0) | CC0 | 100Avatars R3 |
+
+Aucun nouvel asset téléchargé, aucun achat.

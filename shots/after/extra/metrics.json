@@ -1,0 +1,50 @@
+{
+  "iphone15_landscape": {
+    "vw": 852,
+    "vh": 393,
+    "canvas": [
+      852,
+      393
+    ],
+    "coverage": 100,
+    "scrollH": 393,
+    "metrics": {
+      "zoom": 86.4,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 1.045,
+        "screenH": 75,
+        "bboxPx": [
+          376,
+          119,
+          461,
+          241
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 1.06,
+        "screenH": 76,
+        "bboxPx": [
+          428,
+          143,
+          506,
+          262
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 80,
+      "triangles": 59462,
+      "geometries": 80,
+      "textures": 12,
+      "programs": 19
+    },
+    "errors": [],
+    "http4xx": []
+  }
+}
