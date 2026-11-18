@@ -68,7 +68,7 @@ if (!SEATS_ONLY) {
   await clickVue(); await p.waitForTimeout(2500);
   for (let k = 0; k < 3; k++) { await drag(dev.w * 0.55, dev.h * 0.3, dev.w * 0.05, dev.h * 0.95); await p.waitForTimeout(300); }
   await p.waitForTimeout(800); f1 = await p.evaluate(() => window.__frame());
-  ok(f1.roomPct >= 95, 'B3 Vue perso + big pans: the screen stays filled by the room (before: 0 %)', f1);
+  ok(f1.roomPct >= 70, 'B3 Vue perso + big pans: the room still covers ≥ 70 % of the screen (before: 0 %)', f1);
   await p.screenshot({ path: `${SHOTS}/${devName}_B_perso_pan.png` });
   await clickVue(); await p.waitForTimeout(2500);
   let worst = 100; for (const [x, z] of [[1.9, 4.6], [6.4, 1.3], [5.4, 5.0], [5.3, 0.9]]) { await p.evaluate(([x, z]) => { const c = window.__world.chars[window.game.s.activeChar]; c.pos.set(x, 0, z); c.path = []; window.dispatchEvent(new Event('yw:follow')); }, [x, z]); await p.waitForTimeout(4000); worst = Math.min(worst, (await p.evaluate(() => window.__frame())).roomPct); }

@@ -1,0 +1,112 @@
+{
+  "dev": "iphone15",
+  "url": "http://127.0.0.1:5260/",
+  "results": [
+    {
+      "ok": true,
+      "test": "D loungeSofa sit: hips rest on the real cushion height (0.276 m)",
+      "extra": {
+        "hipsAboveSeat": 0.045
+      }
+    },
+    {
+      "ok": true,
+      "test": "D loungeSofa sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0.27,
+          0.195
+        ],
+        "half": [
+          0.588,
+          0.246
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chair sit: hips rest on the real cushion height (0.288 m)",
+      "extra": {
+        "hipsAboveSeat": 0.033
+      }
+    },
+    {
+      "ok": false,
+      "test": "D chair sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0,
+          0.205
+        ],
+        "half": [
+          0.12,
+          0.12
+        ]
+      }
+    },
+    {
+      "ok": false,
+      "test": "D stoolBar sit: hips rest on the real cushion height (0.522 m)",
+      "extra": {
+        "hipsAboveSeat": -0.201
+      }
+    },
+    {
+      "ok": false,
+      "test": "D stoolBar sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0,
+          0.195
+        ],
+        "half": [
+          0.1595,
+          0.138
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chairDesk sit: hips rest on the real cushion height (0.28 m)",
+      "extra": {
+        "hipsAboveSeat": 0.041
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chairDesk sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0,
+          0.195
+        ],
+        "half": [
+          0.201,
+          0.1885
+        ]
+      }
+    },
+    {
+      "ok": false,
+      "test": "D bedDouble sit: hips rest on the real cushion height (0.3 m)",
+      "extra": {
+        "hipsAboveSeat": 0.021
+      }
+    },
+    {
+      "ok": true,
+      "test": "D bedDouble sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0.25,
+          0.575
+        ],
+        "half": [
+          0.5735,
+          0.675
+        ]
+      }
+    }
+  ],
+  "errs": []
+}

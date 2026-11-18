@@ -1,0 +1,304 @@
+{
+  "dev": "iphone15",
+  "url": "http://127.0.0.1:5270/",
+  "results": [
+    {
+      "ok": true,
+      "test": "A1 canvas fills the whole screen at load",
+      "extra": {
+        "canvas": [
+          852,
+          393
+        ],
+        "stage": [
+          852,
+          393
+        ],
+        "vp": [
+          852,
+          393
+        ],
+        "appH": "393px"
+      }
+    },
+    {
+      "ok": true,
+      "test": "A2 browser bars shrink then grow back (−15 % height): the game fills the screen again (no band)",
+      "extra": {
+        "canvas": [
+          852,
+          393
+        ],
+        "stage": [
+          852,
+          393
+        ],
+        "vp": [
+          852,
+          393
+        ],
+        "appH": "393px"
+      }
+    },
+    {
+      "ok": true,
+      "test": "A3 rotation round-trip: the game fills the screen",
+      "extra": {
+        "canvas": [
+          852,
+          393
+        ],
+        "stage": [
+          852,
+          393
+        ],
+        "vp": [
+          852,
+          393
+        ],
+        "appH": "393px"
+      }
+    },
+    {
+      "ok": true,
+      "test": "B1 three big one-finger pans: the room still covers ≥ 60 % of the screen (before: 0 %)",
+      "extra": {
+        "roomPct": 69.8,
+        "visPct": 60.2
+      }
+    },
+    {
+      "ok": true,
+      "test": "B2 the avatar is on screen after the pan",
+      "extra": {
+        "worldH": 1.086,
+        "screenH": 93,
+        "bboxPx": [
+          277,
+          244,
+          382,
+          395
+        ],
+        "fullyVisible": false
+      }
+    },
+    {
+      "ok": false,
+      "test": "B3 Vue perso + big pans: the screen stays filled by the room (before: 0 %)",
+      "extra": {
+        "roomPct": 77.5,
+        "visPct": 24
+      }
+    },
+    {
+      "ok": true,
+      "test": "B4 avatar in the 4 corners of the room: the room always covers ≥ 65 % of the screen (before: 55-62 %)",
+      "extra": {
+        "worst": 70.3
+      }
+    },
+    {
+      "ok": true,
+      "test": "C1 top bar says \"Mode local\" (offline prototype), never \"en ligne\"",
+      "extra": "Mode local"
+    },
+    {
+      "ok": true,
+      "test": "C2 tapping it explains: prototype hors ligne, aucun autre joueur",
+      "extra": "Mode local — prototype hors lignePrototype hors ligne : aucun serveur, aucun autre joueur. Tes messages, ta maison et tes achats restent sur cet appareil. Juan/Juanita est un personnage local de test, pas un joueur en ligne."
+    },
+    {
+      "ok": true,
+      "test": "C3 the companion avatar is tagged PNJ (local test character), the player is not",
+      "extra": [
+        "Juanita",
+        "JuanPNJ"
+      ]
+    },
+    {
+      "ok": true,
+      "test": "C4 chat panel says Mode local · hors ligne + who can read messages",
+      "extra": {
+        "mode": "Mode local · hors ligne"
+      }
+    },
+    {
+      "ok": true,
+      "test": "C5 landscape phone: the chat is a compact corner card (≤ 22 % of the screen)",
+      "extra": {
+        "area": 10.5,
+        "rect": [
+          574,
+          203,
+          844,
+          333
+        ],
+        "mode": "Mode local · hors ligne",
+        "scope": "Mode local : seuls tes avatars sur cet appareil voient ces messages. Le multijoueur en ligne n’est pas encore branché."
+      }
+    },
+    {
+      "ok": true,
+      "test": "C6 the chat does not hide the avatars (< 50 % of either avatar covered)",
+      "extra": [
+        0.32,
+        0
+      ]
+    },
+    {
+      "ok": true,
+      "test": "D loungeSofa sit: hips rest on the real cushion height (0.276 m)",
+      "extra": {
+        "hipsAboveSeat": 0.045
+      }
+    },
+    {
+      "ok": true,
+      "test": "D loungeSofa sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0.27,
+          0.19
+        ],
+        "half": [
+          0.588,
+          0.246
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chair sit: hips rest on the real cushion height (0.288 m)",
+      "extra": {
+        "hipsAboveSeat": 0.045
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chair sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0,
+          0.05
+        ],
+        "half": [
+          0.12,
+          0.12
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D stoolBar sit: hips rest on the real cushion height (0.522 m)",
+      "extra": {
+        "hipsAboveSeat": 0.045
+      }
+    },
+    {
+      "ok": true,
+      "test": "D stoolBar sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0,
+          0
+        ],
+        "half": [
+          0.1595,
+          0.138
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chairDesk sit: hips rest on the real cushion height (0.28 m)",
+      "extra": {
+        "hipsAboveSeat": 0.045
+      }
+    },
+    {
+      "ok": true,
+      "test": "D chairDesk sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0,
+          0.09
+        ],
+        "half": [
+          0.201,
+          0.1885
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D bedDouble sit: hips rest on the real cushion height (0.3 m)",
+      "extra": {
+        "hipsAboveSeat": 0.045
+      }
+    },
+    {
+      "ok": true,
+      "test": "D bedDouble sit: hips are over the furniture, not in front of it",
+      "extra": {
+        "hipsLocal": [
+          0.25,
+          0.65
+        ],
+        "half": [
+          0.5735,
+          0.675
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "test": "D bed lie: lying ON the mattress (lowest body point within −1.5/+5 cm of the mattress top)",
+      "extra": {
+        "lowest": 0.306,
+        "mattress": 0.3
+      }
+    },
+    {
+      "ok": true,
+      "test": "D bed lie: on the back, head towards the headboard",
+      "extra": {
+        "pitch": -1.31
+      }
+    },
+    {
+      "ok": true,
+      "test": "D bed: getting up -> upright and back on the floor",
+      "extra": {
+        "pitch": 0,
+        "y": 0,
+        "mode": "walk"
+      }
+    },
+    {
+      "ok": true,
+      "test": "E1 \"Regarder la télé\": TV switched on, avatar sits on a seat facing it",
+      "extra": {
+        "on": true,
+        "seat": "start_3:0",
+        "facing": 1
+      }
+    },
+    {
+      "ok": true,
+      "test": "E2 real tap on the bed opens its menu with S’allonger + S’asseoir",
+      "extra": [
+        "😴 S’allonger",
+        "🛏️ S’asseoir sur le lit",
+        "✥ Déplacer"
+      ]
+    },
+    {
+      "ok": true,
+      "test": "E3 tapping S’allonger: the avatar walks to the bed and lies down",
+      "extra": {
+        "pitch": -1.31
+      }
+    }
+  ],
+  "errs": []
+}
