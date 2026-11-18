@@ -1,5 +1,6 @@
+import type { Body } from '../fashion/types';
 import { Html } from '@react-three/drei';
-import { game } from '../app/services';
+import { fashion, game } from '../app/services';
 import { FURNITURE } from '../data/furniture';
 import { world } from '../game/world';
 import { baseHeight, itemTransform, type ApartmentLayout, type PlacedItem } from '../game/apartment/ApartmentModel';
@@ -17,6 +18,7 @@ export function InteractionMenu({ it, apt }: { it: PlacedItem; apt: ApartmentLay
     A.push(['💃 Danser', () => { if (!it.on) game.interact(it.uid, 'toggle'); if (!world.chars[game.s.activeChar]?.emote) game.toggleEmote(); game.store.set({ menuItem: null }); }]);
   }
   if (d.interaction === 'fridge') A.push(['🍓 Prendre un snack', () => game.interact(it.uid, 'snack')]);
+  if (d.id === 'coatRackStanding') A.push(['👗 Garde-robe', () => { game.store.set({ menuItem: null }); fashion.open(game.s.activeChar as Body, 'tshirt', 'owned'); }]);
   if (d.interaction === 'look' || !d.interaction) A.push(['👀 Regarder', () => game.interact(it.uid, 'look')]);
   A.push(['✥ Déplacer', () => game.interact(it.uid, 'edit')]);
   return (

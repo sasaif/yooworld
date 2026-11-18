@@ -3,17 +3,17 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
 import { ANIM_LIBRARY, type AvatarDef, type ClipKey } from '../data/avatars';
+import type { Look } from '../fashion/types';
+import { useCustomAvatar } from './avatar/custom/useCustomAvatar';
 import { LOCO, stepMover } from '../game/character/locomotion';
 import type { CharState } from '../game/world';
-import { buildAvatar } from './avatar/AvatarModel';
 import { FaceAnimator, morphIndex } from './avatar/face';
 
 useGLTF.preload(ANIM_LIBRARY);
 
-export function Character({ c, def, selected, onSelect }: { c: CharState; def: AvatarDef; selected: boolean; onSelect: () => void }) {
-  const body = useGLTF(def.url); const lib = useGLTF(ANIM_LIBRARY);
+export function Character({ c, def, look, selected, onSelect }: { c: CharState; def: AvatarDef; look: Look; selected: boolean; onSelect: () => void }) {
   const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const bubble = useRef<HTMLDivElement>(null);
-  const built = useMemo(() => buildAvatar(body, lib, def), [body, lib, def]);
+  const built = useCustomAvatar(def, look);
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
   const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
   const dance = useRef(0);

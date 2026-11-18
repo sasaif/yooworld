@@ -37,7 +37,9 @@ export class GameController {
   readonly chat: LocalChatService;
   readonly cat = FURNITURE;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
-  constructor(readonly repo: GameRepository, readonly net: NetworkTransport) {
+  /** Optional shared Gold wallet (fashion economy). When set, furniture & finishes are paid in Gold from it
+   *  instead of the legacy furniture `inventory.coins` counter. */
+  constructor(readonly repo: GameRepository, readonly net: NetworkTransport, readonly wallet?: { balance(): number; spend(amount: number, memo: string): boolean }) {
     this.chat = new LocalChatService(net);
     this.chat.onMessage((m) => { if (m.local) say(this.store.get().activeChar, m.text); });
   }
@@ -139,13 +141,15 @@ export class GameController {
     this.toast(`${(r.stored ?? []).length} objet(s) rangé(s) dans le sac`);
   }
   buyItem(def: FurnitureDef) {
+    if (this.wallet) { if (!this.wallet.spend(def.price, def.name)) return this.toast('Pas assez d’or'); this.store.set({ inventory: addItem(this.s.inventory!, def.id) }); this.persist(); this.startPlace(def.id); return; }
     const r = buy(this.s.inventory!, def); if (!r.ok) return this.toast(REASON.funds);
     this.store.set({ inventory: r.inv }); this.persist(); this.startPlace(def.id);
   }
   setFinish(kind: 'floor' | 'wall', id: string) {
     const list = kind === 'floor' ? FLOORS : WALLS; const f = list.find((x) => x.id === id)!; const key = `${kind}:${id}`;
     let inv = this.s.inventory!;
-    if (f.price > 0 && !inv.items[key]) { const paid = spend(inv, f.price); if (!paid) return this.toast(REASON.funds); inv = addItem(paid, key); this.store.set({ inventory: inv }); }
+    if (f.price > 0 && !inv.items[key] && this.wallet) { if (!this.wallet.spend(f.price, f.name)) return this.toast('Pas assez d’or'); inv = addItem(inv, key); this.store.set({ inventory: inv }); }
+    else if (f.price > 0 && !inv.items[key]) { const paid = spend(inv, f.price); if (!paid) return this.toast(REASON.funds); inv = addItem(paid, key); this.store.set({ inventory: inv }); }
     const apt = { ...this.s.apartment!, [kind]: id }; this.store.set({ apartment: apt }); this.persist();
   }
   ownsFinish(kind: 'floor' | 'wall', id: string, price: number) { return price === 0 || !!this.s.inventory?.items[`${kind}:${id}`]; }

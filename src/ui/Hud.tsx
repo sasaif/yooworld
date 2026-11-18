@@ -1,7 +1,9 @@
+import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
 import { useEffect, useState } from 'react';
 import { useStore } from '../core/store';
-import { game } from '../app/services';
+import { game, fashion } from '../app/services';
+import { Wallet } from './fashion/Studio';
 import { AVATARS } from '../data/avatars';
 import { FURNITURE, CATEGORY_LABEL, RARITY_COLOR, type Category } from '../data/furniture';
 import { FLOORS, WALLS } from '../data/finishes';
@@ -36,13 +38,13 @@ function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const
 
 function TopBar() {
   useTick(1500);
-  const p = useStore(game.store, (s) => s.profile)!; const coins = useStore(game.store, (s) => s.inventory?.coins ?? 0); const active = useStore(game.store, (s) => s.activeChar);
+  const p = useStore(game.store, (s) => s.profile)!; const active = useStore(game.store, (s) => s.activeChar);
   return (
     <div className="hud-top">
       <button className="chip" onClick={() => game.setPanel('profile')}>
         <span className="avatar-dot" style={{ background: AVATARS[active].tagColor }} />{world.chars[active]?.name ?? p.name}
       </button>
-      <span className="chip coin">🪙 {coins}</span>
+      <button className="chip wallet-chip" aria-label="Portefeuille (soldes de test)" onClick={() => fashion.open(game.s.activeChar as Body, 'hair', 'wallet')}><Wallet compact /></button>
       <span className="spacer" />
       <LocationChip />
       <CamViewChip />
@@ -76,6 +78,7 @@ function PlayDock() {
         <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
         <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>
       </> : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
+      <button onClick={() => fashion.open(active as Body)} className="style-btn" aria-label="Style : avatar et boutique mode">👗<span>Style</span></button>
       <button onClick={() => game.toggleEmote()} className={emote ? 'on' : ''}>🎉<span>Danse</span></button>
       <button onClick={() => game.setPanel('chat')} className={panel === 'chat' ? 'on' : ''}>💬<span>Chat</span></button>
     </nav>
@@ -134,7 +137,7 @@ function CatalogSheet() {
           <button key={id} className="card" onClick={() => place(id)}><img src={`${import.meta.env.BASE_URL}thumbs/${id}.webp`} alt="" /><b>{FURNITURE[id].name}</b><small>×{n} · poser</small></button>
         )) : <p className="empty">Ton sac est vide. Range un meuble ou passe à la boutique.</p>)}
         {tab === 'shop' && shop.map((d) => (
-          <button key={d.id} className="card" onClick={() => game.buyItem(d)} disabled={inv.coins < d.price}>
+          <button key={d.id} className="card" onClick={() => game.buyItem(d)} disabled={(game.wallet ? game.wallet.balance() : inv.coins) < d.price}>
             <img src={`${import.meta.env.BASE_URL}thumbs/${d.id}.webp`} alt="" /><b>{d.name}</b><small><span style={{ color: RARITY_COLOR[d.rarity] }}>●</span> 🪙 {d.price}</small>
           </button>
         ))}
