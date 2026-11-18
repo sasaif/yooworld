@@ -3,7 +3,9 @@ import type { NavGrid } from './nav/NavGrid';
 import type { Mover } from './character/locomotion';
 
 export type Mode = 'idle' | 'walk' | 'sitting' | 'standing' | 'emote';
-export interface Seat { id: string; pos: THREE.Vector3; yaw: number; front: THREE.Vector3 }
+/** A place to sit or lie. `pos` = legacy seat point; `hip` + `h` = measured anchor (hips target for 'sit', feet point for
+ *  'lie') and the real surface height of the cushion / mattress (see game/interact/anchors.ts). */
+export interface Seat { id: string; pos: THREE.Vector3; yaw: number; front: THREE.Vector3; pose?: 'sit' | 'lie'; h?: number; hip?: THREE.Vector3 }
 /** Runtime state of a character in the current scene (mutable, read by the render loop). */
 export interface CharState extends Mover {
   id: string; name: string; mode: Mode; local: true;

@@ -11,13 +11,15 @@ import { driveCharacter } from '../game/movement/playerMotion';
 import { world } from '../game/world';
 import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
+import { LIE_PITCH, lieRoot, sitRoot } from '../game/interact/anchors';
 
 useGLTF.preload(ANIM_LIBRARY);
 
 const LOCO_KEYS = ['idle', 'walk', 'run'] as const;
 type LocoKey = typeof LOCO_KEYS[number];
 const camDir = new THREE.Vector3();
-const sitFwd = new THREE.Vector3();
+const ease = (t: number) => t * t * (3 - 2 * t);
+const SIT_IN = 0.45, LIE_IN = 0.6, LIE_OUT = 0.5; // s: blend onto a seat / into and out of the lying pose
 /** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
 export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string }> = {};
 
@@ -28,6 +30,9 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
   const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
   const dance = useRef(0);
+  const blob = useRef<THREE.Mesh>(null); const ring = useRef<THREE.Mesh>(null);
+  /** seat / bed blend: root goes from `from` to `to` (and the body tilts onto its back when lying), t in s */
+  const pose = useRef({ from: new THREE.Vector3(), to: new THREE.Vector3(), t: 0, dur: 0, lie: false, pitch: 0, out: false });
   // 'loco' = idle/walk/run blended by the actual ground speed; other clips (sit, stand, emote) cross-fade as before
   const cur = useRef<ClipKey | 'loco'>('idle');
   const lw = useRef<Record<LocoKey, number>>({ idle: 1, walk: 0, run: 0 });
@@ -64,20 +69,35 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     // analog stick / keyboard (player's avatar only): may stand the avatar up, then drives it
     let driven = false;
     if (controlled) { state.camera.getWorldDirection(camDir); driven = driveCharacter(s, dtRaw, camDir, world.nav); } // the controller clamps dt itself
+    const P = pose.current;
     if (s.mode === 'standing') {
-      play('stand', 0.15);
-      const a = built.actions.stand;
-      if (a.time >= a.getClip().duration - 0.05) { if (s.sitOn) s.pos.copy(s.sitOn.front).setY(0); s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
-    } else if (s.mode !== 'sitting') {
+      if (s.sitOn?.pose === 'lie') {
+        // get up from the bed: roll back upright and step off at the foot of the bed (no clip for this, blended by hand)
+        if (!P.out) { P.out = true; P.from.copy(s.pos); P.to.copy(s.sitOn.front).setY(0); P.t = 0; P.dur = LIE_OUT; }
+        P.t += dt; const e = ease(Math.min(1, P.t / P.dur)); s.pos.lerpVectors(P.from, P.to, e); P.pitch = LIE_PITCH * (1 - e); loco(0, dt);
+        if (P.t >= P.dur) { P.out = false; P.pitch = 0; s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
+      } else {
+        play('stand', 0.15);
+        const a = built.actions.stand; const k = Math.min(1, a.time / Math.max(0.01, a.getClip().duration - 0.05));
+        if (s.pos.y !== 0) s.pos.y = P.to.y * (1 - ease(k)); // high seats (bar stool): come down with the stand-up clip
+        if (a.time >= a.getClip().duration - 0.05) { if (s.sitOn) s.pos.copy(s.sitOn.front).setY(0); s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
+      }
+    } else if (s.mode === 'sitting') {
+      if (P.t < P.dur) { P.t += dt; const e = ease(Math.min(1, P.t / P.dur)); s.pos.lerpVectors(P.from, P.to, e); if (P.lie) P.pitch = LIE_PITCH * e; }
+      if (s.sitOn?.pose === 'lie') loco(0, dt); // breathing idle, lying on the back
+    } else {
       const moving = driven ? s.speed > 0.005 : stepMoverSub(s, dt);
       if (moving) {
         s.mode = 'walk';
         loco(s.speed, dt);
       } else if (!driven && s.pendingSeat) {
-        const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting'; s.yaw = seat.yaw;
-        sitFwd.set(Math.sin(seat.yaw), 0, Math.cos(seat.yaw));
-        s.pos.copy(seat.pos).addScaledVector(sitFwd, def.sitForward * def.scale); s.pos.y = 0.04 - (def.scale - 1) * 0.22; // hips stay on the cushion
-        play('sit', 0.25);
+        const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting'; s.yaw = seat.yaw; P.out = false;
+        if (seat.pose === 'lie') { P.lie = true; P.from.copy(s.pos); lieRoot(seat, def.scale, P.to); P.t = 0; P.dur = LIE_IN; loco(0, dt); }
+        else {
+          // measured anchor: hips on the real cushion height of this seat (chair, stool, sofa, bed edge)
+          P.lie = false; sitRoot(seat, def.scale, def.sitForward, P.to); P.from.copy(P.to); P.from.y = Math.min(P.to.y, 0.02); s.pos.copy(P.from);
+          P.t = 0; P.dur = SIT_IN; play('sit', 0.25);
+        }
       } else {
         if (s.pendingEmote) { s.pendingEmote = false; s.emote = true; } s.mode = s.emote ? 'emote' : 'idle';
         if (s.emote) play('emote', 0.3); else loco(0, dt);
@@ -94,8 +114,12 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     built.holder.position.y = Math.abs(Math.sin(beat)) * 0.035 * k;
     built.holder.rotation.z = Math.sin(beat) * 0.07 * k;
     built.holder.rotation.y = (def.facing === 'negZ' ? Math.PI : 0) + Math.sin(beat / 2) * 0.35 * k;
-    outer.current.position.copy(s.pos); outer.current.rotation.y = s.yaw;
-    tag.current.position.y += ((s.mode === 'sitting' ? 0.95 : 1.14) - tag.current.position.y) * Math.min(1, dt * 6);
+    if (s.mode !== 'sitting' && s.mode !== 'standing') P.pitch = 0;
+    outer.current.position.copy(s.pos); outer.current.rotation.set(P.pitch, s.yaw, 0, 'YXZ');
+    const flat = P.pitch < -0.2; if (blob.current) blob.current.visible = !flat; if (ring.current) ring.current.visible = !flat;
+    // name tag: above the head, also when lying (the group is tilted, so lift it along the body instead)
+    const kt = Math.min(1, dt * 6); tag.current.position.y += ((flat ? 0.9 : s.mode === 'sitting' ? 0.95 : 1.14) - tag.current.position.y) * kt;
+    tag.current.position.z += ((flat ? 0.4 : 0) - tag.current.position.z) * kt;
     if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
   });
 
@@ -103,8 +127,8 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     <group ref={outer} scale={def.scale} onClick={(e) => { if (e.delta > 8) return; e.stopPropagation(); onSelect(); }}>
       <primitive object={built.holder} />
       {/* soft blob shadow: cheap contact shadow that also works when real shadows are off (mobile) */}
-      <mesh rotation-x={-Math.PI / 2} position-y={0.006} renderOrder={-1}><circleGeometry args={[0.2, 24]} /><meshBasicMaterial color="#2a1530" transparent opacity={0.22} depthWrite={false} /></mesh>
-      {selected && <mesh rotation-x={-Math.PI / 2} position-y={0.012}><ringGeometry args={[0.24, 0.29, 40]} /><meshBasicMaterial color={def.tagColor} transparent opacity={0.85} depthWrite={false} /></mesh>}
+      <mesh ref={blob} rotation-x={-Math.PI / 2} position-y={0.006} renderOrder={-1}><circleGeometry args={[0.2, 24]} /><meshBasicMaterial color="#2a1530" transparent opacity={0.22} depthWrite={false} /></mesh>
+      {selected && <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.012}><ringGeometry args={[0.24, 0.29, 40]} /><meshBasicMaterial color={def.tagColor} transparent opacity={0.85} depthWrite={false} /></mesh>}
       <group ref={tag} position-y={1.12}>
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div className="tagwrap">

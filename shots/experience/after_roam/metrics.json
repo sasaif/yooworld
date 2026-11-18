@@ -1,0 +1,146 @@
+{
+  "iphone15_roam": {
+    "per": {
+      "bed": {
+        "room": 86.6,
+        "vis": 74.7,
+        "av": true
+      },
+      "kitchen": {
+        "room": 84.7,
+        "vis": 73.1,
+        "av": true
+      },
+      "table": {
+        "room": 70.3,
+        "vis": 60.6,
+        "av": true
+      },
+      "door": {
+        "room": 88.4,
+        "vis": 76.3,
+        "av": true
+      },
+      "tv": {
+        "room": 79.1,
+        "vis": 68.2,
+        "av": true
+      },
+      "afterPan": {
+        "room": 69.4,
+        "vis": 59.9,
+        "av": true
+      }
+    },
+    "worstRoomPct": 69.4,
+    "errors": []
+  },
+  "iphone15_roamperso": {
+    "per": {
+      "bed": {
+        "room": 91.8,
+        "vis": 28.5,
+        "av": true
+      },
+      "kitchen": {
+        "room": 91.7,
+        "vis": 28.5,
+        "av": true
+      },
+      "table": {
+        "room": 78.8,
+        "vis": 24.5,
+        "av": true
+      },
+      "door": {
+        "room": 100,
+        "vis": 31,
+        "av": true
+      },
+      "tv": {
+        "room": 100,
+        "vis": 31,
+        "av": true
+      },
+      "afterPan": {
+        "room": 100,
+        "vis": 31,
+        "av": true
+      }
+    },
+    "worstRoomPct": 78.8,
+    "errors": []
+  },
+  "desktop_roam": {
+    "per": {
+      "bed": {
+        "room": 75.8,
+        "vis": 87.4,
+        "av": true
+      },
+      "kitchen": {
+        "room": 74.4,
+        "vis": 85.7,
+        "av": true
+      },
+      "table": {
+        "room": 74.3,
+        "vis": 85.7,
+        "av": true
+      },
+      "door": {
+        "room": 77.2,
+        "vis": 88.9,
+        "av": true
+      },
+      "tv": {
+        "room": 73.4,
+        "vis": 84.5,
+        "av": true
+      },
+      "afterPan": {
+        "room": 73.4,
+        "vis": 84.5,
+        "av": true
+      }
+    },
+    "worstRoomPct": 73.4,
+    "errors": []
+  },
+  "desktop_roamperso": {
+    "per": {
+      "bed": {
+        "room": 99.9,
+        "vis": 41.5,
+        "av": true
+      },
+      "kitchen": {
+        "room": 88.1,
+        "vis": 36.6,
+        "av": true
+      },
+      "table": {
+        "room": 77.7,
+        "vis": 32.2,
+        "av": true
+      },
+      "door": {
+        "room": 90.6,
+        "vis": 37.6,
+        "av": true
+      },
+      "tv": {
+        "room": 92.3,
+        "vis": 38.3,
+        "av": true
+      },
+      "afterPan": {
+        "room": 92.3,
+        "vis": 38.3,
+        "av": true
+      }
+    },
+    "worstRoomPct": 77.7,
+    "errors": []
+  }
+}

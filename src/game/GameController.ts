@@ -4,7 +4,7 @@ import { FURNITURE, type FurnitureDef } from '../data/furniture';
 import { FLOORS, WALLS } from '../data/finishes';
 import { defaultApartment, STARTER_INVENTORY } from '../data/defaultApartment';
 import { canPlace, findSpot, footprintSize, itemTransform, moveItem, placeItem, removeItem, rotateItem, toggleItem, type ApartmentLayout, type PlaceResult, type Rot } from './apartment/ApartmentModel';
-import { syncWorld, freeSeat } from './apartment/worldSync';
+import { syncWorld, freeSeat, seatFacing } from './apartment/worldSync';
 import { addItem, buy, emptyInventory, spend, takeItem, type Inventory } from './inventory/Inventory';
 import type { GameRepository, Profile } from '../persistence/types';
 import type { NetworkTransport } from '../net/NetworkTransport';
@@ -85,10 +85,21 @@ export class GameController {
     if (this.s.mode === 'edit') { if (!this.s.placing) this.store.set({ selItem: uid }); return; }
     this.store.set({ menuItem: this.s.menuItem === uid ? null : uid });
   }
-  interact(uid: string, action: 'sit' | 'toggle' | 'look' | 'snack' | 'edit') {
+  interact(uid: string, action: 'sit' | 'lie' | 'watch' | 'toggle' | 'look' | 'snack' | 'edit') {
     const apt = this.s.apartment!; const it = apt.items.find((i) => i.uid === uid); if (!it) return;
     const def = this.cat[it.defId]; const me = world.chars[this.s.activeChar]; this.store.set({ menuItem: null });
-    if (action === 'sit') { const seat = freeSeat(uid, me.pos, me.id); if (!seat) return this.toast('Plus de place !'); goTo(me.id, seat.front, { seat }); }
+    if (action === 'sit' || action === 'lie') {
+      const seat = freeSeat(uid, me.pos, me.id, action === 'lie' ? 'lie' : 'sit'); if (!seat) return this.toast('Plus de place !');
+      if (!goTo(me.id, seat.front, { seat })) return this.toast('Je ne peux pas y aller');
+      if (action === 'lie') say(me.id, 'Petite sieste… 😴', 2500);
+    }
+    if (action === 'watch') {
+      // switch the TV on, then sit on the nearest free seat that faces it (sofa, armchair, chair…)
+      if (!it.on) this.setLayout(toggleItem(apt, uid), 'toggle', { uid });
+      const tv = itemTransform(it, this.cat); const seat = seatFacing(new THREE.Vector3(tv.x, 0, tv.z), me.pos, me.id);
+      if (seat && goTo(me.id, seat.front, { seat })) say(me.id, '📺 C’est l’heure de ma série !', 3000);
+      else { const f = new THREE.Vector3(Math.sin(tv.yaw), 0, Math.cos(tv.yaw)); goTo(me.id, new THREE.Vector3(tv.x, 0, tv.z).addScaledVector(f, 1.4)); this.toast('Aucun siège face à la télé : place un canapé devant !'); }
+    }
     if (action === 'toggle') {
       const next = toggleItem(apt, uid); this.setLayout(next, 'toggle', { uid });
       const on = next.items.find((i) => i.uid === uid)!.on;
