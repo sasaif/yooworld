@@ -6,7 +6,8 @@ import { useStore } from '../../core/store';
 import { game } from '../../app/services';
 import { BEACH_PROPS, BEACH_CENTER, CAFE, DANCE_FLOOR, propById, type BeachProp } from '../../game/beach/beachLayout';
 import { Q } from '../quality';
-import { TapMarker } from '../apartment/ApartmentView';
+import { TapMarker } from '../TapMarker';
+import { onFloorTap } from '../../app/floorTap';
 import { swayMaterial } from './meshBuilder';
 import { buildBeachProps, buildBoat, lanternBulbs } from './beachProps';
 import { beachTime, mood, sandTexture, sparkleMaterial, waterMaterial } from './water';
@@ -29,7 +30,7 @@ function Ground() {
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 8) return; e.stopPropagation();
     const now = performance.now(); const dbl = now - lastTap.current.t < 380 && e.point.distanceTo(lastTap.current.p) < 0.6; lastTap.current = { t: now, p: e.point.clone() };
-    if (game.walkTo(e.point.clone(), dbl)) { window.dispatchEvent(new Event('yw:follow')); window.dispatchEvent(new CustomEvent('yw:marker', { detail: e.point.clone() })); }
+    onFloorTap(e.point.clone(), dbl);
   };
   return (
     <group>

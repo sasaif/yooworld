@@ -31,6 +31,7 @@ import { VirtualJoystick, wantsJoystick } from '../input/joystick/VirtualJoystic
 import { installGlobalInput, setInputEnabled } from '../input/joystick/joystickState';
 import { motion } from '../game/movement/playerMotion';
 import { installMoveDebug } from '../game/movement/debug';
+import { trackPointerKind } from '../input/moveSettings';
 
 const LIEU_KEY = 'yw.lieuDefaultUsed';
 function startAt() {
@@ -49,6 +50,7 @@ const ROOM = { w: W, d: D, wallH: WALL_H };
 const JOY = !SHOT && wantsJoystick();
 installGlobalInput({ keyboard: !SHOT });
 installMoveDebug();
+trackPointerKind();
 // stick engaged: close the tap menu, re-attach the camera follow, stop a dance (same as a tap on the floor)
 motion.onEngage = (c) => {
   if (game.s.menuItem) game.store.set({ menuItem: null });

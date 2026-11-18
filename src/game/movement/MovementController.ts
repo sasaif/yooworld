@@ -50,14 +50,27 @@ export function stepMove(st: MoveState, input: { x: number; y: number }, cam: Ca
   const dt = Math.min(Math.max(dtRaw, 0), cfg.maxDt); if (dt === 0) return st;
   const d = Math.min(1, Math.hypot(input.x, input.y)); const f = speedFactor(d, cfg.anchors);
   const dir = f > 0 ? screenToWorldDir(input.x, input.y, cam) : null;
+  return stepMoveWorld(st, dir, f, dt, cfg, collide, d);
+}
+
+/**
+ * Core integrator shared by the analog stick and the tap / click-to-move path follower (same speed scale,
+ * acceleration, deceleration, collision sub-steps and turning → identical feel whatever the input).
+ * `dir` = unit floor direction (null = no input → decelerate), `f` = speed factor 0..1 of maxSpeed.
+ * `maxStep` optionally caps the displacement of this step (path follower: never overshoot the destination).
+ */
+export function stepMoveWorld(st: MoveState, dir: { x: number; z: number } | null, f: number, dtRaw: number, cfg: MoveConfig = MOVE_DEFAULTS, collide?: Collider, d = f, maxStep = Infinity): MoveState {
+  const dt = Math.min(Math.max(dtRaw, 0), cfg.maxDt); if (dt === 0) return st;
+  if (!(f > 0)) dir = null;
   const tx = dir ? dir.x * f * cfg.maxSpeed : 0, tz = dir ? dir.z * f * cfg.maxSpeed : 0;
   const cur = Math.hypot(st.vx, st.vz), want = Math.hypot(tx, tz);
   const rate = want < 1e-6 || want < cur - 1e-6 ? cfg.decel : cfg.accel;
   // v(t) = t + (v0 - t)e^{-kt}  →  exact displacement over dt
   const e = Math.exp(-rate * dt), g = (1 - e) / rate;
-  const dx = tx * dt + (st.vx - tx) * g, dz = tz * dt + (st.vz - tz) * g;
+  let dx = tx * dt + (st.vx - tx) * g, dz = tz * dt + (st.vz - tz) * g;
   let vx = tx + (st.vx - tx) * e, vz = tz + (st.vz - tz) * e;
   if (!dir && Math.hypot(vx, vz) < cfg.stopEps) { vx = 0; vz = 0; }
+  const len0 = Math.hypot(dx, dz); if (len0 > maxStep) { const k = maxStep / len0; dx *= k; dz *= k; }
   // move through the collider in small sub-steps; cancel the velocity component pushing into an obstacle
   let x = st.x, z = st.z, blocked = false;
   const len = Math.hypot(dx, dz);

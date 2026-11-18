@@ -11,6 +11,8 @@ import { LOCATIONS, locationById } from '../data/locations';
 import { count } from '../game/inventory/Inventory';
 import { world } from '../game/world';
 import { enterLandscape } from '../app/screen';
+import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
+import { devicePrimaryInput } from '../app/floorTap';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
@@ -27,6 +29,7 @@ export function Hud() {
       {s.panel === 'chat' && <ChatSheet />}
       {s.panel === 'profile' && <ProfileSheet />}
       {s.panel === 'places' && <PlacesSheet />}
+      {s.panel === 'settings' && <SettingsSheet />}
       {s.mode === 'edit' && (s.placing ? <PlacingBar /> : s.selItem ? <SelectionBar /> : null)}
     </>
   );
@@ -38,7 +41,7 @@ function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const
 
 function TopBar() {
   useTick(1500);
-  const p = useStore(game.store, (s) => s.profile)!; const active = useStore(game.store, (s) => s.activeChar);
+  const p = useStore(game.store, (s) => s.profile)!; const active = useStore(game.store, (s) => s.activeChar); const panel = useStore(game.store, (s) => s.panel);
   return (
     <div className="hud-top">
       <button className="chip" onClick={() => game.setPanel('profile')}>
@@ -48,8 +51,31 @@ function TopBar() {
       <span className="spacer" />
       <LocationChip />
       <CamViewChip />
+      <button className={'chip settings' + (panel === 'settings' ? ' on' : '')} title="Réglages des contrôles" aria-label="Réglages des contrôles" onClick={() => game.setPanel('settings')}>⚙️</button>
       {document.fullscreenEnabled && !document.fullscreenElement && matchMedia('(pointer: coarse)').matches && <button className="chip fs" title="Plein écran" aria-label="Plein écran" onClick={() => void enterLandscape()}>⛶</button>}
       <span className="chip net" title="Aucun serveur : seuls les personnages locaux sont présents">● Hors ligne</span>
+    </div>
+  );
+}
+/** Movement controls settings (persisted on the device): touch = joystick only (default) or joystick + tap-to-move. */
+function SettingsSheet() {
+  const tap = useStore(moveSettings, (x) => x.touchTapToMove); const primary = devicePrimaryInput();
+  const touchScreen = primary === 'touch' || (navigator.maxTouchPoints ?? 0) > 0;
+  const opt = (on: boolean, icon: string, title: string, desc: string, badge?: string) => (
+    <button className={'ctl-opt' + (tap === on ? ' on' : '')} role="radio" aria-checked={tap === on} data-ctl={on ? 'tap' : 'joystick'} onClick={() => { if (tap !== on) { setTouchTapToMove(on); game.toast(on ? '👆 Toucher pour aller : activé' : '🕹️ Joystick seul'); } }}>
+      <span className="ctl-ico">{icon}</span><span className="ctl-txt"><b>{title}{badge && <em>{badge}</em>}</b><small>{desc}</small></span><span className="ctl-radio" />
+    </button>
+  );
+  return (
+    <div className="sheet settings-sheet">
+      <h3>Réglages <button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
+      <div className="ctl-section">{touchScreen ? 'Contrôles tactiles' : 'Contrôles sur écran tactile'}</div>
+      <div className="ctl-group" role="radiogroup" aria-label="Contrôles tactiles">
+        {opt(false, '🕹️', 'Joystick seul', 'Le joystick en bas à gauche déplace ton perso. Toucher le sol ne fait rien.', 'par défaut')}
+        {opt(true, '👆', 'Joystick + toucher pour aller', 'Touche le sol : ton perso y va tout seul en contournant les meubles. Le joystick reprend la main à tout moment.')}
+      </div>
+      {primary === 'mouse' && <p className="muted ctl-note">🖱️ Souris : clique sur le sol pour y aller (double-clic = courir) · clavier ZQSD / WASD / flèches.</p>}
+      <p className="muted ctl-note">Les meubles et les objets restent cliquables dans les deux modes.</p>
     </div>
   );
 }

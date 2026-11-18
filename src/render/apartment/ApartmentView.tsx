@@ -13,6 +13,8 @@ import { flattenModel, mergeSimple, type Part } from './furnitureParts';
 import { floorTexture, wallTexture } from './finishTextures';
 import { InteractionMenu } from '../../ui/InteractionMenu';
 import { Decor } from './Decor';
+import { TapMarker } from '../TapMarker';
+import { onFloorTap } from '../../app/floorTap';
 
 const URL = (m: string) => `${import.meta.env.BASE_URL}models/furniture/${m}.glb`;
 Object.values(FURNITURE).forEach((d) => useGLTF.preload(URL(d.model)));
@@ -81,7 +83,7 @@ function Floor({ apt }: { apt: ApartmentLayout }) {
     if (game.s.mode === 'edit') { game.store.set({ selItem: null }); return; }
     e.stopPropagation();
     const now = performance.now(); const dbl = now - lastTap.current.t < 380 && e.point.distanceTo(lastTap.current.p) < 0.6; lastTap.current = { t: now, p: e.point.clone() };
-    if (game.walkTo(e.point.clone(), dbl)) { window.dispatchEvent(new Event('yw:follow')); window.dispatchEvent(new CustomEvent('yw:marker', { detail: e.point.clone() })); }
+    onFloorTap(e.point.clone(), dbl);
   };
   return (
     <group>
@@ -105,12 +107,7 @@ function GridOverlay({ W, D }: { W: number; D: number }) {
   }, [W, D]);
   return <lineSegments geometry={geo} position-y={0.004}><lineBasicMaterial color="#ffffff" transparent opacity={0.22} /></lineSegments>;
 }
-export function TapMarker() {
-  const ref = useRef<THREE.Mesh>(null!); const t = useRef(99);
-  useLayoutEffect(() => { const on = (e: Event) => { ref.current.position.copy((e as CustomEvent).detail).setY(0.01); t.current = 0; }; window.addEventListener('yw:marker', on); return () => window.removeEventListener('yw:marker', on); }, []);
-  useFrame((_, dt) => { t.current += dt; const k = Math.min(1, t.current / 0.6); ref.current.visible = k < 1; ref.current.scale.setScalar(0.6 + k * 0.8); (ref.current.material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - k); });
-  return <mesh ref={ref} rotation-x={-Math.PI / 2} visible={false}><ringGeometry args={[0.12, 0.16, 32]} /><meshBasicMaterial color="#ffffff" transparent depthWrite={false} /></mesh>;
-}
+export { TapMarker } from '../TapMarker';
 
 /** Lamps, TV screens, music notes: per-item live effects driven by `item.on`. */
 function ItemEffects({ apt }: { apt: ApartmentLayout }) {

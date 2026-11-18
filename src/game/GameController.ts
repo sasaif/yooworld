@@ -13,7 +13,7 @@ import { goTo, placeChar, say, world } from './world';
 import { BEACH_SPAWN, DANCE_SPOTS, beachWorld, propById } from './beach/beachLayout';
 import { isPlayable, locationById } from '../data/locations';
 
-export type Panel = null | 'catalog' | 'finishes' | 'chat' | 'profile' | 'places' | 'emotes';
+export type Panel = null | 'catalog' | 'finishes' | 'chat' | 'profile' | 'places' | 'emotes' | 'settings';
 export interface Placing { defId: string; x: number; z: number; rot: Rot; moving?: string; valid: PlaceResult }
 export interface GameState {
   ready: boolean; profile: Profile | null; apartment: ApartmentLayout | null; inventory: Inventory | null;
