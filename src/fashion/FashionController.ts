@@ -9,7 +9,7 @@ import type { Activity } from '../economy/rewards';
 /** Avatar-customisation + shop UI state. Talks to the economy ONLY through EconomyService
  *  (so the same UI works with the future server-authoritative RemoteEconomy). */
 export type StudioTab = 'shop' | 'owned' | 'equipped' | 'trade' | 'wallet';
-export interface Studio { body: Body; base: Look; draft: Look; cat: ShopCategory; tab: StudioTab; selected: string | null; confirm: boolean; leaving: boolean; compare: boolean }
+export interface Studio { body: Body; base: Look; draft: Look; cat: ShopCategory; tab: StudioTab; selected: string | null; confirm: boolean; leaving: boolean; compare: boolean; pending?: Body }
 export interface FashionState { looks: Record<Body, Look>; studio: Studio | null; msg: { text: string; kind: 'ok' | 'err' | 'gold'; at: number } | null; ecoRev: number }
 const ERR: Partial<Record<string, string>> = {
   insufficient_funds: 'Solde insuffisant', already_owned: 'Déjà dans tes articles', duplicate_in_cart: 'Article en double', empty_cart: 'Panier vide', not_transferable: 'Les diamants ne sont pas échangeables',
@@ -38,7 +38,7 @@ export class FashionController {
   setCompare(on: boolean) { this.patch({ compare: on }); }
   switchBody(body: Body) {
     const st = this.s.studio; if (!st || st.body === body) return;
-    if (this.cart().length) { this.patch({ leaving: true }); return; }
+    if (this.cart().length) { this.patch({ leaving: true, pending: body }); return; }
     this.open(body, st.cat === 'beard' && body === 'f' ? 'hair' : st.cat, st.tab);
   }
   /** tap on an item card: try it on (or take it off when it is an optional slot already worn) */

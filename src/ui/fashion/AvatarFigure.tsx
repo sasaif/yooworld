@@ -23,5 +23,5 @@ export function AvatarFigure({ look, yaw = 0, dance = false, still = false, onBu
 }
 export type CamFrame = 'face' | 'head' | 'body' | 'legs' | 'feet' | 'upper' | 'hand';
 export const FRAMES: Record<CamFrame, { y: number; h: number }> = {
-  face: { y: 0.67, h: 0.48 }, head: { y: 0.68, h: 0.66 }, upper: { y: 0.55, h: 0.6 }, body: { y: 0.48, h: 1.08 }, legs: { y: 0.24, h: 0.62 }, feet: { y: 0.09, h: 0.32 }, hand: { y: 0.3, h: 0.5 },
+  face: { y: 0.66, h: 0.6 }, head: { y: 0.67, h: 0.8 }, upper: { y: 0.55, h: 0.6 }, body: { y: 0.48, h: 1.08 }, legs: { y: 0.24, h: 0.62 }, feet: { y: 0.09, h: 0.32 }, hand: { y: 0.3, h: 0.5 },
 };

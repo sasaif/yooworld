@@ -66,8 +66,9 @@ function ConfirmModal() {
 function LeavingModal() {
   const cart = fashion.cart(); const t = fashion.totals(cart);
   return <div className="st-modal"><div className="md-card"><h3>Articles en essai</h3><p>Tu essaies {cart.length} article(s) non acheté(s) (<TotalsView t={t} />). Que veux-tu faire ?</p>
-    <div className="row wrap"><button className="btn ghost" onClick={() => fashion.store.set({ studio: { ...fashion.s.studio!, leaving: false } })}>Continuer l’essayage</button>
-      <button className="btn" onClick={() => { fashion.clearCart(); void fashion.close('keep-owned'); }}>Quitter sans acheter</button>
+    <div className="row wrap"><button className="btn ghost" onClick={() => fashion.store.set({ studio: { ...fashion.s.studio!, leaving: false, pending: undefined } })}>Continuer l’essayage</button>
+      {fashion.s.studio?.pending ? <button className="btn" onClick={() => { const b = fashion.s.studio!.pending!; fashion.clearCart(); fashion.switchBody(b); }}>Changer d’avatar sans acheter</button>
+        : <button className="btn" onClick={() => { fashion.clearCart(); void fashion.close('keep-owned'); }}>Quitter sans acheter</button>}
       <button className="btn buy" onClick={() => fashion.store.set({ studio: { ...fashion.s.studio!, leaving: false, confirm: true } })}>Acheter</button></div></div></div>;
 }
 function Equipped() {

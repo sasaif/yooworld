@@ -33,6 +33,7 @@ export default async (p, { base, shot }) => {
   // female final look in the body frame
   await tab(p, 'Boutique'); await cat(p, 'Cheveux'); await tap(p, 'hair_bob'); await tap(p, 'haircol_pink'); await cat(p, 'Accessoires'); await tap(p, 'acc_earrings_hoops'); await settle(p, 2500);
   await p.locator('[data-pill=full]').click(); await settle(p, 2500); await shot('18_female_custom'); await p.locator('[data-pill=full]').click();
+  await p.locator('.st-cart .btn.buy').click(); await settle(p, 600); await p.locator('.md-card .btn.buy').click(); await settle(p, 1200);
   // male
   await p.locator('.st-body button').nth(1).click(); await settle(p, 5000); await cat(p, 'Barbe'); await tap(p, 'beard_short'); await settle(p, 2000); await shot('19_male_beard');
   await cat(p, 'Cheveux'); await tap(p, 'hair_manbun'); await tap(p, 'haircol_black'); await cat(p, 'Vestes'); await tap(p, 'jacket_leather'); await cat(p, 'T-shirts'); await tap(p, 'tee_white');

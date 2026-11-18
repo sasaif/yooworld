@@ -6,6 +6,6 @@ const ctx = await b.newContext(dev === 'phone' ? { viewport: { width: 852, heigh
 const p = await ctx.newPage(); const logs = [];
 p.on('console', (x) => { if (x.type() === 'error') logs.push(x.text().slice(0, 300)); }); p.on('pageerror', (e) => logs.push('PAGEERR ' + e.message));
 p.on('response', (r) => { if (r.status() >= 400) logs.push(`HTTP ${r.status()} ${r.url()}`); });
-const fn = (await import(script)).default; await fn(p, { base, dev, shot: async (name) => { await p.waitForTimeout(400); await p.screenshot({ path: `shots/fashion/${name}_${dev}.png` }); console.log('shot', name); } });
+const fn = (await import(script)).default; try { await fn(p, { base, dev, shot: async (name) => { await p.waitForTimeout(400); await p.screenshot({ path: `shots/fashion/${name}_${dev}.png` }); console.log('shot', name); } }); } catch (e) { console.log('FAIL', e.message.split('\n').slice(0, 6).join(' / ')); await p.screenshot({ path: `shots/fashion/zz_fail_${dev}.png` }); }
 console.log('ERRORS', JSON.stringify(logs.slice(0, 20)));
 await b.close();
