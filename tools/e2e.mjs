@@ -3,13 +3,16 @@ import { chromium } from 'playwright-core';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 // 0. portrait phone -> rotate screen, "Continuer en portrait" dismisses it
 { const c0 = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }); const p0 = await c0.newPage();
-  await p0.goto('http://localhost:5202/'); await p0.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 });
+  await p0.goto(process.argv[2] ?? 'http://localhost:5202/'); await p0.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 });
   const shown = await p0.isVisible('.rotate'); await p0.tap('.rotate-skip'); const gone = !(await p0.isVisible('.rotate'));
   console.log((shown && gone ? 'PASS ' : 'FAIL ') + 'rotate screen in portrait, dismissable'); if (!(shown && gone)) process.exitCode = 1; await c0.close(); }
 const ctx = await b.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+// Movement step 2: touch tap-to-move is OFF by default (joystick only); this script taps the floor, so it turns the
+// "Joystick + toucher pour aller" setting on before every load (survives the localStorage.clear() + reload below).
+await ctx.addInitScript(() => { try { localStorage.setItem('yw.controls.v1', JSON.stringify({ touchTapToMove: true })); } catch { /* */ } });
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
-await p.goto('http://localhost:5202/'); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 }); await p.waitForTimeout(6000);
+await p.goto(process.argv[2] ?? 'http://localhost:5202/'); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 }); await p.waitForTimeout(6000);
 // 1. touch tap on the floor -> the active character walks
 ok(!(await p.isVisible('.rotate')), 'no rotate screen in landscape');
 await p.touchscreen.tap(333, 266); await p.waitForTimeout(2500);
