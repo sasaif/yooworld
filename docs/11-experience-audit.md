@@ -100,7 +100,7 @@ d'animation « allongé ».
 
 ### Tests (dernier passage)
 - `tsc` OK · vitest **182/182**
-- e2e-experience : iPhone 15 **29/29**, ordinateur **28/28**
+- e2e-experience : iPhone 15 **29/29**, ordinateur **28/28** ; sur le site en ligne (iPhone 15) **29/29**
 - e2e-step2 : iPhone 15 **26/26** ; ordinateur **19/19 + 1 ignoré**
   - Le test ignoré est le double-clic, que le rendu headless (~7 fps) ne peut pas tester. Il passait 20/20 au passage précédent.
 - e2e-joystick : iPhone 15 **49/49**

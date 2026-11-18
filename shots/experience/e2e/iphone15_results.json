@@ -1,6 +1,6 @@
 {
   "dev": "iphone15",
-  "url": "http://127.0.0.1:5270/",
+  "url": "https://sasaif.github.io/yooworld/experience/",
   "results": [
     {
       "ok": true,
@@ -63,15 +63,15 @@
       "ok": true,
       "test": "B1 three big one-finger pans: the room still covers ≥ 60 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 69.8,
-        "visPct": 60.2
+        "roomPct": 69.7,
+        "visPct": 60.1
       }
     },
     {
       "ok": true,
       "test": "B2 the avatar is on screen after the pan",
       "extra": {
-        "worldH": 1.085,
+        "worldH": 1.086,
         "screenH": 93,
         "bboxPx": [
           277,
@@ -86,8 +86,8 @@
       "ok": true,
       "test": "B3 Vue perso + big pans: the room still covers ≥ 70 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 77.5,
-        "visPct": 24.1
+        "roomPct": 77.4,
+        "visPct": 24
       }
     },
     {
