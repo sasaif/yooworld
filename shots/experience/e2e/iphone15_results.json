@@ -71,13 +71,13 @@
       "ok": true,
       "test": "B2 the avatar is on screen after the pan",
       "extra": {
-        "worldH": 1.082,
+        "worldH": 1.085,
         "screenH": 93,
         "bboxPx": [
-          276,
+          277,
           244,
           382,
-          396
+          395
         ],
         "fullyVisible": false
       }
@@ -116,7 +116,7 @@
       "test": "B6 pinch-in / wheel: zooms onto the avatar (≥ 2× bigger, centred on screen)",
       "extra": {
         "zoom": 276.4,
-        "avatarPx": 248,
+        "avatarPx": 249,
         "centre": [
           0.47,
           0.39
@@ -219,7 +219,7 @@
       "ok": true,
       "test": "D loungeSofa sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.159,
+        "soleY": 0.16,
         "kneeY": 0.33
       }
     },
@@ -307,7 +307,7 @@
       "ok": true,
       "test": "D chair sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.161,
+        "soleY": 0.162,
         "kneeY": 0.334
       }
     },

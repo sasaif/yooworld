@@ -63,18 +63,18 @@
       "ok": true,
       "test": "B1 three big one-finger pans: the room still covers ≥ 60 % of the screen (before: 0 %)",
       "extra": {
-        "roomPct": 72.9,
-        "visPct": 84
+        "roomPct": 73,
+        "visPct": 84.1
       }
     },
     {
       "ok": true,
       "test": "B2 the avatar is on screen after the pan",
       "extra": {
-        "worldH": 1.082,
-        "screenH": 158,
+        "worldH": 1.085,
+        "screenH": 159,
         "bboxPx": [
-          460,
+          461,
           418,
           640,
           676
@@ -248,7 +248,7 @@
       "ok": true,
       "test": "D loungeChair sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.159,
+        "soleY": 0.16,
         "kneeY": 0.33
       }
     },
@@ -292,7 +292,7 @@
       "ok": true,
       "test": "D chair sit: feet hang below the knees, never through the floor",
       "extra": {
-        "soleY": 0.163,
+        "soleY": 0.162,
         "kneeY": 0.334
       }
     },

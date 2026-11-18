@@ -9,4 +9,10 @@
 - [x] Mesures « après » + composites avant/après (shots/experience/before_after_*_iphone15.png)
 - [x] Tests : tsc, vitest 182, e2e-experience 29/29 + 28/28, step2, joystick 49/49, perf-baseline PASS
 - [x] Déploiement https://sasaif.github.io/yooworld/experience/
-- [ ] Vérification sur vrai iPhone · visages/animations avatars (avec accord)
+- [x] Retour 27 : vraie pose assise procédurale (render/avatar/sitPose.ts) sur chaise, tabouret, chaise de bureau, canapé, fauteuil, bord du lit
+- [x] Retour 27 : pose allongée (tête sur l'oreiller, jambes tendues, bras le long du corps, sac à dos retiré)
+- [x] Retour 27 : zoom min = appart entier, zoom max = sur l'avatar, défaut V3 inchangé (93 px iPhone)
+- [x] Retour 27 : chat 15 px / champ 16 px / cibles 44 px / carte au-dessus du clavier
+- [x] Retour 27 : checklist vrai iPhone → docs/12-real-device-checklist.md
+- [x] Tests : vitest 189, e2e-experience 53/53 + 52/52, step2 26/26 + 20/20, joystick 49/49, perf PASS ; redéployé
+- [ ] Vérification sur vrai iPhone (par toi) · visages/animations avatars (avec accord)

@@ -110,3 +110,60 @@ d'animation « allongé ».
 - Vérifier sur un vrai iPhone (bande mauve, rotation) : les 6 captures n'étaient pas disponibles ici.
 - Visages, coiffures et animations des avatars : à faire **avec ton accord**.
 - Une vraie animation « allongé » (aujourd'hui procédurale), et un vrai multijoueur (aujourd'hui « Mode local »).
+
+## 6. Retour 27 : vraie pose assise, zoom, chat (mesuré dans le jeu)
+
+**Cause du « presque debout ».** Une fois retargetée sur les avatars chibi, l'animation SitDown de la bibliothèque finit
+jambes tendues : genoux 5 cm seulement devant les hanches (`tools/pose-probe.mjs`). Remonter l'avatar ne pouvait pas suffire.
+
+**Correctif : une couche de pose procédurale sur le squelette existant** (`src/render/avatar/sitPose.ts`). Par-dessus
+l'animation « repos » :
+- le bassin (os Hips) est posé sur le point d'assise mesuré ;
+- cuisses vers l'avant, genoux pliés, tibias vers le bas, mains sur les genoux ;
+- transition de 0,5 s à l'entrée et 0,45 s à la sortie ;
+- réglages par type de siège : chaise, tabouret, canapé, lit ;
+- aucune allocation par image.
+
+Les ancres sont tirées des profils réels des meshes (bord avant, dossier, repose-pied).
+
+| Siège | Bas du corps / assise | Os du bassin / assise | Genoux | Semelles (sol = 0) | Sommets dans le meuble > 1 cm |
+|---|---:|---:|---:|---:|---:|
+| Tabouret de bar (0,522 m) | −0,2 cm | +7,8 cm | 87° | 0,39 m | 0 |
+| Chaise en bois (0,288 m) | +0,8 cm | +7,8 cm | 98° | 0,16 m | 0 |
+| Chaise de bureau (0,28 m) | −0,5 cm | +7,8 cm | 98° | 0,16 m | 9 (≤ 1,9 cm) |
+| Canapé / fauteuil (0,276 m) | −0,1 cm | +7,8 cm | 102° | 0,16 m | 0 / 3 (≤ 3,6 cm) |
+| Bord du lit (0,30 m) | −0,2 cm | +7,8 cm | 100° | 0,18 m | 0 |
+| Allongé | point le plus bas 0,289 m (matelas 0,30) | — | 165° (jambes tendues) | — | 23 (≤ 4,3 cm, mèche/chignon contre la tête de lit) |
+
+L'os du bassin est au centre de l'articulation, 7,8 cm au-dessus de la peau des fesses. C'est le bas du corps qui touche
+l'assise (±1 cm). Les vérifications de pénétration (`tools/pose_check.py`) se font sur les vrais triangles des meubles.
+
+**Limites honnêtes.** Les jambes chibi sont courtes (≈ 0,30 m de l'articulation de la hanche à la semelle) :
+- sur une chaise de 0,29 m, les pieds pendent environ 16 cm au-dessus du sol ;
+- sur le tabouret, le repose-pied (0,17 m) est hors de portée : les pieds pendent ;
+- allongée, les mollets flottent de quelques cm au-dessus de la couette ;
+- le chignon touche le bord de la tête de lit ;
+- les transats de Yoo Plage gardent l'ancienne animation.
+
+**Zoom (iPhone 15 paysage).**
+- Par défaut : zoom 103,6, avatar **93 px** (V3, inchangé).
+- Pincer pour dézoomer : zoom 56,8, **appartement entier visible (100 %)**, centré, avatar 51 px.
+- Écarter pour zoomer : zoom 276, avatar **249 px**, la caméra suit l'avatar.
+- Ordinateur : 158 px par défaut, 93 px au minimum (appartement entier), 423 px au maximum.
+
+**Chat (iPhone 15 paysage, 3×).**
+- Messages en 15 px ; champ de saisie en 16 px, donc pas de zoom iOS au focus.
+- Champ et bouton Envoyer de 44 px de haut, réponses rapides de 40 px.
+- Carte de 320 × 216 px.
+- Clavier simulé (zone visible de 170 px) : la carte remonte et le champ reste visible (114–158 px).
+
+**Tests.**
+- vitest : 189/189.
+- e2e-experience : iPhone 15 53/53, ordinateur 52/52.
+- e2e-step2 : 26/26 et 20/20.
+- e2e-joystick : 49/49.
+  - Au passage précédent, un test isolé a échoué : avatar trop lent sous le rendu headless, 0,15 m en 3 s.
+  - Au passage suivant, 49/49.
+- perf-baseline : PASS, 87 / 83 / 21 draw calls.
+
+Checklist pour le vrai iPhone : `docs/12-real-device-checklist.md`.

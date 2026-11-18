@@ -1,0 +1,7 @@
+stoolBar_sit       {"pelvisAboveSeat": 0.078, "lowestOverSeat": -0.002, "inside>1cm": 0, "maxDepth": 0.002, "verts": 8838, "kneeL": 87, "kneeR": 87, "hipFlexL": 94, "feetY": 0.401, "soleY": 0.391}
+chair_sit          {"pelvisAboveSeat": 0.078, "lowestOverSeat": 0.008, "inside>1cm": 0, "maxDepth": 0.0, "verts": 8838, "kneeL": 98, "kneeR": 98, "hipFlexL": 96, "feetY": 0.206, "soleY": 0.162}
+chairDesk_sit      {"pelvisAboveSeat": 0.078, "lowestOverSeat": -0.039, "inside>1cm": 9, "maxDepth": 0.019, "verts": 8838, "kneeL": 98, "kneeR": 98, "hipFlexL": 96, "feetY": 0.187, "soleY": 0.155}
+loungeSofa_sit     {"pelvisAboveSeat": 0.078, "lowestOverSeat": -0.002, "inside>1cm": 0, "maxDepth": 0.002, "verts": 8838, "kneeL": 102, "kneeR": 102, "hipFlexL": 95, "feetY": 0.222, "soleY": 0.16}
+loungeChair_sit    {"pelvisAboveSeat": 0.078, "lowestOverSeat": -0.036, "inside>1cm": 3, "maxDepth": 0.036, "verts": 8838, "kneeL": 102, "kneeR": 102, "hipFlexL": 94, "feetY": 0.206, "soleY": 0.16}
+bedDouble_sit      {"pelvisAboveSeat": 0.078, "lowestOverSeat": -0.002, "inside>1cm": 0, "maxDepth": 0.002, "verts": 8838, "kneeL": 100, "kneeR": 100, "hipFlexL": 94, "feetY": 0.23, "soleY": 0.178}
+bedDouble_lie      {"pelvisAboveSeat": 0.177, "lowestOverSeat": -0.011, "inside>1cm": 23, "maxDepth": 0.043, "verts": 8517, "kneeL": 165}
