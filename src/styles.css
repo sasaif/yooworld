@@ -161,3 +161,12 @@ html, body { position:fixed; inset:0; } /* no rubber-band scrolling / address-ba
 .ctl-radio { width:18px; height:18px; border-radius:50%; border:2px solid #c9bde0; flex:none; }
 .ctl-opt.on .ctl-radio { border-color:var(--pink); background:radial-gradient(circle, var(--pink) 45%, transparent 50%); }
 .ctl-note { margin:8px 2px 0; font-size:12px; }
+
+/* dev / ?perf=1 overlay: top-right under the top bar, clear of the joystick (bottom-left) and the dock (bottom-centre) */
+.perf-hud { position:absolute; z-index:120; right:max(8px, var(--sar)); top:calc(max(10px, var(--sat)) + 46px); pointer-events:none;
+  background:rgba(24, 18, 36, .72); color:#f6f0ff; font:11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding:6px 8px; border-radius:8px; min-width:132px; box-shadow:0 4px 14px rgba(0,0,0,.28); backdrop-filter:blur(6px); }
+.perf-hud-row { white-space:nowrap; }
+.perf-hud-row b { font-size:16px; font-weight:800; }
+.perf-hud-row span { opacity:.75; }
+.perf-hud-row.muted { opacity:.6; font-size:10px; margin-top:2px; }

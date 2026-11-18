@@ -15,6 +15,7 @@ import { makeChar, say, world } from '../game/world';
 import { useStore } from '../core/store';
 import { Hud } from '../ui/Hud';
 import { Stats } from '../render/Stats';
+import { PerfCollectorGate, PerfLayer } from '../render/perf/PerfOverlay';
 import { fashion, game } from './services';
 import { FashionStudio } from '../ui/fashion/Studio';
 import { ThumbStage, THUMBS } from '../ui/fashion/ThumbStage';
@@ -89,6 +90,7 @@ export default function App() {
           ))}
         </Suspense>
         <Stats />
+        <PerfCollectorGate />
         <CameraRig key={loc} target={cam.target} zoom={cam.zoom} dir={cam.dir} interactive={!SHOT} panEnabled={!placing} room={SHOT ? undefined : beach ? BEACH_FRAME : ROOM}
           zoomMul={camViewZoomMul(view, VARIANT.zoomMul)} followLean={camViewFollow(view, beach ? 0.22 : VARIANT.follow)}
           follow={SHOT ? undefined : () => world.chars[game.s.activeChar]?.pos ?? null} />
@@ -98,6 +100,7 @@ export default function App() {
       <TravelFade />
       {studio && <FashionStudio />}
       {!SHOT && <RotateOverlay />}
+      <PerfLayer />
     </div>
   );
 }
