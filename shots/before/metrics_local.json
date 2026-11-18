@@ -1,0 +1,338 @@
+{
+  "iphone15_portrait": {
+    "vw": 393,
+    "vh": 852,
+    "canvas": [
+      393,
+      852
+    ],
+    "coverage": 100,
+    "scrollH": 852,
+    "metrics": {
+      "zoom": 70,
+      "size": [
+        393,
+        852
+      ],
+      "f": {
+        "worldH": 0.95,
+        "screenH": 55,
+        "bboxPx": [
+          153,
+          370,
+          215,
+          460
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.964,
+        "screenH": 56,
+        "bboxPx": [
+          194,
+          388,
+          252,
+          476
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 54,
+      "triangles": 28933,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 13
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "iphone15_landscape": {
+    "vw": 852,
+    "vh": 393,
+    "canvas": [
+      852,
+      393
+    ],
+    "coverage": 100,
+    "scrollH": 393,
+    "metrics": {
+      "zoom": 70,
+      "size": [
+        852,
+        393
+      ],
+      "f": {
+        "worldH": 0.952,
+        "screenH": 55,
+        "bboxPx": [
+          383,
+          140,
+          445,
+          230
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.969,
+        "screenH": 56,
+        "bboxPx": [
+          424,
+          159,
+          482,
+          247
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "pixel7_portrait": {
+    "vw": 412,
+    "vh": 915,
+    "canvas": [
+      412,
+      915
+    ],
+    "coverage": 100,
+    "scrollH": 915,
+    "metrics": {
+      "zoom": 70,
+      "size": [
+        412,
+        915
+      ],
+      "f": {
+        "worldH": 0.952,
+        "screenH": 55,
+        "bboxPx": [
+          163,
+          401,
+          225,
+          491
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.971,
+        "screenH": 56,
+        "bboxPx": [
+          204,
+          420,
+          262,
+          508
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 54,
+      "triangles": 28933,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 13
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "pixel7_landscape": {
+    "vw": 915,
+    "vh": 412,
+    "canvas": [
+      915,
+      412
+    ],
+    "coverage": 100,
+    "scrollH": 412,
+    "metrics": {
+      "zoom": 70,
+      "size": [
+        915,
+        412
+      ],
+      "f": {
+        "worldH": 0.952,
+        "screenH": 55,
+        "bboxPx": [
+          414,
+          150,
+          476,
+          240
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.969,
+        "screenH": 56,
+        "bboxPx": [
+          455,
+          168,
+          513,
+          256
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "ipad_landscape": {
+    "vw": 1024,
+    "vh": 768,
+    "canvas": [
+      1024,
+      768
+    ],
+    "coverage": 100,
+    "scrollH": 768,
+    "metrics": {
+      "zoom": 122,
+      "size": [
+        1024,
+        768
+      ],
+      "f": {
+        "worldH": 0.951,
+        "screenH": 96,
+        "bboxPx": [
+          436,
+          286,
+          545,
+          443
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.967,
+        "screenH": 98,
+        "bboxPx": [
+          508,
+          318,
+          609,
+          472
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "ipad_portrait": {
+    "vw": 768,
+    "vh": 1024,
+    "canvas": [
+      768,
+      1024
+    ],
+    "coverage": 100,
+    "scrollH": 1024,
+    "metrics": {
+      "zoom": 122,
+      "size": [
+        768,
+        1024
+      ],
+      "f": {
+        "worldH": 0.951,
+        "screenH": 96,
+        "bboxPx": [
+          308,
+          414,
+          417,
+          571
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.967,
+        "screenH": 98,
+        "bboxPx": [
+          380,
+          446,
+          481,
+          600
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 57,
+      "triangles": 29047,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 13
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "desktop": {
+    "vw": 1440,
+    "vh": 900,
+    "canvas": [
+      1440,
+      900
+    ],
+    "coverage": 100,
+    "scrollH": 900,
+    "metrics": {
+      "zoom": 122,
+      "size": [
+        1440,
+        900
+      ],
+      "f": {
+        "worldH": 0.95,
+        "screenH": 96,
+        "bboxPx": [
+          644,
+          352,
+          753,
+          509
+        ],
+        "fullyVisible": true
+      },
+      "m": {
+        "worldH": 0.963,
+        "screenH": 97,
+        "bboxPx": [
+          716,
+          384,
+          816,
+          538
+        ],
+        "fullyVisible": true
+      }
+    },
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  }
+}

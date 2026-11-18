@@ -13,6 +13,7 @@ export function Character({ c, def, selected, onSelect }: { c: CharState; def: A
   const body = useGLTF(def.url); const lib = useGLTF(ANIM_LIBRARY);
   const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const bubble = useRef<HTMLDivElement>(null);
   const built = useMemo(() => buildAvatar(body, lib, def), [body, lib, def]);
+  built.holder.userData.avatarId = def.id; // read by Stats.__metrics
   const cur = useRef<ClipKey>('idle');
   const play = (k: ClipKey, fade = 0.25) => {
     if (cur.current === k) return; const prev = built.actions[cur.current]; const next = built.actions[k];

@@ -1,0 +1,142 @@
+{
+  "iphone15_portrait": {
+    "vw": 393,
+    "vh": 852,
+    "canvas": [
+      393,
+      852
+    ],
+    "coverage": 100,
+    "scrollH": 852,
+    "metrics": null,
+    "info": {
+      "calls": 54,
+      "triangles": 28933,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 13
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "iphone15_landscape": {
+    "vw": 852,
+    "vh": 393,
+    "canvas": [
+      852,
+      393
+    ],
+    "coverage": 100,
+    "scrollH": 393,
+    "metrics": null,
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "pixel7_portrait": {
+    "vw": 412,
+    "vh": 915,
+    "canvas": [
+      412,
+      915
+    ],
+    "coverage": 100,
+    "scrollH": 915,
+    "metrics": null,
+    "info": {
+      "calls": 54,
+      "triangles": 28933,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 13
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "pixel7_landscape": {
+    "vw": 915,
+    "vh": 412,
+    "canvas": [
+      915,
+      412
+    ],
+    "coverage": 100,
+    "scrollH": 412,
+    "metrics": null,
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "ipad_landscape": {
+    "vw": 1024,
+    "vh": 768,
+    "canvas": [
+      1024,
+      768
+    ],
+    "coverage": 100,
+    "scrollH": 768,
+    "metrics": null,
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "ipad_portrait": {
+    "vw": 768,
+    "vh": 1024,
+    "canvas": [
+      768,
+      1024
+    ],
+    "coverage": 100,
+    "scrollH": 1024,
+    "metrics": null,
+    "info": {
+      "calls": 57,
+      "triangles": 29047,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 13
+    },
+    "errors": [],
+    "http4xx": []
+  },
+  "desktop": {
+    "vw": 1440,
+    "vh": 900,
+    "canvas": [
+      1440,
+      900
+    ],
+    "coverage": 100,
+    "scrollH": 900,
+    "metrics": null,
+    "info": {
+      "calls": 72,
+      "triangles": 30467,
+      "geometries": 72,
+      "textures": 8,
+      "programs": 14
+    },
+    "errors": [],
+    "http4xx": []
+  }
+}
