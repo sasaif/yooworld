@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Ambience } from './Ambience';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CELL, type ApartmentLayout } from '../../game/apartment/ApartmentModel';
@@ -69,6 +70,7 @@ export function Decor({ apt }: { apt: ApartmentLayout }) {
     built.bulbs.forEach((b, i) => { m.setMatrixAt(i, mx.makeTranslation(b.x, b.y, b.z)); m.setColorAt(i, c.set(pal[i % pal.length])); });
     m.raycast = () => {}; return m;
   }, [built]);
+  const [beamMat, setBeamMat] = useState<THREE.Material | null>(null);
   useEffect(() => () => {
     built.frame?.dispose(); built.wire.dispose(); built.beams?.dispose(); built.beamTex.dispose(); built.matTex.dispose();
     built.arts.forEach((a) => { a.geo.dispose(); a.tex.dispose(); });
@@ -80,7 +82,8 @@ export function Decor({ apt }: { apt: ApartmentLayout }) {
       {built.arts.map((a, i) => <mesh key={i} geometry={a.geo} raycast={() => {}}><meshLambertMaterial map={a.tex} /></mesh>)}
       <primitive object={inst} />
       <lineSegments geometry={built.wire} raycast={() => {}}><lineBasicMaterial color="#6b5a4e" transparent opacity={0.6} /></lineSegments>
-      <mesh geometry={built.beams} renderOrder={1} raycast={() => {}}><meshBasicMaterial map={built.beamTex} transparent opacity={0.8} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+      <mesh geometry={built.beams} renderOrder={1} raycast={() => {}}><meshBasicMaterial ref={setBeamMat} map={built.beamTex} transparent opacity={0.8} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} /></mesh>
+      <Ambience beamMaterial={beamMat} />
       {/* hallway seen through the open doorway (instead of the backdrop) */}
       <mesh position={[5.4, 0.62, -0.09]} raycast={() => {}}><planeGeometry args={[1.0, 1.3]} /><meshBasicMaterial color="#7d5f86" /></mesh>
       <mesh rotation-x={-Math.PI / 2} position={[5.4, 0.006, 0.42]} receiveShadow raycast={() => {}}><planeGeometry args={[0.62, 0.32]} /><meshLambertMaterial map={built.matTex} /></mesh>

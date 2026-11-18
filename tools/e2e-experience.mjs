@@ -107,13 +107,16 @@ for (const [def, act] of [['loungeSofa', 'sit'], ['chair', 'sit'], ['stoolBar', 
     const s = c.pendingSeat; return s ? { uid: it.uid, yaw: s.yaw, seatH: g.cat[def].seat?.h ?? null } : null; }, [def, act]);
   if (!r) { ok(false, `D ${def} ${act}: no free seat`); continue; }
   const sat = await waitMode('sitting'); await p.waitForTimeout(act === 'lie' ? 2500 : 3500);
+  console.log('   ', def, act, JSON.stringify(await p.evaluate(() => { const c = window.__world.chars[window.game.s.activeChar]; return { mode: c.mode, pos: c.pos.toArray().map((v) => +v.toFixed(2)), seat: c.sitOn?.id }; })));
   const body = await p.evaluate(() => window.__body(window.game.s.activeChar));
   const center = await p.evaluate((uid) => window.__itemPoints().find((x) => x.uid === uid), r.uid);
   const seatH = r.seatH ?? { loungeSofa: 0.276, chair: 0.288, stoolBar: 0.522, chairDesk: 0.28, bedDouble: 0.3 }[def];
   if (act === 'sit') {
-    const dh = body.hips[1] - seatH; const off = Math.hypot(body.hips[0] - center.x, body.hips[2] - center.z); const half = Math.max(center.w, center.d) / 2;
+    const dh = body.hips[1] - seatH; const dx = body.hips[0] - center.x, dz = body.hips[2] - center.z;
+    // hips in the furniture's own frame (x across, z forward): must be inside its footprint
+    const lx = dx * Math.cos(r.yaw) - dz * Math.sin(r.yaw), lz = dx * Math.sin(r.yaw) + dz * Math.cos(r.yaw);
     ok(sat && dh > 0.025 && dh < 0.07, `D ${def} sit: hips rest on the real cushion height (${seatH} m)`, { hipsAboveSeat: +dh.toFixed(3) });
-    ok(off <= half + 0.01, `D ${def} sit: hips are over the furniture, not in front of it`, { hipsFromCentre: +off.toFixed(3), halfSize: +half.toFixed(3) });
+    ok(Math.abs(lx) <= center.w / 2 + 0.01 && Math.abs(lz) <= center.d / 2 + 0.01, `D ${def} sit: hips are over the furniture, not in front of it`, { hipsLocal: [+lx.toFixed(3), +lz.toFixed(3)], half: [center.w / 2, center.d / 2] });
   } else {
     ok(sat && body.lo >= seatH - 0.015 && body.lo <= seatH + 0.05, 'D bed lie: lying ON the mattress (lowest body point within −1.5/+5 cm of the mattress top)', { lowest: +body.lo.toFixed(3), mattress: seatH });
     const towardsBoard = ((body.head[0] - body.hips[0]) * Math.sin(r.yaw) + (body.head[2] - body.hips[2]) * Math.cos(r.yaw)) < 0;

@@ -38,6 +38,18 @@ describe('camera kept on the room (real-device drift bug)', () => {
       expect(Math.abs(a.dot(v.r) - v.cx)).toBeLessThanOrEqual(v.hw + 1e-6); expect(Math.abs(a.dot(v.u) - v.cy)).toBeLessThanOrEqual(v.hh + 0.4); // feet within the view (target is 0.35 m up)
     }
   });
+  it('Vue perso (2× zoom) panned into a corner of the box: the screen centre stays over the room silhouette', () => {
+    const z2 = zoom * 2; const r = new THREE.Vector3(0, 1, 0).cross(ISO).normalize(); const u = ISO.clone().cross(r).normalize();
+    const pts = [[0, 0, 0], [7.2, 0, 0], [0, 0, 6], [7.2, 0, 6], [0, 1.55, 0], [7.2, 1.55, 0], [0, 1.55, 6]].map(([x, y, z]) => { const p = new THREE.Vector3(x, y, z); return [p.dot(r), p.dot(u)]; });
+    // convex hull (monotone chain) of the silhouette, then point-in-polygon for the screen centre
+    const P = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); const cr = (o: number[], a: number[], b: number[]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo: number[][] = [], up: number[][] = []; for (const q of P) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+    for (const q of P.slice().reverse()) { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); } const hull = lo.slice(0, -1).concat(up.slice(0, -1));
+    for (const far of [new THREE.Vector3(-20, 0.35, 20), new THREE.Vector3(20, 0.35, 20), new THREE.Vector3(-5, 0.35, -5), new THREE.Vector3(20, 0.35, -20)]) {
+      const out = clampTarget(far, ISO, 0.35, B, W, H, z2, new THREE.Vector3()); const c = [out.dot(r), out.dot(u)];
+      for (let i = 0; i < hull.length; i++) expect(cr(hull[i], hull[(i + 1) % hull.length], c)).toBeGreaterThanOrEqual(-1e-6);
+    }
+  });
   it('zoomed out further than the room: the room is centred', () => {
     const out = clampTarget(new THREE.Vector3(20, 0.35, 20), ISO, 0.35, B, W, H, 30, new THREE.Vector3());
     const v = view(out, W, H, 30); const box = roomBox(v.r, v.u);
