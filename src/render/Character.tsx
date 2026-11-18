@@ -6,6 +6,7 @@ import { ANIM_LIBRARY, type AvatarDef, type ClipKey } from '../data/avatars';
 import { LOCO, stepMover } from '../game/character/locomotion';
 import type { CharState } from '../game/world';
 import { buildAvatar } from './avatar/AvatarModel';
+import { FaceAnimator, morphIndex } from './avatar/face';
 
 useGLTF.preload(ANIM_LIBRARY);
 
@@ -14,6 +15,8 @@ export function Character({ c, def, selected, onSelect }: { c: CharState; def: A
   const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const bubble = useRef<HTMLDivElement>(null);
   const built = useMemo(() => buildAvatar(body, lib, def), [body, lib, def]);
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
+  const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
+  const dance = useRef(0);
   const cur = useRef<ClipKey>('idle');
   const play = (k: ClipKey, fade = 0.25) => {
     if (cur.current === k) return; const prev = built.actions[cur.current]; const next = built.actions[k];
@@ -43,6 +46,16 @@ export function Character({ c, def, selected, onSelect }: { c: CharState; def: A
       } else { s.mode = s.emote ? 'emote' : 'idle'; play(s.emote ? 'emote' : 'idle', 0.3); }
     }
     built.mixer.update(dt);
+    // face: blink, smile, grin while dancing, lip flap while a bubble is shown
+    const talking = !!s.say && s.say.until > performance.now();
+    const w = face.anim.update(dt, { emote: s.mode === 'emote', talking, sitting: s.mode === 'sitting', walking: s.mode === 'walk' });
+    built.faces.forEach((m, i) => { const ix = face.idx[i]; for (const k in w) { const j = ix[k as keyof typeof w]; if (j !== undefined) m.morphTargetInfluences![j] = w[k as keyof typeof w]; } });
+    // dance groove on top of the cheer clip: bounce on the beat, hip sway, body twist (eased in/out)
+    dance.current += ((s.mode === 'emote' ? 1 : 0) - dance.current) * Math.min(1, dt * 5);
+    const t = performance.now() / 1000, beat = t * Math.PI * 2 * 1.05, k = dance.current;
+    built.holder.position.y = Math.abs(Math.sin(beat)) * 0.035 * k;
+    built.holder.rotation.z = Math.sin(beat) * 0.07 * k;
+    built.holder.rotation.y = (def.facing === 'negZ' ? Math.PI : 0) + Math.sin(beat / 2) * 0.35 * k;
     outer.current.position.copy(s.pos); outer.current.rotation.y = s.yaw;
     tag.current.position.y += ((s.mode === 'sitting' ? 0.95 : 1.14) - tag.current.position.y) * Math.min(1, dt * 6);
     if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
