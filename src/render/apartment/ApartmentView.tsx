@@ -13,7 +13,7 @@ import { flattenModel, mergeSimple, type Part } from './furnitureParts';
 import { floorTexture, wallTexture } from './finishTextures';
 import { InteractionMenu } from '../../ui/InteractionMenu';
 
-const URL = (m: string) => `/models/furniture/${m}.glb`;
+const URL = (m: string) => `${import.meta.env.BASE_URL}models/furniture/${m}.glb`;
 Object.values(FURNITURE).forEach((d) => useGLTF.preload(URL(d.model)));
 [...new Set([...BACK_WALL, ...LEFT_WALL])].forEach((m) => useGLTF.preload(URL(m)));
 

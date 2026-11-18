@@ -71,7 +71,7 @@ function SelectionBar() {
   const uid = useStore(game.store, (s) => s.selItem)!; const it = game.s.apartment!.items.find((i) => i.uid === uid); if (!it) return null; const d = FURNITURE[it.defId];
   return (
     <div className="editbar">
-      <div className="editbar-title"><img src={`/thumbs/${d.id}.webp`} alt="" />{d.name}</div>
+      <div className="editbar-title"><img src={`${import.meta.env.BASE_URL}thumbs/${d.id}.webp`} alt="" />{d.name}</div>
       <div className="row">
         <button className="btn" onClick={() => game.rotateSelected()}>↻ Tourner</button>
         <button className="btn" onClick={() => game.startMove(uid)}>✥ Déplacer</button>
@@ -84,7 +84,7 @@ function PlacingBar() {
   const p = useStore(game.store, (s) => s.placing)!; const d = FURNITURE[p.defId];
   return (
     <div className="editbar">
-      <div className="editbar-title"><img src={`/thumbs/${d.id}.webp`} alt="" />{d.name}
+      <div className="editbar-title"><img src={`${import.meta.env.BASE_URL}thumbs/${d.id}.webp`} alt="" />{d.name}
         <span className={'status ' + (p.valid.ok ? 'ok' : 'bad')}>{p.valid.ok ? 'OK' : REASON[p.valid.reason]}</span></div>
       <div className="hint">Touche le sol pour choisir l’emplacement</div>
       <div className="row">
@@ -107,11 +107,11 @@ function CatalogSheet() {
       {tab === 'shop' && <div className="chips">{(['all', ...Object.keys(CATEGORY_LABEL)] as (Category | 'all')[]).map((c) => <button key={c} className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c === 'all' ? 'Tout' : CATEGORY_LABEL[c]}</button>)}</div>}
       <div className="grid">
         {tab === 'inv' && (owned.length ? owned.map(([id, n]) => (
-          <button key={id} className="card" onClick={() => place(id)}><img src={`/thumbs/${id}.webp`} alt="" /><b>{FURNITURE[id].name}</b><small>×{n} · poser</small></button>
+          <button key={id} className="card" onClick={() => place(id)}><img src={`${import.meta.env.BASE_URL}thumbs/${id}.webp`} alt="" /><b>{FURNITURE[id].name}</b><small>×{n} · poser</small></button>
         )) : <p className="empty">Ton sac est vide. Range un meuble ou passe à la boutique.</p>)}
         {tab === 'shop' && shop.map((d) => (
           <button key={d.id} className="card" onClick={() => game.buyItem(d)} disabled={inv.coins < d.price}>
-            <img src={`/thumbs/${d.id}.webp`} alt="" /><b>{d.name}</b><small><span style={{ color: RARITY_COLOR[d.rarity] }}>●</span> 🪙 {d.price}</small>
+            <img src={`${import.meta.env.BASE_URL}thumbs/${d.id}.webp`} alt="" /><b>{d.name}</b><small><span style={{ color: RARITY_COLOR[d.rarity] }}>●</span> 🪙 {d.price}</small>
           </button>
         ))}
       </div>
