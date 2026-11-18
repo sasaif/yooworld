@@ -7,6 +7,7 @@ import { FLOORS, WALLS } from '../data/finishes';
 import { LOCATIONS } from '../data/locations';
 import { count } from '../game/inventory/Inventory';
 import { world } from '../game/world';
+import { enterLandscape } from '../app/screen';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
@@ -40,6 +41,7 @@ function TopBar() {
       <span className="chip coin">🪙 {coins}</span>
       <span className="spacer" />
       <button className="chip" onClick={() => game.setPanel('places')}>🏠 <span className="hide-sm">Mon appart</span></button>
+      {document.fullscreenEnabled && !document.fullscreenElement && matchMedia('(pointer: coarse)').matches && <button className="chip fs" title="Plein écran" aria-label="Plein écran" onClick={() => void enterLandscape()}>⛶</button>}
       <span className="chip net" title="Aucun serveur : seuls les personnages locaux sont présents">● Hors ligne</span>
     </div>
   );

@@ -24,7 +24,8 @@ for (const d of DEVICES) {
   await p.goto(url, { timeout: 120000 });
   try { await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 }); } catch { console.log('TIMEOUT', name); }
   await p.waitForTimeout(Number(process.env.WAIT ?? 9000));
-  await p.screenshot({ path: `${out}/${name}.png` });
+  if (process.env.PANEL) { await p.evaluate((x) => window.game.setPanel(x), process.env.PANEL); await p.waitForTimeout(600); }
+  await p.screenshot({ path: `${out}/${name}${process.env.PANEL ? '_' + process.env.PANEL : ''}.png` });
   const m = await p.evaluate(() => {
     const c = document.querySelector('canvas'); const r = c?.getBoundingClientRect();
     const vw = innerWidth, vh = innerHeight;

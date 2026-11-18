@@ -76,3 +76,30 @@ html, body { position:fixed; inset:0; } /* no rubber-band scrolling / address-ba
 .rotate-phone { width:62px; height:104px; border:5px solid var(--ink); border-radius:14px; position:relative; animation:yw-rot 2.4s ease-in-out infinite; background:rgba(255,255,255,.55); }
 .rotate-phone i { position:absolute; left:50%; top:6px; width:18px; height:5px; margin-left:-9px; border-radius:3px; background:var(--ink); }
 @keyframes yw-rot { 0%,20% { transform:rotate(0); } 50%,80% { transform:rotate(-90deg); } 100% { transform:rotate(0); } }
+/* ---------- Mobile UI polish ---------- */
+.dock { background:rgba(255,255,255,.86); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+.chip { -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.chip.fs { padding:6px 10px; }
+/* Phones in landscape: slim bars, side sheets, the room stays the focus */
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud-top { top:max(6px, var(--sat)); gap:6px; }
+  .chip { padding:4px 10px; font-size:12.5px; box-shadow:0 2px 6px rgba(0,0,0,.18); }
+  .chip.net { font-size:10px; }
+  .dock { bottom:max(6px, var(--sab)); padding:3px; gap:2px; border-radius:16px; }
+  .dock button { min-width:52px; min-height:44px; font-size:17px; border-radius:12px; padding:2px 4px; }
+  .dock button span { font-size:9.5px; margin-top:0; }
+  .sheet, .editbar { left:auto; right:max(8px, var(--sar)); top:calc(max(6px, var(--sat)) + 40px); bottom:calc(max(6px, var(--sab)) + 56px); margin:0; width:min(360px, 40vw); max-height:none; }
+  .editbar { bottom:auto; }
+  .sheet { padding:10px; }
+  .grid { grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:6px; }
+  .card img { width:48px; height:48px; }
+  .chatlog { max-height:none; flex:1; }
+  .sheet:has(.chatbar) { display:flex; flex-direction:column; top:auto; max-height:calc(100% - 110px); }
+  .toast { top:46px; }
+  .imenu { min-width:150px; padding:6px; gap:4px; } .imenu .btn { min-height:36px; font-size:13px; }
+}
+/* Phones in portrait (after "Continuer en portrait"): keep the dock compact too */
+@media (orientation: portrait) and (max-width: 500px) {
+  .dock button { min-width:54px; min-height:48px; }
+  .sheet { max-height:44vh; }
+}
