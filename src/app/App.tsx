@@ -10,18 +10,21 @@ import { Q } from '../render/quality';
 import { AVATARS } from '../data/avatars';
 import { APT_COLS, APT_ROWS } from '../data/defaultApartment';
 import { CELL } from '../game/apartment/ApartmentModel';
+import { WALL_H } from '../data/style';
 import { makeChar, say, world } from '../game/world';
 import { useStore } from '../core/store';
 import { Hud } from '../ui/Hud';
 import { Stats } from '../render/Stats';
 import { game } from './services';
 import { SHOT, SHOT_CAM, runShotScript } from './shots';
+import { RotateOverlay } from '../ui/RotateOverlay';
 
 const W = APT_COLS * CELL, D = APT_ROWS * CELL;
 const CENTER = new THREE.Vector3(W / 2 - 0.2, 0.35, D / 2 - 0.3);
 world.chars.f = makeChar('f', 'Juanita', 3.0, 2.85, 0.5);
 world.chars.m = makeChar('m', 'Juan', 3.7, 2.85, -0.3);
 const small = Math.min(innerWidth, innerHeight) < 600;
+const ROOM = { w: W, d: D, wallH: WALL_H };
 
 export default function App() {
   const ready = useStore(game.store, (s) => s.ready); const active = useStore(game.store, (s) => s.activeChar);
@@ -32,11 +35,10 @@ export default function App() {
   }); }, []);
   const cam = SHOT ? SHOT_CAM[SHOT] : { target: CENTER, zoom: small ? 70 : 122 };
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <Canvas shadows dpr={SHOT ? (small ? 2 : 1) : Q.dpr} gl={{ preserveDrawingBuffer: !!SHOT, antialias: Q.antialias, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+    <div className="stage">
+      <Canvas shadows dpr={SHOT ? (small ? 2 : 1) : Q.dpr} gl={{ alpha: true, preserveDrawingBuffer: !!SHOT, antialias: Q.antialias, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
         onPointerMissed={() => game.store.set({ menuItem: null })}>
         <OrthographicCamera makeDefault near={0.1} far={100} />
-        <color attach="background" args={['#2f2440']} />
         <Lighting center={[CENTER.x, 0, CENTER.z]} />
         <Suspense fallback={null}>
           {ready && <ApartmentView />}
@@ -45,10 +47,11 @@ export default function App() {
           ))}
         </Suspense>
         <Stats />
-        <CameraRig target={cam.target} zoom={cam.zoom} dir={cam.dir} interactive={!SHOT} panEnabled={!placing}
+        <CameraRig target={cam.target} zoom={cam.zoom} dir={cam.dir} interactive={!SHOT} panEnabled={!placing} room={SHOT ? undefined : ROOM}
           follow={SHOT ? undefined : () => world.chars[game.s.activeChar]?.pos ?? null} />
       </Canvas>
       {(!SHOT || SHOT.startsWith('ui')) && <Hud />}
+      {!SHOT && <RotateOverlay />}
     </div>
   );
 }
