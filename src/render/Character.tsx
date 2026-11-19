@@ -31,12 +31,16 @@ export const animDebug: Record<string, { speed: number; idle: number; walk: numb
 export const seatDebug: Record<string, { phase: SeatPhase; sp: number; lp: number; w: number; pitch: number; seat: string | null }> = {};
 
 /** `controlled` = this is the player's avatar: the analog stick / keyboard may drive it. */
-export function Character({ c, def, look, selected, onSelect, controlled = false }: { c: CharState; def: AvatarDef; look: Look; selected: boolean; onSelect: () => void; controlled?: boolean }) {
+/** `npcLabel`: chip next to the name of a non-controlled avatar ('PNJ'; club bots: '🤖'). `lite`: budget avatar for crowds
+ *  (Games Club bots): same body, look, animations and sit poses, but no outline hull, no blob shadow and no shadow-map pass
+ *  (2 draw calls and ~11k triangles instead of 4 and ~21k). */
+export function Character({ c, def, look, selected, onSelect, controlled = false, npcLabel = 'PNJ', lite = false, tagClass = '' }: { c: CharState; def: AvatarDef; look: Look; selected: boolean; onSelect: () => void; controlled?: boolean; npcLabel?: string; lite?: boolean; tagClass?: string }) {
   const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const nameEl = useRef<HTMLDivElement>(null);
   /** HUD avoidance of the name tag: cached offset of the label box from its anchor point, applied shift (px) */
   const tagFit = useRef({ at: -1e9, dx0: 0, dy0: 0, dx1: 0, dy1: 0, shift: 0 }); const bubble = useRef<HTMLDivElement>(null);
   const built = useCustomAvatar(def, look);
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
+  useEffect(() => { if (lite) built.holder.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = false; if (o.name.endsWith('_outline')) o.visible = false; } }); }, [built, lite, look]);
   const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
   const dance = useRef(0);
   const blob = useRef<THREE.Mesh>(null); const ring = useRef<THREE.Mesh>(null);
@@ -183,13 +187,13 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     <group ref={outer} scale={def.scale} onClick={(e) => { if (e.delta > 8) return; e.stopPropagation(); onSelect(); }}>
       <primitive object={built.holder} />
       {/* soft blob shadow: cheap contact shadow that also works when real shadows are off (mobile) */}
-      <mesh ref={blob} rotation-x={-Math.PI / 2} position-y={0.006} renderOrder={-1}><circleGeometry args={[0.2, 24]} /><meshBasicMaterial color="#2a1530" transparent opacity={0.22} depthWrite={false} /></mesh>
+      {!lite && <mesh ref={blob} rotation-x={-Math.PI / 2} position-y={0.006} renderOrder={-1}><circleGeometry args={[0.2, 24]} /><meshBasicMaterial color="#2a1530" transparent opacity={0.22} depthWrite={false} /></mesh>}
       {selected && <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.012}><ringGeometry args={[0.24, 0.29, 40]} /><meshBasicMaterial color={def.tagColor} transparent opacity={0.85} depthWrite={false} /></mesh>}
       <group ref={tag} position-y={1.12}>
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div className="tagwrap">
             <div ref={bubble} className="bubble" />
-            <div ref={nameEl} className="nametag" style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">PNJ</span>}</div>
+            <div ref={nameEl} className={'nametag' + (tagClass ? ' ' + tagClass : '')} style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">{npcLabel}</span>}</div>
           </div>
         </Html>
       </group>

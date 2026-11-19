@@ -95,7 +95,7 @@ export default function App() {
           {ready && loc === 'club' && <ClubView />}
           {ready && beach && <BeachView />}
           {ready && Object.values(AVATARS).map((a) => (
-            <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
+            <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT && !atTable} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
           ))}
         </Suspense>
         <Stats />

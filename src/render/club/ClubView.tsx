@@ -13,11 +13,12 @@ import { gameById, LOCAL_BADGE } from '../../minigames/registry';
 import { Floor, Walls } from '../apartment/ApartmentView';
 import { flattenModel, type Part } from '../apartment/furnitureParts';
 import { disposeMesh } from '../dispose';
+import { ClubBots } from './ClubBots';
 
 /**
  * Yoo Games Club scene: the apartment's floor + wall kit, Kenney tables/chairs drawn as InstancedMesh (1 call per
  * material part, whatever the number of copies), and a small procedural decor batch (felt table tops, club sign,
- * game posters, domino tiles on the playing table). Bots have no avatar: a "🤖 Bot n" tag over their chair (DOM, 0 draw call).
+ * game posters, domino tiles on the playing table). Bots are seated YooWorld avatars (ClubBots.tsx).
  */
 const URL = (m: string) => `${import.meta.env.BASE_URL}models/furniture/${m}.glb`;
 const noRay = () => {};
@@ -112,15 +113,6 @@ function TableTiles() {
   }, [line, inst]);
   return <primitive object={inst} />;
 }
-function SeatTags() {
-  useStore(club.store, (s) => s.tick); const ses = useStore(club.store, (s) => s.session); if (!ses || ses.phase === 'seating') return null;
-  const st = ses.host.state; const turn = st.phase === 'playing' ? st.turn : -1;
-  return <>{club.chairLabels().filter((l) => l.bot).map((l) => (
-    <Html key={l.chair} position={[l.pos.x, 0.62, l.pos.z]} center zIndexRange={[30, 10]} style={{ pointerEvents: 'none' }}>
-      <div className={'bot-tag' + (turn === l.seat ? ' turn' : '')} data-bot-seat={l.seat}>🤖 {l.name}<small>{st.hands[l.seat]?.length ?? 0}</small></div>
-    </Html>
-  ))}</>;
-}
 function ClubMenu({ uid }: { uid: string }) {
   const t = tableOf(uid); if (!t) return null; const g = gameById(t.gameId); const playable = g?.status === 'playable';
   const isChair = t.chairs.includes(uid); const p = clubItemPos(uid); const busy = !!club.s.session;
@@ -147,7 +139,7 @@ export function ClubView() {
       {batches.map(([defId, items]) => <Batch key={defId} defId={defId} items={items} />)}
       <TableTiles />
       <pointLight position={[3.45, 1.35, 3.0]} color="#ffd08a" intensity={1.6} distance={3.2} decay={1.6} />
-      <SeatTags />
+      <ClubBots />
       {menu && tableOf(menu) && <ClubMenu uid={menu} />}
     </group>
   );
