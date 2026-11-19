@@ -84,7 +84,7 @@ export const BUN_UNDER: Record<string, BunVariant> = { cap: 'nape', beanie: 'nap
 const BUN: Record<BunVariant, { lift: number; r: [number, number, number]; fz: number; dz: number; wr: number }> = {
   top: { lift: -0.01, r: [0.12, 0.055, 0.105], fz: 0, dz: 0, wr: 0.088 },
   crown: { lift: 0.01, r: [0.075, 0.06, 0.072], fz: -0.01, dz: 0.05, wr: 0.062 },
-  phones: { lift: -0.01, r: [0.1, 0.055, 0.06], fz: -0.075, dz: 0, wr: 0.078 },
+  phones: { lift: -0.02, r: [0.09, 0.048, 0.048], fz: -0.12, dz: 0, wr: 0.07 },
   nape: { lift: 0, r: [0.075, 0.068, 0.062], fz: 0, dz: 0, wr: 0.06 },
 };
 function bunHigh(t: Prepared, cap: THREE.BufferGeometry, parts: THREE.BufferGeometry[], v: BunVariant = 'top') {
@@ -212,6 +212,20 @@ const col = (g: THREE.BufferGeometry, c: string) => { const o = g.index ? g.toNo
 const at = (g: THREE.BufferGeometry, p: THREE.Vector3 | [number, number, number], rot?: [number, number, number], s?: [number, number, number]) => { if (s) g.scale(...s); if (rot) g.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot))); const v = Array.isArray(p) ? p : [p.x, p.y, p.z]; g.translate(v[0], v[1], v[2]); return g; };
 function heartShape(s: number) { const h = new THREE.Shape(); h.moveTo(0, -0.9 * s); h.bezierCurveTo(-1.4 * s, 0.1 * s, -0.7 * s, 1.1 * s, 0, 0.4 * s); h.bezierCurveTo(0.7 * s, 1.1 * s, 1.4 * s, 0.1 * s, 0, -0.9 * s); return h; }
 export interface AccBuild { bone: 'Head' | 'Spine2' | 'Hips' | 'LeftHand' | 'RightHand' | 'Neck'; solid: THREE.BufferGeometry; lens?: { geo: THREE.BufferGeometry; color: string; opacity: number }; /** uses the avatar atlas (native backpack) */ textured?: boolean }
+/** How cap / beanie / straw hat sit on the head (procedural meshes, no asset edit).
+ *  `yAboveBrow` = hatFit y0 minus the brow height (the dome starts here).
+ *  `tilt` = rotation around X in radians: positive lifts the front of the brim so the
+ *  downward three-quarter camera can still see the eyes, brows and face (the previous
+ *  constant −0.18, labelled "front up", actually dropped the brim over the face).
+ *  `th` = dome phi length (smaller = the crown stops higher).
+ *  `brimTilt` = extra front-up rotation of the cap visor / straw brim only.
+ *  The straw brim pivots around its back inner edge so the front lifts without
+ *  dropping the back of the brim into the hair. */
+export const HAT_SIT: Record<'cap' | 'beanie' | 'strawhat', { yAboveBrow: number; tilt: number; th: number; brimTilt: number }> = {
+  cap: { yAboveBrow: 0.038, tilt: 0.06, th: 1.56, brimTilt: 0.18 },
+  beanie: { yAboveBrow: 0.048, tilt: 0.05, th: 1.56, brimTilt: 0 },
+  strawhat: { yAboveBrow: 0.042, tilt: 0.07, th: 1.55, brimTilt: 0.22 },
+};
 export function buildAccessory(model: AccModel, c1: string, c2: string | undefined, t: Prepared, f: Prepared, hairUnder: THREE.BufferGeometry | null): AccBuild | null {
   const fe = t.parts.features; const C = t.cranium; const parts: THREE.BufferGeometry[] = []; const c2_ = c2 ?? c1;
   const eyes = [new THREE.Vector3(...fe.eyeP), new THREE.Vector3(...fe.eyeN)]; const eyeY = eyes[0].y; const fz = Math.min(t.faceZ(eyes[0].x, eyeY, 0.03), t.faceZ(0, eyeY, 0.02)) - 0.016;
@@ -254,22 +268,26 @@ export function buildAccessory(model: AccModel, c1: string, c2: string | undefin
       parts.push(col(at(new THREE.BoxGeometry(0.045, 0.11, 0.016), [0.04, ny - 0.065, fe.chestFront - 0.016], [0.1, 0, -0.12]), c2_)); parts.push(col(at(new THREE.BoxGeometry(0.045, 0.012, 0.018), [0.046, ny - 0.118, fe.chestFront - 0.024], [0.1, 0, -0.12]), c1));
       return { bone: 'Spine2', solid: mergeGeometries(parts)! }; }
     case 'cap': case 'beanie': case 'strawhat': case 'crown': {
-      const { R, top } = hatFit(); const cy = C.y; void cy; const tilt = -0.18; // front up
+      const { R, top } = hatFit(); const cy = C.y; void cy;
       if (model === 'crown') { const r = Math.min(R * 0.6, 0.12); const y = top - 0.035; const band = new THREE.CylinderGeometry(r, r * 0.92, 0.05, 24, 1, true); parts.push(col(at(band, [0, y + 0.02, C.z + 0.01], [0.12, 0, 0]), c1));
         for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; parts.push(col(at(new THREE.ConeGeometry(0.016, 0.045, 6), [Math.sin(a) * r, y + 0.065 - Math.cos(a) * 0.006, C.z + 0.01 - Math.cos(a) * r], [0.12, 0, 0]), c1));
           parts.push(col(at(new THREE.SphereGeometry(0.009, 8, 6), [Math.sin(a) * r * 1.02, y + 0.02, C.z + 0.01 - Math.cos(a) * r * 1.02]), i % 2 ? c2_ : '#7fe0ff')); }
         return { bone: 'Head', solid: mergeGeometries(parts)! }; }
-      const fit = hatFit(fe.browP[1] + (model === 'beanie' ? 0.012 : 0.024)); const H = fit.H; const th = model === 'beanie' ? 1.66 : 1.57; const R2 = fit.R; const cy2 = fit.y0; const hz = fit.cz;
+      const sit = HAT_SIT[model]; const tilt = sit.tilt; const fit = hatFit(fe.browP[1] + sit.yAboveBrow); const H = fit.H; const th = sit.th; const R2 = fit.R; const cy2 = fit.y0; const hz = fit.cz;
       const dome = new THREE.SphereGeometry(1, 32, 14, 0, Math.PI * 2, 0, th); dome.scale(R2, H, fit.Rz); parts.push(col(at(dome, [0, cy2, hz], [tilt, 0, 0]), c1));
       const rimY = cy2 + Math.cos(th) * H; const rimR = R2 * Math.sin(th);
-      if (model === 'cap') { const brim = new THREE.CylinderGeometry(rimR * 0.95, rimR * 0.95, 0.01, 24, 1, false, -0.95, 1.9); brim.scale(1, 1, 1.35); parts.push(col(at(brim, [0, rimY + 0.01, hz - 0.03], [tilt - 0.05, Math.PI, 0]), c2_));
-        parts.push(col(at(new THREE.SphereGeometry(0.014, 8, 6), [0, cy2 + H, hz + Math.sin(-tilt) * H * 0.2]), c2_)); }
-      if (model === 'beanie') { const band = new THREE.TorusGeometry(1, 0.02, 8, 32); band.scale(rimR + 0.006, rimR * 1.04 + 0.006, 1); parts.push(col(at(band, [0, rimY + 0.012, hz], [Math.PI / 2 + tilt, 0, 0]), c2_)); parts.push(col(at(new THREE.IcosahedronGeometry(0.035, 1), [0, cy2 + H + 0.025, hz + Math.sin(-tilt) * H * 0.2]), c2_)); }
-      if (model === 'strawhat') { const brim = new THREE.RingGeometry(rimR * 0.95, rimR * 1.7, 36, 1); parts.push(col(at(brim, [0, rimY, hz], [-Math.PI / 2 + tilt, 0, 0]), c1)); const brimB = new THREE.RingGeometry(rimR * 0.95, rimR * 1.7, 36, 1); parts.push(col(at(brimB, [0, rimY - 0.002, hz], [Math.PI / 2 + tilt, 0, 0]), c1));
+      if (model === 'cap') { const brim = new THREE.CylinderGeometry(rimR * 0.95, rimR * 0.95, 0.01, 24, 1, false, -0.95, 1.9); brim.scale(1, 1, 1.28); parts.push(col(at(brim, [0, rimY + 0.014, hz - 0.018], [tilt + sit.brimTilt, Math.PI, 0]), c2_));
+        parts.push(col(at(new THREE.SphereGeometry(0.014, 8, 6), [0, cy2 + H, hz + Math.sin(tilt) * H * 0.2]), c2_)); }
+      if (model === 'beanie') { const band = new THREE.TorusGeometry(1, 0.02, 8, 32); band.scale(rimR + 0.006, rimR * 1.04 + 0.006, 1); parts.push(col(at(band, [0, rimY + 0.012, hz], [Math.PI / 2 + tilt, 0, 0]), c2_)); parts.push(col(at(new THREE.IcosahedronGeometry(0.035, 1), [0, cy2 + H + 0.025, hz + Math.sin(tilt) * H * 0.2]), c2_)); }
+      if (model === 'strawhat') {
+        const inner = rimR * 0.95, outer = rimR * 1.65, bt = tilt + sit.brimTilt, pivotZ = inner;
+        const placeBrim = (y: number, flipNormal: boolean) => { const g = new THREE.RingGeometry(inner, outer, 36, 1); if (flipNormal) g.rotateX(Math.PI); g.rotateX(-Math.PI / 2); g.translate(0, 0, -pivotZ); g.rotateX(bt); g.translate(0, 0, pivotZ); return at(g, [0, y, hz]); };
+        parts.push(col(placeBrim(rimY, false), c1));
+        parts.push(col(placeBrim(rimY - 0.002, true), c1));
         const band = new THREE.CylinderGeometry(rimR * 0.99, rimR * 1.0, 0.03, 32, 1, true); parts.push(col(at(band, [0, rimY + 0.017, hz], [tilt, 0, 0]), c2_)); }
       return { bone: 'Head', solid: mergeGeometries(parts)! };
     }
-    case 'headphones': { const { R } = hatFit(); const band = new THREE.TorusGeometry(R + 0.012, 0.009, 6, 32, Math.PI); parts.push(col(at(band, [0, C.y - 0.02, C.z + 0.01], [0, 0, 0], [1.02, 1, 1]), c1));
+    case 'headphones': { const { R } = hatFit(); const band = new THREE.TorusGeometry(R + 0.012, 0.009, 6, 32, Math.PI); parts.push(col(at(band, [0, C.y - 0.02, C.z + 0.045], [0, 0, 0], [1.02, 1, 1]), c1));
       for (const sd of [1, -1]) { const x = sd * (Math.abs(fe.earP[0]) + 0.012); parts.push(col(at(new THREE.CylinderGeometry(0.04, 0.04, 0.024, 20), [x, fe.earP[1] + 0.01, fe.earP[2] - 0.01], [0, 0, Math.PI / 2]), c2_)); parts.push(col(at(new THREE.CylinderGeometry(0.03, 0.03, 0.026, 16), [x * 1.04, fe.earP[1] + 0.01, fe.earP[2] - 0.01], [0, 0, Math.PI / 2]), c1)); }
       return { bone: 'Head', solid: mergeGeometries(parts)! }; }
     case 'backpack': if (!f.bag) return null; return { bone: 'Spine2', solid: transferSpine(f.bag, f, t), textured: true };
