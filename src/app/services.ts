@@ -6,6 +6,7 @@ import { OfflineTransport } from '../net/NetworkTransport';
 import { LocalDevEconomy } from '../economy/LocalDevEconomy';
 import { FashionController } from '../fashion/FashionController';
 import { newTxId } from '../economy/EconomyService';
+import { ClubController } from '../game/club/ClubController';
 /** Composition root: pick implementations here (server repo / real transport / RemoteEconomy later). */
 const q = new URLSearchParams(location.search);
 const fresh = q.has('shot') || q.has('fresh') || q.has('thumbs');
@@ -15,7 +16,9 @@ export const economy = new LocalDevEconomy(fresh ? memKV() : localStorage);
 export const fashion = new FashionController(economy);
 export const game = new GameController(fresh ? new MemoryRepository() : new LocalStorageRepository(localStorage), new OfflineTransport(),
   { balance: () => economy.goldBalance(), spend: (amount, memo) => { try { economy.spendGoldSync(amount, memo, newTxId('furniture')); return true; } catch { return false; } } });
-Object.assign(window as unknown as Record<string, unknown>, { game, __world: world, economy, fashion }); // debug / e2e handles
+/** Yoo Games Club tables (Local mode, bots, nothing saved). */
+export const club = new ClubController(game);
+Object.assign(window as unknown as Record<string, unknown>, { game, __world: world, economy, fashion, club }); // debug / e2e handles
 
 /** PERF / screenshots only: renders both avatars fully dressed (not saved, ignores ownership). */
 (window as unknown as Record<string, unknown>).__dressAll = () => {

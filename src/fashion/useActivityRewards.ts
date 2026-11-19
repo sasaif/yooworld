@@ -9,7 +9,9 @@ export function useActivityRewards() {
   useEffect(() => {
     if (!ready || new URLSearchParams(location.search).has('shot')) return;
     const STEP = 10; const id = setInterval(() => {
-      if (fashion.s.studio || document.hidden) return; const c = world.chars[game.s.activeChar]; if (!c) return;
+      if (fashion.s.studio || document.hidden) return;
+      if (game.s.location === 'club') return; // Games Club: no Gold for sitting / dancing / playing (owner: no game rewards before P4)
+      const c = world.chars[game.s.activeChar]; if (!c) return;
       if (c.mode === 'emote') void fashion.activity('dance', STEP); else if (c.mode === 'sitting') void fashion.activity('sit', STEP);
     }, STEP * 1000);
     return () => clearInterval(id);

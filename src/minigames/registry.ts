@@ -4,7 +4,7 @@
  */
 export interface GameDef { id: string; name: string; icon: string; seats: { min: number; max: number }; status: 'playable' | 'soon'; blurb: string }
 export const GAMES: GameDef[] = [
-  { id: 'dominoes', name: 'Dominos', icon: '🁫', seats: { min: 2, max: 4 }, status: 'playable', blurb: 'Double-six, jeu de la pioche' },
+  { id: 'dominoes', name: 'Dominos', icon: '🎲', seats: { min: 2, max: 4 }, status: 'playable', blurb: 'Double-six, jeu de la pioche' },
   { id: 'belote', name: 'Belote', icon: '🃏', seats: { min: 4, max: 4 }, status: 'soon', blurb: 'Belote classique, 2 équipes' },
   { id: 'checkers', name: 'Dames', icon: '⛀', seats: { min: 2, max: 2 }, status: 'soon', blurb: 'Bientôt' },
 ];

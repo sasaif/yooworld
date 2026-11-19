@@ -11,7 +11,8 @@ import type { NetworkTransport } from '../net/NetworkTransport';
 import { LocalChatService } from './social/social';
 import { goTo, placeChar, say, world } from './world';
 import { BEACH_SPAWN, DANCE_SPOTS, beachWorld, propById } from './beach/beachLayout';
-import { isPlayable, locationById } from '../data/locations';
+import { isPlayable, locationById, remembered } from '../data/locations';
+import { CLUB, CLUB_SPAWN } from './club/clubLayout';
 
 export type Panel = null | 'catalog' | 'finishes' | 'chat' | 'profile' | 'places' | 'emotes' | 'settings';
 export interface Placing { defId: string; x: number; z: number; rot: Rot; moving?: string; valid: PlaceResult }
@@ -58,7 +59,7 @@ export class GameController {
     else if (apt.items.some((i) => !this.cat[i.defId])) apt = { ...apt, items: apt.items.filter((i) => !!this.cat[i.defId]) };
     const wanted = opts.startAt ?? profile.location;
     const location = wanted && isPlayable(wanted) ? wanted : 'home';
-    if (opts.startAt && location !== profile.location) { profile = { ...profile, location }; await this.repo.saveProfile(profile); }
+    if (opts.startAt && location !== profile.location && remembered(location)) { profile = { ...profile, location }; await this.repo.saveProfile(profile); }
     this.store.set({ profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f', location });
     this.enterWorld(location, location !== 'home');
     this.store.set({ ready: true });
@@ -173,9 +174,10 @@ export class GameController {
   private enterWorld(id: string, spawn: boolean) {
     world.location = id;
     if (id === 'beach') { const b = beachWorld(); world.nav = b.nav; world.seats = b.seats; resolveApproaches(world.seats, b.nav); }
+    else if (id === 'club') syncWorld(CLUB, this.cat); // fixed Games Club room (not saved), same nav + seat system
     else syncWorld(this.s.apartment!, this.cat);
     if (!spawn) return;
-    const sp = id === 'beach' ? BEACH_SPAWN : HOME_SPAWN; const me = this.s.activeChar;
+    const sp = id === 'beach' ? BEACH_SPAWN : id === 'club' ? CLUB_SPAWN : HOME_SPAWN; const me = this.s.activeChar;
     for (const c of Object.values(world.chars)) placeChar(c.id, c.id === me ? sp.player : sp.buddy, sp.yaw);
   }
   /** Instant switch to another playable location (the companion avatar comes along). Returns false if not possible. */
@@ -183,9 +185,11 @@ export class GameController {
     if (!this.s.ready || id === this.s.location || !isPlayable(id)) return false;
     this.store.set({ location: id, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null });
     this.enterWorld(id, true);
-    const p = { ...this.s.profile!, location: id }; this.store.set({ profile: p }); this.persist();
+    // the Games Club is not remembered as the current location (save isolation is handled on another branch): no save write
+    const p = remembered(id) ? { ...this.s.profile!, location: id } : this.s.profile!;
+    if (remembered(id)) { this.store.set({ profile: p }); this.persist(); }
     this.net.connect(id === 'home' ? this.s.apartment!.id : `public:${id}`, p.id);
-    say(this.s.activeChar, id === 'beach' ? 'Direction la plage ! 🌴' : 'De retour à la maison 🏠', 3500);
+    say(this.s.activeChar, id === 'beach' ? 'Direction la plage ! 🌴' : id === 'club' ? 'Bienvenue au Yoo Games Club ! 🎲' : 'De retour à la maison 🏠', 3500);
     return true;
   }
   /** Travel with the short fade used by the UI: fade out, switch, fade back in. */

@@ -14,17 +14,18 @@ import { enterLandscape } from '../app/screen';
 import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
+import { club } from '../app/services';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
 export function Hud() {
-  const s = useStore(game.store, (x) => x);
+  const s = useStore(game.store, (x) => x); const atTable = useStore(club.store, (x) => !!x.session);
   if (!s.ready) return <div className="loading">Chargement…</div>;
   return (
     <>
-      <TopBar />
+      {!atTable && <TopBar />}
       {s.toast && Date.now() - s.toast.at < 2500 && <div className="toast" key={s.toast.at}>{s.toast.text}</div>}
-      {s.mode === 'play' ? <PlayDock /> : <EditDock />}
+      {atTable ? null : s.mode === 'play' ? <PlayDock /> : <EditDock />}
       {s.panel === 'catalog' && <CatalogSheet />}
       {s.panel === 'finishes' && <FinishesSheet />}
       {s.panel === 'chat' && <ChatSheet />}
@@ -104,7 +105,8 @@ function PlayDock() {
       {loc === 'home' ? <>
         <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
         <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>
-      </> : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
+      </> : loc === 'club' ? <button onClick={() => club.openSetup()} data-club="games" aria-label="Jeux : dominos contre des bots">🎲<span>Jeux</span></button>
+      : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
       <button onClick={() => fashion.open(active as Body)} className="style-btn" aria-label="Style : avatar et boutique mode">👗<span>Style</span></button>
       <button onClick={() => game.toggleEmote()} className={emote ? 'on' : ''}>🎉<span>Danse</span></button>
       <button onClick={() => game.setPanel('chat')} className={panel === 'chat' ? 'on' : ''}>💬<span>Chat</span></button>
