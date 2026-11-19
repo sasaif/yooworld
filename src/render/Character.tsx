@@ -11,6 +11,7 @@ import { driveCharacter } from '../game/movement/playerMotion';
 import { world } from '../game/world';
 import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
+import { ExpressionLayer, expressionBus, faceMorphIndex, syncExpressionBadge, writeFaceMorphs } from '../avatar/expressions';
 import { LIE_PITCH, lieRoot, sitRoot } from '../game/interact/anchors';
 import { SitPose } from './avatar/sitPose';
 import { beginSeat, motionSeat, newSeatMotion, newSeatPose, presetOf, seatPose, smooth, stepSeat, type SeatPhase } from '../game/interact/seatMotion';
@@ -33,7 +34,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
   const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const bubble = useRef<HTMLDivElement>(null);
   const built = useCustomAvatar(def, look);
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
-  const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
+  const face = useMemo(() => ({ anim: new FaceAnimator(), expr: new ExpressionLayer(c.id, expressionBus), idx: faceMorphIndex(built.faces) }), [built, c.id]); const badge = useRef<HTMLDivElement>(null);
   const dance = useRef(0);
   const blob = useRef<THREE.Mesh>(null); const ring = useRef<THREE.Mesh>(null);
   /** seat / bed blend: root goes from `from` to `to` (and the body tilts onto its back when lying), t in s */
@@ -146,8 +147,8 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     Object.assign(dbg, { phase: M.phase, sp: M.sp, lp: M.lp, w: SP.sitW, pitch: SP.pitch, seat: M.seat && M.phase !== 'none' ? M.seat.id : null });
     // face: blink, smile, grin while dancing, lip flap while a bubble is shown
     const talking = !!s.say && s.say.until > performance.now();
-    const w = face.anim.update(dt, { emote: s.mode === 'emote', talking, sitting: s.mode === 'sitting', walking: s.mode === 'walk' });
-    built.faces.forEach((m, i) => { const ix = face.idx[i]; for (const k in w) { const j = ix[k as keyof typeof w]; if (j !== undefined) m.morphTargetInfluences![j] = w[k as keyof typeof w]; } });
+    const w = face.expr.apply(face.anim.update(dt, { emote: s.mode === 'emote', talking, sitting: s.mode === 'sitting', walking: s.mode === 'walk' }), dt, built.spec()?.morph);
+    writeFaceMorphs(built.faces, face.idx, w); syncExpressionBadge(badge.current, face.expr);
     // dance groove on top of the cheer clip: bounce on the beat, hip sway, body twist (eased in/out)
     dance.current += ((s.mode === 'emote' ? 1 : 0) - dance.current) * Math.min(1, dt * 5);
     const t = performance.now() / 1000, beat = t * Math.PI * 2 * 1.05, k = dance.current;
@@ -172,6 +173,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       <group ref={tag} position-y={1.12}>
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div className="tagwrap">
+            <div ref={badge} className="expr-badge" aria-hidden="true" />
             <div ref={bubble} className="bubble" />
             <div className="nametag" style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">PNJ</span>}</div>
           </div>
