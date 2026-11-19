@@ -1,6 +1,7 @@
 # 14 · Yoo Games Club : jalon M1, Dominos en mode local contre des bots
 
-Branche `feature/games-club-dominoes`, partie de `origin/feature/gameplay-polish` @ `5d810fa`. **Non fusionnée, non déployée.**
+Branche `feature/games-club-dominoes`, partie de `origin/feature/gameplay-polish` @ `5d810fa`, puis `origin/feature/gameplay-polish` @ `59f577c`
+fusionnée dedans (correctif de la posture assise `f70179c`, approuvé le 19/11/2026). **Non fusionnée ailleurs, non déployée.**
 Validé par le propriétaire le 19/11/2026 : « Yes, start the first milestone on its own branch, no merge or deploy » ; Dominos d'abord,
 puis la Belote classique ; mises en Or : à décider plus tard (aucune ici).
 Spécification : `worlds/EXPANSION_PROPOSAL.md` (§3 architecture, §6 jalon M1) et `rulebook/OWNER_BRIEF_EXPANSION_SOCIAL_GAMES_2026-11-19.md`.
@@ -20,10 +21,29 @@ Spécification : `worlds/EXPANSION_PROPOSAL.md` (§3 architecture, §6 jalon M1)
   points, pioche, Quitter), ligne de jeu au-dessus, main en bas ; **le centre de l'écran reste libre** : l'avatar assis reste visible.
   Toucher un domino jouable le pose ; s'il va des deux côtés, deux boutons « ◀ / ▶ » apparaissent. Boutons « Piocher » / « Passer »
   quand c'est le seul coup légal.
-- Les bots n'ont pas d'avatar : une étiquette « 🤖 Bot n » au-dessus de leur chaise (DOM, 0 draw call), jamais présentés comme des joueurs.
-- Résumé de manche (mode points) puis **écran de résultats** (classement, points, dominos restants), « Rejouer » ou « Quitter la table ».
-- Pendant la partie, le joystick, le bouton de course, le dock et la barre du haut sont masqués ; « Quitter » demande confirmation
-  si la partie est en cours (abandon).
+- **Les bots sont de vrais avatars YooWorld assis à la table** (mêmes corps, mêmes animations et transitions assis / debout que le joueur,
+  tenues variées prises dans le catalogue existant, aucun nouvel asset ; `src/game/club/botAvatars.ts`, `src/render/club/ClubBots.tsx`).
+  Étiquette de nom normale « Bot n 🤖 » (plus d'étiquette flottante). Bulles existantes : « 🤔 … » pendant qu'un bot réfléchit,
+  « Je pioche », « Je passe », « Domino ! ». Les tenues des bots sont de l'affichage : rien n'est possédé, acheté ni enregistré.
+- **Tour actif évident** : anneau doré pulsé au sol sous la chaise du joueur actif (1 mesh), pastille du joueur qui brille dans le
+  bandeau (vert pour toi, or pour un bot) avec les « … » animés quand un bot réfléchit, bandeau « À toi de jouer ! » et main entourée
+  de vert à ton tour, texte d'aide (« Touche un domino qui brille », « Choisis le bout de la ligne »).
+- **Ligne lisible même longue** (`src/ui/club/chainLayout.ts`) : les dominos ne rétrécissent plus jusqu'à 9 px ; la ligne s'enroule
+  en serpent (rangée 1 de gauche à droite, rangée 2 de droite à gauche, dominos retournés pour que les moitiés qui se touchent
+  correspondent), demi-domino de 22 px max (19 px sur écran bas type iPhone SE), **jamais moins de 16 px**, 3 rangées max.
+  Le dernier domino posé est surligné ; quand un domino va des deux côtés, les deux bouts clignotent (bleu = début, orange = fin)
+  et se touchent directement, ou via les boutons « ◀ n » / « n ▶ » de la même couleur.
+- Résumé de manche (mode points, avec barre de progression vers 100) puis **écran de résultats** : classement 🥇🥈🥉, points, dominos
+  restants, récapitulatif des manches (gagnant, Domino ! / bloqué, points), nombre de joueurs, mode, coups, durée.
+  **« Rejouer »** (même table, mêmes réglages, mêmes bots restés assis, nouvelle donne), **« Changer de partie »** (fiche de la table,
+  tu restes assis, les bots se lèvent) et **« Quitter »**.
+- **Quitter en sécurité** : « Quitter » pendant une partie ouvre une fenêtre « Quitter la table ? » (pas `window.confirm`) ; **les bots
+  sont mis en pause** tant qu'elle est ouverte (« Rester » reprend). Un seul chemin de fermeture : l'hôte local est arrêté (aucun
+  minuteur restant), les bots se lèvent puis disparaissent, ton avatar se lève, et une nouvelle partie peut commencer tout de suite.
+  Couvert : pendant le tour d'un bot, entre deux manches, depuis les résultats (sans confirmation), pendant l'installation
+  (« Annuler »), en voyageant (Lieux / fondu : table fermée sans bruit) et si l'avatar quitte sa chaise par un autre moyen (filet de
+  sécurité : partie abandonnée + message). À table, une couche transparente empêche qu'un toucher au sol fasse lever l'avatar.
+- Pendant la partie, le joystick, le bouton de course, le dock et la barre du haut sont masqués.
 
 ## 2. Ce qui n'est PAS fait (volontairement)
 
@@ -34,7 +54,7 @@ Spécification : `worlds/EXPANSION_PROPOSAL.md` (§3 architecture, §6 jalon M1)
   lieu courant (`LocationDef.remember: false`), un rechargement ramène à l'appart / à la plage. Aucun fichier de sauvegarde ou de
   stockage n'est modifié (l'isolation des sauvegardes vit sur `feature/save-isolation`).
 
-## 3. Règles exactes (Dominos, « jeu de la pioche », double-six)
+## 3. Règles exactes (Dominos, « jeu de la pioche », double-six) : **approuvées par le propriétaire le 19/11/2026**
 
 1. Jeu de 28 dominos 0-0 … 6-6. 2 joueurs : 7 dominos chacun ; 3 ou 4 joueurs : 5 chacun. Le reste forme la pioche.
 2. Ouverture : le joueur qui a le plus gros double (6-6, sinon 5-5…) commence et doit poser ce double. Si personne n'a de double,
@@ -56,7 +76,7 @@ Spécification : `worlds/EXPANSION_PROPOSAL.md` (§3 architecture, §6 jalon M1)
 | `types.ts` | `GameRules<S, M, V, O>` (pur, déterministe, état JSON), `BotPlayer`, `GameRoom` / `SeatSlot` / `Occupant`, `GameResult`, `RulesError` |
 | `rng.ts` | RNG mulberry32 dont l'état est un entier rangé dans l'état du jeu (rejouable à l'identique, sur l'appareil ou un serveur) |
 | `turnEngine.ts` | moteur de tours générique et pur : `seq` croissant, validation (tour, légalité, `stale_seq`, partie finie), journal des coups, minuteur de tour (`deadline`, `timeoutMove`), `advance` entre manches |
-| `LocalGameHost.ts` | hôte local : fait jouer les bots après un délai, refuse qu'on joue à la place d'un bot, `stop()` = abandon, résultat en mémoire |
+| `LocalGameHost.ts` | hôte local : fait jouer les bots après un délai (`thinking` = siège du bot qui réfléchit), refuse qu'on joue à la place d'un bot, `pause()` / `resume()` (fenêtre « Quitter ? »), `stop()` = abandon sans minuteur restant (`hasTimer`), résultat en mémoire |
 | `lobby.ts` | `LobbyService` (create / join / leave / fillWithBots / setStatus) + `LocalLobbyService` en mémoire ; une implémentation serveur viendra après choix du backend |
 | `registry.ts` | catalogue du club (`dominoes` jouable, `belote` et `checkers` « bientôt ») et le libellé unique `LOCAL_BADGE` |
 | `dominoes/rules.ts`, `dominoes/bot.ts` | module de règles Dominos + bot « facile » (pose le domino le plus lourd, double d'abord, hasard seedé entre égaux) |
@@ -77,16 +97,20 @@ interface GameRules<S, M, V, O> {
 }
 ```
 
-Ajouter la Belote = `belote/rules.ts` + `belote/bot.ts` + une entrée dans `registry.ts` + son interface de table ;
-le club, les tables, les sièges, le lobby, le moteur de tours et l'écran de résultats sont partagés. En ligne plus tard, un serveur
+Ajouter la Belote, le Rami, le Puissance 4… = `<jeu>/rules.ts` + `<jeu>/bot.ts` + une entrée dans `registry.ts` + son interface de table ;
+le club, les tables, les sièges, les avatars des bots assis, l'anneau de tour, le lobby, le moteur de tours, la pause / l'abandon
+et la fermeture propre de la table sont partagés (aucun de ces jeux n'est ajouté ici). En ligne plus tard, un serveur
 de salle fera tourner le même module et le même moteur, et n'enverra à chaque client que `viewFor(siège)`.
 
 Intégration au jeu : `src/game/club/clubLayout.ts` (salle, tables, chaises dans l'ordre des sièges, `chairsFor`),
-`src/game/club/ClubController.ts` (s'asseoir → distribuer, coups humains, quitter, rejouer), `src/app/clubService.ts`,
-`src/render/club/ClubView.tsx`, `src/ui/club/*`. Changements hors club, volontairement petits : `locations.ts` (+ lieu `club`,
+`src/game/club/ClubController.ts` (s'asseoir → distribuer, bots assis, coups humains, quitter / pause, rejouer, changer de partie),
+`src/game/club/botAvatars.ts`, `src/app/clubService.ts`, `src/render/club/ClubView.tsx`, `src/render/club/ClubBots.tsx`, `src/ui/club/*`. Changements hors club, volontairement petits : `locations.ts` (+ lieu `club`,
 champ `remember`), `GameController` (entrée dans le club, pas d'écriture de `profile.location` pour un lieu non mémorisé),
 `startLocation.ts` (`deepLinkPlace`), `App.tsx`, `Hud.tsx` (bouton « 🎲 Jeux », dock / barre masqués à table),
-`ApartmentView.tsx` (`Floor` et `Walls` exportés), `useActivityRewards.ts` (pas d'Or dans le club).
+`ApartmentView.tsx` (`Floor` et `Walls` exportés), `useActivityRewards.ts` (pas d'Or dans le club). Jalon M1 polish : `Character.tsx`
+(props optionnelles `npcLabel`, `lite`, `tagClass` ; sans elles, rendu identique), `useCustomAvatar.ts` (un avatar supplémentaire
+choisit son corps par l'URL du modèle), `App.tsx` (anneau de sélection masqué à table : l'anneau de tour le remplace).
+Aucun code de sauvegarde / stockage touché.
 
 ## 5. Tests
 
@@ -98,11 +122,19 @@ champ `remember`), `GameController` (entrée dans le club, pas d'écriture de `p
   1 à 3 bots jusqu'au résultat, abandon, registre et libellé honnête.
 - `tests/games-club.test.ts` : lieu jouable non mémorisé, gabarit = appart, meubles dans la salle sans chevauchement, 4 sièges
   face à la table et atteignables à pied, chaises par nombre de joueurs, voyage sans écriture du lieu dans la sauvegarde.
-- `tools/e2e-club.mjs` (téléphone paysage tactile, vrais touchers) : Lieux → club, menu de la table, fiche, s'asseoir, **partie
-  complète jusqu'à l'écran de résultats**, badge, jamais « multijoueur », pas d'Or gagné, club jamais sauvegardé, draw calls,
-  taille d'avatar identique à l'appart, 0 erreur console.
-  `DEV=iphone15|se PLAYERS=2|3|4 MODE=single|points [SHOTS=dossier] [BOTMS=150] node tools/e2e-club.mjs http://127.0.0.1:PORT/`
-  (`?botms=` accélère les bots, pour les tests uniquement).
+- `tests/games-club-polish.test.ts` : pause pendant le tour d'un bot (aucun minuteur, aucun coup, coups humains refusés, reprise),
+  arrêt en pause / entre deux manches sans minuteur restant ; ligne : 1 à 28 dominos tiennent à ≥ 16 px en ≤ 3 rangées sur
+  iPhone SE et iPhone 15, serpent (rangées impaires retournées), 20+ dominos à ≥ 18 px ; tenues des bots : objets du catalogue
+  existants, bon corps, emplacements requis remplis, pas d'accessoire ni de cheveux à attaches, tenues différentes à une table.
+- `tools/e2e-club.mjs` (téléphone paysage tactile, vrais touchers), scénarios A à G : partie complète jusqu'aux résultats avec les
+  bots assis (avatars, étiquettes normales, aucune étiquette flottante), tour actif (anneau, pastille, « À toi de jouer ! »,
+  « … » des bots), résultats (classement, récap, 3 boutons), « Rejouer » (mêmes bots assis), quitter pendant le tour d'un bot
+  (fenêtre, pause vérifiée, « Rester », « Quitter »), quitter entre deux manches (3 joueurs, 100 points), « Changer de partie »
+  puis quitter depuis les résultats, voyage en pleine partie puis retour par le dock et nouvelle partie, **ligne longue** (donne
+  fixe `?clubseed=2`, 2 joueurs, 27 dominos) ; après chaque départ : table fermée, bots partis, aucun minuteur ; badge, jamais
+  « multijoueur », pas d'Or gagné, club jamais sauvegardé, draw calls / triangles, taille d'avatar, 0 erreur console.
+  `DEV=iphone15|se PLAYERS=2|3|4 [SHOTS=dossier] [BOTMS=150] node tools/e2e-club.mjs http://127.0.0.1:PORT/`
+  (`?botms=` accélère les bots et `?clubseed=` fixe la donne : pour les tests uniquement).
 
 ## 6. Performances (Chrome headless + SwiftShader : FPS non représentatif)
 
