@@ -48,7 +48,7 @@ export const CLUB_TABLES: ClubTable[] = [
 export const tableOf = (uid: string) => CLUB_TABLES.find((t) => t.table === uid || t.chairs.includes(uid));
 /**
  * Chairs used for `count` players, clockwise from the human's chair (seat 0 = the human):
- * 2 players sit face to face, 3 players leave the chair opposite... the human's left free, 4 use every chair.
+ * 2 players sit face to face, 3 players leave the chair opposite the human free, 4 use every chair.
  */
 export function chairsFor(t: ClubTable, humanChair: string, count: number): string[] {
   const k = Math.max(0, t.chairs.indexOf(humanChair)); const ring = [...t.chairs.slice(k), ...t.chairs.slice(0, k)];
