@@ -18,16 +18,21 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+        timeout-minutes: 5
       - name: Type check
+        timeout-minutes: 5
         run: npx tsc --noEmit
       - name: Unit tests
+        timeout-minutes: 5
         run: npx vitest run
       - name: Build
+        timeout-minutes: 5
         run: npx vite build
       - name: Chrome
         run: google-chrome --version
       - name: Start preview server
         id: preview
+        timeout-minutes: 2
         run: |
           nohup npx vite preview --port 5230 --strictPort --host 127.0.0.1 > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5230/ > /dev/null && exit 0; sleep 1; done; cat preview.log; exit 1
@@ -35,21 +40,31 @@ jobs:
       # headless e2e on the real game (SwiftShader WebGL, iPhone 15 landscape touch)
       - name: e2e gameplay (movement profiles, foot sync, name tag vs chip, chat + keyboard)
         if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 20
         run: SHOTS=ci-shots/gameplay node tools/e2e-gameplay.mjs http://127.0.0.1:5230/
-      - name: e2e seats (clipping, seated soles, lounger pose)
+      - name: e2e layout (dock vs joystick / Run / Mood room, 667-932 px)
         if: ${{ always() && steps.preview.outcome == 'success' }}
-        run: CHECK=1 SCEN=stool,chair,deskChair,lounger,interruptLounger OUT=ci-shots/seq node tools/seq-capture.mjs http://127.0.0.1:5230/
+        timeout-minutes: 8
+        run: SHOTS=ci-shots/layout node tools/e2e-layout.mjs http://127.0.0.1:5230/
       - name: e2e tap-to-move (step 2)
         if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 8
         run: SHOTS=ci-shots/step2 node tools/e2e-step2.mjs http://127.0.0.1:5230/
+      - name: e2e joystick (new movement model, default)
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 8
+        run: SHOTS=ci-shots/joystick-new node tools/e2e-joystick.mjs http://127.0.0.1:5230/
       - name: e2e joystick (former controller, ?move=classic)
         if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 8
         run: SHOTS=ci-shots/joystick node tools/e2e-joystick.mjs "http://127.0.0.1:5230/?move=classic"
       - name: e2e experience (iPhone 15)
         if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 10
         run: SHOTS=ci-shots/experience node tools/e2e-experience.mjs http://127.0.0.1:5230/
       - name: Perf baseline (draw calls)
         if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 4
         run: node tools/perf-baseline.mjs http://127.0.0.1:5230/ --check
       - uses: actions/upload-artifact@v5
         if: always()
@@ -58,5 +73,41 @@ jobs:
           path: |
             ci-shots/**/*.json
             ci-shots/**/*.png
+          retention-days: 7
+          if-no-files-found: warn
+  # seats (Option C furniture): clipping into the real furniture mesh, seated soles on the floor / stool ring, lounger pose
+  seats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        char: [f, m]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+        timeout-minutes: 5
+      - name: Build
+        timeout-minutes: 5
+        run: npx vite build
+      - name: Start preview server
+        id: preview
+        timeout-minutes: 2
+        run: |
+          nohup npx vite preview --port 5230 --strictPort --host 127.0.0.1 > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:5230/ > /dev/null && exit 0; sleep 1; done; cat preview.log; exit 1
+      - name: e2e seats (${{ matrix.char }})
+        timeout-minutes: 35
+        run: CHECK=1 CHAR=${{ matrix.char }} EVERY=6 SCEN=stool,chair,deskChair,sofa,armchair,lounger,interruptLounger OUT=ci-shots/seq node tools/seq-capture.mjs http://127.0.0.1:5230/
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: seats-${{ matrix.char }}
+          path: |
+            ci-shots/**/*.json
           retention-days: 7
           if-no-files-found: warn
