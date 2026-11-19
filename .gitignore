@@ -3,3 +3,4 @@ dist
 *.log
 shots/tmp
 shots/interactions/raw/
+.e2e-iso/

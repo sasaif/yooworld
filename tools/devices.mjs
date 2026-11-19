@@ -18,7 +18,7 @@ for (const d of DEVICES) {
   if (only && !only.includes(d.name)) continue;
   const { name, ...opts } = d;
   const ctx = await b.newContext(opts); const p = await ctx.newPage();
-  if (process.env.SKIP_ROTATE) await p.addInitScript(() => sessionStorage.setItem('yw.portrait', '1'));
+  if (process.env.SKIP_ROTATE) await p.addInitScript(() => sessionStorage.setItem('yw:e:dev:portrait', '1'));
   const errs = []; const bad = [];
   p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)); });
   p.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });

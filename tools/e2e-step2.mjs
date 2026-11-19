@@ -17,7 +17,7 @@ p.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.u
 const skipped = []; const skip = (m, why) => { console.log('SKIP ' + m + ' — ' + why); skipped.push({ test: m, why }); };
 const results = []; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra ? ' ' + JSON.stringify(extra) : '')); results.push({ ok: !!c, test: m, extra }); if (!c) process.exitCode = 1; };
 const sep = url.includes('?') ? '&' : '?';
-const boot = async () => { await p.waitForFunction(() => window.game?.s.ready && window.__move && window.__cam, null, { timeout: 180000 }); await p.waitForTimeout(3500); await p.evaluate(() => { try { sessionStorage.setItem('yw.portrait', '1'); } catch { /* */ } }); };
+const boot = async () => { await p.waitForFunction(() => window.game?.s.ready && window.__move && window.__cam, null, { timeout: 180000 }); await p.waitForTimeout(3500); await p.evaluate(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); } catch { /* */ } }); };
 await p.goto(url + sep + 'fresh=1', { timeout: 120000 }); await boot();
 const cdp = await ctx.newCDPSession(p);
 const fps = await p.evaluate(() => new Promise((res) => { let n = 0; const s = performance.now(); const f = () => { n++; if (performance.now() - s < 1500) requestAnimationFrame(f); else res(n / 1.5); }; requestAnimationFrame(f); }));
@@ -110,7 +110,7 @@ await sampler();
 // ======================= TOUCH DEVICES =======================
 if (TOUCH) {
   const joy = await J(); ok(joy && joy.vis, 'joystick shown (default mobile control)');
-  const set0 = await p.evaluate(() => ({ s: window.__move().settings, raw: localStorage.getItem('yw.controls.v1') }));
+  const set0 = await p.evaluate(() => ({ s: window.__move().settings, raw: localStorage.getItem('yw:e:dev:controls.v1') }));
   ok(set0.s.touchTapToMove === false && set0.raw === null, 'default setting = "Joystick seul" (tap-to-move OFF, nothing saved yet)', set0);
   // --- OFF: a tap on free floor does nothing
   { const m0 = await mv(); const spots = await floorSpots({ minDist: 1.5 }); const r = await tapSomeFloor(spots); await p.waitForTimeout(1500); const m1 = await mv();
@@ -126,7 +126,7 @@ if (TOUCH) {
     ok(vis && open && sel0 === 'joystick', 'settings panel opens from the ⚙️ chip, "Joystick seul" selected');
     await p.screenshot({ path: `${SHOTS}/${tag}${devName}_settings_default.png` });
     const opt = await p.$('.ctl-opt[data-ctl="tap"]'); const ob = opt && await opt.boundingBox(); if (ob) await tapAt(ob.x + ob.width / 2, ob.y + ob.height / 2); await p.waitForTimeout(600);
-    const st = await p.evaluate(() => ({ s: window.__move().settings, raw: localStorage.getItem('yw.controls.v1'), sel: document.querySelector('.ctl-opt.on')?.getAttribute('data-ctl') }));
+    const st = await p.evaluate(() => ({ s: window.__move().settings, raw: localStorage.getItem('yw:e:dev:controls.v1'), sel: document.querySelector('.ctl-opt.on')?.getAttribute('data-ctl') }));
     ok(st.s.touchTapToMove === true && JSON.parse(st.raw).touchTapToMove === true && st.sel === 'tap', 'choosing "Joystick + toucher pour aller" enables it and saves it on the device', st);
     await p.screenshot({ path: `${SHOTS}/${tag}${devName}_settings_tap.png` });
     const x = await p.$('.settings-sheet .x'); const xb = x && await x.boundingBox(); if (xb) await tapAt(xb.x + xb.width / 2, xb.y + xb.height / 2); await p.waitForTimeout(400);

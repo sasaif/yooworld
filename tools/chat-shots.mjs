@@ -4,11 +4,11 @@ import { createRequire } from 'module'; import fs from 'fs'; const { chromium } 
 const url = process.argv[2] ?? 'http://127.0.0.1:5270/'; const OUT = process.env.OUT ?? 'shots/interactions'; fs.mkdirSync(OUT, { recursive: true });
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await b.newContext({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
-await ctx.addInitScript(() => { try { sessionStorage.setItem('yw.portrait', '1'); localStorage.setItem('yw.camView', 'room'); } catch { /* */ } });
+await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch { /* */ } });
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
 let fails = 0; const ok = (c, m, x) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (x !== undefined ? ' ' + JSON.stringify(x) : '')); if (!c) fails++; };
 await p.goto(url + '?fresh=1&lieu=appart'); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 }); await p.waitForTimeout(3000);
-await p.evaluate(() => { localStorage.removeItem('yw.chatCollapsed'); window.game.setPanel('chat'); }); await p.waitForTimeout(500);
+await p.evaluate(() => { localStorage.removeItem('yw:e:dev:chatCollapsed'); window.game.setPanel('chat'); }); await p.waitForTimeout(500);
 const check = () => p.evaluate(() => {
   const c = document.querySelector('.chat-sheet'); const r = c.getBoundingClientRect(); const q = [...c.querySelectorAll('.quick button')].map((x) => x.getBoundingClientRect());
   const log = c.querySelector('.chatlog'); const sc = c.querySelector('.chat-scope');

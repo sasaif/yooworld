@@ -2,7 +2,7 @@ import { createRequire } from 'module'; const { chromium } = createRequire(impor
 const url = process.argv[2]; const out = process.argv[3];
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await b.newContext({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
-await ctx.addInitScript(() => { sessionStorage.setItem('yw.portrait', '1'); });
+await ctx.addInitScript(() => { sessionStorage.setItem('yw:e:dev:portrait', '1'); });
 const p = await ctx.newPage(); await p.goto(url + '?fresh=1&lieu=appart'); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 }); await p.waitForTimeout(3000);
 await p.evaluate(() => window.game.setPanel('chat')); await p.waitForTimeout(800);
 // usage: node tools/chat-metrics.mjs url out.png -> chat sizes (iPhone 15 landscape @3x) + simulated keyboard
