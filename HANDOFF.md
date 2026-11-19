@@ -69,7 +69,7 @@ Chaque branche part de la précédente : `phase-1` → `phase-2` → `main` → 
 | https://sasaif.github.io/yooworld/interactions/ | `feature/interaction-polish` (**la plus récente**) |
 
 Paramètres d'URL :
-- `?walk=a|b|c` : vitesse de marche (b par défaut) ; `?move=classic` : ancien contrôleur (branche `feature/gameplay-polish`).
+- `?speeds=1.2,1.5,1.8,2.8` : vitesses marche lente / normale / rapide / course pour les essais (branche `feature/walk-run-separation`, remplace `?walk=a|b|c`) ; `?move=classic` : ancien contrôleur.
 - `?v=1|2|3` : variante de taille et de cadrage (V1 environ 75 px, V2 environ 85 px, **V3 = caméra rapprochée, par défaut**).
 - `?lieu=plage|beach|appart|home|maison` : lieu de départ.
 - `?joystick=1` force le joystick, `?joystick=0` le cache.
@@ -98,7 +98,8 @@ Tests e2e (Node + playwright-core + Chrome ; URL en 1er argument, par défaut un
 | `tools/e2e-desktop-move.mjs`, `e2e-beach.mjs`, `e2e-fashion.mjs`, `e2e.mjs` | anciens lots : clavier/souris, plage, boutique, base | |
 | `tools/perf-baseline.mjs --check` | refuse une hausse des draw calls de plus de 20 % (`tools/perf-baseline.json`) | |
 | `tools/seq-capture.mjs` | **transitions image par image en temps virtuel 60 i/s** : sauts par image, peau à l'intérieur du maillage du meuble, hauteur des semelles assis, position des pieds ; `CHECK=1` vérifie les limites, `CHAR=f|m` choisit l'avatar ; `tools/contact_sheet.py` pour les planches | `iphone15`, `desktop` |
-| `tools/e2e-gameplay.mjs` | profils de marche, course, allure vs foulée, glissement des pieds, étiquette vs puces, chat + clavier | iPhone 15 |
+| `tools/e2e-walk-run.mjs` | marche / course séparées : 25 / 60 / 100 % course désactivée, course activée, course → marche en mouvement, arrêt ; `VIDEO=dir` = vidéo de comparaison | `iphone15`, `se` |
+| `tools/e2e-gameplay.mjs` | marche / course, allure vs foulée, glissement des pieds, étiquette vs puces, chat + clavier | iPhone 15 |
 | `tools/e2e-layout.mjs` | dock vs joystick / bouton 🏃 / place du bouton Humeur, de 667 à 932 px | |
 | `tools/chat-shots.mjs` | chat : replié, déplié, longs messages, vérifications de mise en page | iPhone 15 |
 

@@ -2,7 +2,7 @@ import { createRequire } from 'module'; import fs from 'fs'; const { chromium } 
 /**
  * Gameplay polish regression suite (real game, deterministic virtual time: performance.now + requestAnimationFrame are
  * virtualised and stepped exactly 1/60 s per frame, so the numbers are those of a 60 fps phone whatever the headless speed).
- *  1. movement, per walk profile ?walk=a|b|c and in run mode (🏃 button): top speed, progressive acceleration, eased stop,
+ *  1. movement, walk (Run off: full stick = fast walk 1.8 m/s, 30 % stick) and run mode (🏃 button, 2.8 m/s): top speed, progressive acceleration, eased stop,
  *     no per-frame jump, gait (walk clip only in walk mode) and clip rate = actual speed / stride speed, foot slip of the
  *     stance foot; ?move=classic = the former controller (reference numbers, not asserted beyond its own speed).
  *  2. name tag vs top-bar chips: Juan placed so his tag would sit under the 'Mode local' chip → the tag is moved, no overlap.
@@ -18,7 +18,7 @@ const b = await chromium.launch({ executablePath: process.env.CHROME ?? '/usr/bi
 const results = []; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined ? ' ' + JSON.stringify(extra) : '')); results.push({ ok: !!c, test: m, extra }); if (!c) process.exitCode = 1; };
 const errs = [];
 const DT = 1000 / 60, SCALE = 1.14, STRIDE = { walk: 0.377 * SCALE, run: 1.9 * SCALE }; // measured clip stride speeds (animBlend.STRIDE × avatar scale)
-const PROFILES = { a: 1.615, b: 1.482, c: 1.33 };
+const WALK_TOP = 1.8, RUN_TOP = 2.8; // walk / run separation (walkProfile GAIT_SPEEDS): full stick = fast walk 1.8, Run on = 2.8
 
 async function open(q = '', virtual = true) {
   const ctx = await b.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: dev.dpr, isMobile: true, hasTouch: true });
@@ -70,7 +70,7 @@ async function moveRun(name, q, runMode, defl = 1) {
   await p.evaluate(() => window.__steps(30));
   const joy = await p.evaluate(() => { const r = document.querySelector('.joy').getBoundingClientRect(); return { cx: r.x + r.width / 2, cy: r.y + r.height / 2, R: r.width * 0.45 }; });
   const sample = () => p.evaluate(() => { const m = window.__move(); const id = window.game.s.activeChar; const B = window.__bones(id); return { pos: m.pos, v: Math.hypot(m.vel[0], m.vel[1]), sp: m.speed, anim: m.anim, lf: B.LeftFoot, rf: B.RightFoot, lt: B.LeftToeBase, rt: B.RightToeBase, mode: m.mode, max: m.maxSpeed }; });
-  const S = []; const DRIVE = Math.min(2.0, (lane.len - 0.6) / (runMode ? 1.9 : PROFILES[q.match(/walk=(\w)/)?.[1] ?? 'b'] ?? 1.9) + 0.4);
+  const S = []; const DRIVE = Math.min(2.0, (lane.len - 0.6) / (q.includes('classic') ? 1.9 : runMode ? RUN_TOP : WALK_TOP) + 0.4);
   await touch(cdp, 'touchStart', [{ x: joy.cx, y: joy.cy, id: 1 }]);
   await touch(cdp, 'touchMove', [{ x: joy.cx + Math.cos(lane.a * Math.PI / 180) * joy.R * 1.2 * defl, y: joy.cy - Math.sin(lane.a * Math.PI / 180) * joy.R * 1.2 * defl, id: 1 }]);
   const nDrive = Math.round(DRIVE * 60); for (let f = 0; f < nDrive; f++) { await p.evaluate(() => window.__step(1000 / 60)); S.push({ ...(await sample()), f, on: true }); }
@@ -85,7 +85,7 @@ async function moveRun(name, q, runMode, defl = 1) {
   const a1 = drive[0].v * 60; let maxStep = 0; for (let i = 1; i < S.length; i++) maxStep = Math.max(maxStep, Math.hypot(S[i].pos[0] - S[i - 1].pos[0], S[i].pos[1] - S[i - 1].pos[1]));
   const stopI = rel.findIndex((s) => s.v === 0); const stopT = (stopI + 1) / 60; const last = drive.at(-1); const stopD = Math.hypot(rel.at(-1).pos[0] - last.pos[0], rel.at(-1).pos[1] - last.pos[1]);
   let rev = false; for (let i = 1; i < rel.length; i++) if (rel[i].v > rel[i - 1].v + 1e-6) rev = true;
-  const walkW = Math.min(...steady.map((s) => s.anim?.walk ?? 0)), runW = Math.min(...steady.map((s) => s.anim?.run ?? 0));
+  const walkW = Math.min(...steady.map((s) => s.anim?.walk ?? 0)), runW = Math.min(...steady.map((s) => s.anim?.run ?? 0)), runMax = Math.max(...S.map((s) => s.anim?.run ?? 0));
   const clipErrRun = Math.max(...steady.map((s) => Math.abs(s.anim.runTS * STRIDE.run - s.sp) / s.sp)), clipErrWalk = Math.max(...steady.map((s) => Math.abs(s.anim.walkTS * STRIDE.walk - s.sp) / s.sp));
   // foot sync (walk clip): from the root-relative motion of the LOWER foot over the last 1.2 s, the body speed at which that
   // foot would stay planted (least total world travel). Synced gait ⇒ ≈ the actual body speed. (The run clip has flight
@@ -96,23 +96,23 @@ async function moveRun(name, q, runMode, defl = 1) {
     const a = F(A), c = F(B0); fr.push([(a[0] - c[0]) * 60, (a[1] - c[1]) * 60, hx / L, hz / L]); }
   let syncV = NaN, bestT = Infinity; for (let v = 0.05; v < 3.5; v += 0.005) { let t = 0; for (const [rx, rz, fx, fz] of fr) t += Math.hypot(v * fx + rx, v * fz + rz); if (t < bestT) { bestT = t; syncV = v; } }
   const slipR = syncV / top; const n = rel.length;
-  return { name, T, top, t50, t95, a1, maxStep, stopT, stopD, rev, walkW, runW, clipErrRun, clipErrWalk, slipR, slipN: n, lane: +lane.len.toFixed(2) };
+  return { name, T, top, t50, t95, a1, maxStep, stopT, stopD, rev, walkW, runW, runMax, clipErrRun, clipErrWalk, slipR, slipN: n, lane: +lane.len.toFixed(2) };
 }
 if (ONLY.includes('move')) {
   const R = {};
-  for (const [name, q, run, defl] of [['classic', 'move=classic', false, 1], ['walk_a', 'walk=a', false, 1], ['walk_b', 'walk=b', false, 1], ['walk_c', 'walk=c', false, 1], ['default', '', false, 1], ['slow', '', false, 0.3], ['classic_slow', 'move=classic', false, 0.3], ['run', '', true, 1]].filter(([n]) => !process.env.PROF || process.env.PROF.split(',').includes(n))) {
+  for (const [name, q, run, defl] of [['classic', 'move=classic', false, 1], ['default', '', false, 1], ['slow', '', false, 0.3], ['classic_slow', 'move=classic', false, 0.3], ['run', '', true, 1]].filter(([n]) => !process.env.PROF || process.env.PROF.split(',').includes(n))) {
     const r = await moveRun(name, q, run, defl); R[name] = r; console.log('   ' + JSON.stringify(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'number' ? +v.toFixed(3) : v]))));
     if (name === 'classic') { ok(Math.abs(r.top - 1.9) / 1.9 < 0.03, `classic: former controller kept (full stick ${r.top.toFixed(2)} m/s, 95 % in ${r.t95.toFixed(2)} s)`); continue; }
     if (name === 'classic_slow') { console.log(`   reference: former blend at 30 % stick walks ${r.top.toFixed(2)} m/s while its walk clip plants the feet for ${(r.slipR * r.top).toFixed(2)} m/s (${Math.round((1 - r.slipR) * 100)} % foot slide)`); continue; }
-    const want = run ? 1.9 : PROFILES[name.split('_')[1] ?? 'b'] ?? 1.482;
-    if (defl === 1) ok(Math.abs(r.T - want) < 0.005 && Math.abs(r.top - want) / want < 0.03, `${name}: full stick = ${r.top.toFixed(3)} m/s (target ${want}, ${run ? 'run' : Math.round((1 - want / 1.9) * 100) + ' % below the former 1.9 m/s'})`);
-    else ok(r.top > 0.25 && r.top < 0.8, `${name}: ${Math.round(defl * 100)} % stick = ${r.top.toFixed(2)} m/s (walking pace)`);
+    const want = run ? RUN_TOP : WALK_TOP;
+    if (defl === 1) ok(Math.abs(r.T - want) < 0.005 && Math.abs(r.top - want) / want < 0.03, `${name}: full stick = ${r.top.toFixed(3)} m/s (target ${want}, ${run ? 'run' : 'fast walk, Run off'})`);
+    else ok(r.top > 1.1 && r.top < 1.6, `${name}: ${Math.round(defl * 100)} % stick = ${r.top.toFixed(2)} m/s (between slow and normal walk)`);
     ok(r.a1 < 6 && r.t50 < 0.21 && r.t95 > 0.3 && r.t95 < 0.65, `${name}: progressive start (1st frame ${r.a1.toFixed(1)} m/s², classic ${R.classic?.a1.toFixed(1)}; 50 % in ${r.t50.toFixed(2)} s, 95 % in ${r.t95.toFixed(2)} s)`);
-    ok(r.stopT > 0.1 && r.stopT < 0.45 && !r.rev && r.stopD < 0.25, `${name}: eased stop on release (rest after ${r.stopT.toFixed(2)} s, ${(r.stopD * 100).toFixed(1)} cm, never reverses)`);
+    ok(r.stopT > 0.1 && r.stopT < 0.45 && !r.rev && r.stopD < Math.max(0.25, 2 * want / 18 * 1.15), `${name}: eased stop on release (rest after ${r.stopT.toFixed(2)} s, ${(r.stopD * 100).toFixed(1)} cm, never reverses)`);
     ok(r.maxStep <= Math.max(want, r.top) / 60 * 1.06, `${name}: no jump (max ${(r.maxStep * 100).toFixed(2)} cm/frame ≤ top speed × 1/60 s)`);
-    if (defl < 1) ok(r.walkW > 0.95 && r.clipErrWalk < 0.03, `${name}: walk clip (≥ ${r.walkW.toFixed(2)}), rate = speed / measured stride speed (max error ${(r.clipErrWalk * 100).toFixed(1)} %)`);
-    else ok(r.runW > 0.95 && r.clipErrRun < 0.03, `${name}: stride clip (≥ ${r.runW.toFixed(2)}), rate = speed / measured stride speed (max error ${(r.clipErrRun * 100).toFixed(1)} %)`);
-    if (defl < 1) ok(Math.abs(r.slipR - 1) < 0.1, `${name}: walk feet planted — the clip's planted foot matches ${(r.slipR * r.top).toFixed(2)} m/s vs body ${r.top.toFixed(2)} m/s (${((r.slipR - 1) * 100).toFixed(0)} %)`);
+    if (!run) ok(r.walkW > 0.95 && r.runMax === 0 && r.clipErrWalk < 0.03, `${name}: walk clip only (run clip max ${r.runMax}) (≥ ${r.walkW.toFixed(2)}), rate = speed / measured stride speed (max error ${(r.clipErrWalk * 100).toFixed(1)} %)`);
+    else ok(r.runW > 0.95 && r.clipErrRun < 0.03, `${name}: run clip (≥ ${r.runW.toFixed(2)}), rate = speed / measured stride speed (max error ${(r.clipErrRun * 100).toFixed(1)} %)`);
+    if (!run) ok(Math.abs(r.slipR - 1) < 0.1, `${name}: walk feet planted — the clip's planted foot matches ${(r.slipR * r.top).toFixed(2)} m/s vs body ${r.top.toFixed(2)} m/s (${((r.slipR - 1) * 100).toFixed(0)} %)`);
   }
   fs.writeFileSync(`${SHOTS}/movement.json`, JSON.stringify(R, null, 1));
 }

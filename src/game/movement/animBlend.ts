@@ -25,13 +25,30 @@ export function locoBlend(speed: number, vWalk: number, vRun: number): Blend {
  * measurement (flight phases, fewer planted frames) agrees with LOCO.run within its noise, so it is kept.
  */
 export const STRIDE = { walk: 0.377, run: 1.9 };
-/** playback-rate window in which each clip still reads naturally; between the two the clips cross-fade */
-export const GAIT = { walkMaxTS: 1.9, runMinTS: 0.55, maxRunTS: 1.2 };
-/** Speed-synced gait (default profile): the walk clip at its real stride speed while it can keep up (≤ walkMaxTS), the
- *  run clip at its real stride speed from runMinTS up; both rates = actual speed / measured stride speed. */
+/** playback-rate window in which each clip still reads naturally; between the two the clips cross-fade (run mode only).
+ *  walkMaxTS: highest walk-clip rate. The walk clip's stride is short (≈ 0.43 m/s at rate 1 at the avatars' scale), so a
+ *  1.8 m/s fast walk needs rate ≈ 4.2 to keep the feet planted; 4.6 leaves room for the ≤ 0.3 s run → walk slow-down.
+ *  maxRunTS: the 2.8 m/s run needs ≈ 1.29 (run clip stride ≈ 2.17 m/s at rate 1). */
+export const GAIT = { walkMaxTS: 4.6, runFrom: 1.9 * STRIDE.walk, runMinTS: 0.55, maxRunTS: 1.4 };
+export type GaitMode = 'walk' | 'run';
+/**
+ * Mode-aware gait (default profile). The MODE decides which clips are allowed, the actual SPEED decides the weights and rates:
+ * - 'walk' (default, Run toggle off): idle ↔ walk clip only — the run clip weight is always 0, whatever the speed or the
+ *   joystick intensity; walk rate = actual speed / measured walk stride speed (feet planted).
+ * - 'run' (Run toggle on): walk clip at low speed, cross-fading into the run clip as the speed rises (same window as
+ *   before: from walk rate 1.9 to run rate 0.55); run rate = actual speed / measured run stride speed.
+ */
+export function modeBlend(speed: number, scale: number, mode: GaitMode): Blend {
+  const v = Math.max(0, speed), sW = STRIDE.walk * scale, sR = STRIDE.run * scale;
+  const moving = sstep(0, BLEND.idleTo * 0.85 * scale, v);
+  const run = mode === 'run' ? sstep(GAIT.runFrom * scale, GAIT.runMinTS * sR, v) : 0;
+  return { idle: 1 - moving, walk: moving * (1 - run), run: moving * run, walkTS: Math.min(v / sW, GAIT.walkMaxTS), runTS: Math.min(v / sR, GAIT.maxRunTS) };
+}
+/** Former speed-only gait (before 19 Nov 2026): kept for reference / tests. Its run weight rose with the speed alone, so
+ *  any walk faster than ≈ 0.82 m/s (≈ 45 % stick in walk mode) played the RUN clip: the "auto-run at full joystick" bug. */
 export function gaitBlend(speed: number, scale: number): Blend {
   const v = Math.max(0, speed), sW = STRIDE.walk * scale, sR = STRIDE.run * scale;
   const moving = sstep(0, BLEND.idleTo * 0.85 * scale, v);
-  const run = sstep(GAIT.walkMaxTS * sW, GAIT.runMinTS * sR, v);
-  return { idle: 1 - moving, walk: moving * (1 - run), run: moving * run, walkTS: Math.min(v / sW, GAIT.walkMaxTS), runTS: Math.min(v / sR, GAIT.maxRunTS) };
+  const run = sstep(1.9 * sW, GAIT.runMinTS * sR, v);
+  return { idle: 1 - moving, walk: moving * (1 - run), run: moving * run, walkTS: Math.min(v / sW, 1.9), runTS: Math.min(v / sR, 1.2) };
 }

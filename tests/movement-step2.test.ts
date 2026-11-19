@@ -8,7 +8,7 @@ import { marker, showMarker, arriveMarker, invalidMarker, resetMarker, stepMarke
 import { DEFAULT_MOVE_SETTINGS, MOVE_SETTINGS_KEY, floorTapMoves, loadMoveSettings, saveMoveSettings, primaryInput, trackPointerKind, lastPointerKind, _setLastPointerKind } from '../src/input/moveSettings';
 import { NavGrid } from '../src/game/nav/NavGrid';
 import { ISO_DIR } from '../src/render/CameraRig';
-import { driveCharacter, motion } from '../src/game/movement/playerMotion';
+import { driveCharacter, motion, setRun } from '../src/game/movement/playerMotion';
 import { resetStick, setStick } from '../src/input/joystick/joystickState';
 import { goTo, makeChar, world } from '../src/game/world';
 
@@ -95,10 +95,15 @@ describe('path following with the analog controller', () => {
     expect(vmax).toBeGreaterThan(PATH_CFG.walk * 0.9); expect(vmax).toBeLessThan(PATH_CFG.walk * 1.05); expect(c.speed).toBe(0);
     expect(motion.pathStats.arrived).toBeGreaterThan(0);
   });
-  it('a double-tap run uses the run speed', () => {
+  it('walk / run separation: a double tap alone walks; a path runs only with the Run toggle on', () => {
     const nav = room(); const c = makeChar('p', 'P', 0.5, 0.5); world.nav = nav; world.chars.p = c;
-    goTo('p', new THREE.Vector3(5.5, 0, 0.5), { run: true }); let vmax = 0; run(c, nav, 5, 60, () => { vmax = Math.max(vmax, c.speed); });
-    expect(vmax).toBeGreaterThan(PATH_CFG.run * 0.9); expect(Math.hypot(c.pos.x - 5.5, c.pos.z - 0.5)).toBeLessThan(0.04);
+    goTo('p', new THREE.Vector3(5.5, 0, 0.5), { run: true }); let vmax = 0; run(c, nav, 8, 60, () => { vmax = Math.max(vmax, c.speed); });
+    expect(vmax).toBeLessThan(PATH_CFG.walk * 1.05); expect(Math.hypot(c.pos.x - 5.5, c.pos.z - 0.5)).toBeLessThan(0.04);
+    setRun(true);
+    try {
+      goTo('p', new THREE.Vector3(0.5, 0, 0.5)); vmax = 0; run(c, nav, 5, 60, () => { vmax = Math.max(vmax, c.speed); });
+      expect(vmax).toBeGreaterThan(PATH_CFG.run * 0.9); expect(Math.hypot(c.pos.x - 0.5, c.pos.z - 0.5)).toBeLessThan(0.04);
+    } finally { setRun(false); }
   });
   it('a destination behind furniture is reached around it: the avatar centre never enters the footprint', () => {
     const nav = room(); const c = makeChar('p', 'P', 3, 1.2); world.nav = nav; world.chars.p = c;

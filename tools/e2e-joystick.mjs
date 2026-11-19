@@ -127,26 +127,29 @@ const bands = FULL ? [[0.05, 'zone morte', 0], [0.15, 'lent (bord bas)', null], 
   : [[0.05, 'zone morte', 0], [0.225, 'lent', 0.30], [0.5, 'normal', 0.60], [0.775, 'rapide', 0.85], [1.25, 'max (butée)', 1.0]];
 const bandDir = 90 + 45; // pick one well-open direction for all bands
 const bdir = await worldDir(bandDir); const bst = await openStart(bdir, 3.4);
-for (const [d, name, target] of bands) {
+const NEW = !!(await mv()).smooth; // new model (walk / run separation): band targets = the live intensity curve (walkProfile WALK_ANCHORS)
+for (const [d, name, target0] of bands) {
+  const target = NEW && target0 != null && target0 !== 0 ? +((await p.evaluate((d) => window.__stickSpeed(Math.min(1, d)), d)) / MAX).toFixed(3) : target0;
   // 'butée' = the finger slides past the rim (1.25 × the travel radius): the stick must clamp to exactly d = 1
   const R = await laneRun({ a: bandDir, d, dir: bdir, st: bst, target, maxWin: 1200, tag: `band${d}` }); const { sp, ss, m, t0 } = R;
   const an = ss.filter((s) => s.t > t0 + 300 && s.t <= R.tEnd && s.anim).pop()?.anim;
   report.bands.push({ d, name, target, inputD: +m.d.toFixed(3), factor: +m.factor.toFixed(3), speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), lane: +bst.r.toFixed(2), windowMs: Math.round(R.win), frames: R.frames, blocked: R.blocked, anim: an && { s: +an.s.toFixed(3), walk: +an.w.toFixed(2), run: +an.r.toFixed(2), walkTS: +an.wts.toFixed(3), runTS: +an.rts.toFixed(3) } });
   if (target === 0) ok(sp < 0.01 && m.speed === 0, `dead zone ${d * 100}% → no movement (${sp.toFixed(3)} m/s)`);
   else if (d > 1) ok(m.d === 1 && Math.abs(sp / MAX - target) < 0.06 && !R.blocked, `${name}: finger past the rim → d=${m.d.toFixed(3)}, ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target 100 %)`);
-  else if (target != null) ok(Math.abs(sp / MAX - target) < 0.06 && !R.blocked, `${name} band d=${d}: ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target ≈${target * 100} %)`);
+  else if (target != null) ok(Math.abs(sp / MAX - target) < 0.06 && !R.blocked, `${name} band d=${d}: ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target ≈${Math.round(target * 100)} %)`);
   else ok(sp > 0 && !R.blocked, `${name} d=${d}: ${sp.toFixed(2)} m/s (${Math.round(sp / MAX * 100)} %)`);
 }
 const bs = report.bands.filter((x) => x.target !== 0).map((x) => x.speed); ok(bs.every((v, i) => i === 0 || v >= bs[i - 1] - 0.03), 'speed increases progressively with displacement', bs);
 // animation follows the actual speed
 const slowB = report.bands.find((x) => x.name === 'lent'), maxB = report.bands.find((x) => x.name.startsWith('max (butée'));
 const vW = 0.85 * 1.14, vR = 1.9 * 1.14;
-ok(slowB.anim.walk > 0.8 && maxB.anim.run > 0.8, `animation: slow = walk (${slowB.anim.walk}), max = run (${maxB.anim.run})`);
+if (!NEW) ok(slowB.anim.walk > 0.8 && maxB.anim.run > 0.8, `animation: slow = walk (${slowB.anim.walk}), max = run (${maxB.anim.run})`);
+else ok(slowB.anim.walk > 0.8 && maxB.anim.walk > 0.95 && report.bands.every((x) => !x.anim || x.anim.run === 0), `animation (Run off): slow = walk (${slowB.anim.walk}), full push = walk (${maxB.anim.walk}), run clip 0 in every band`, report.bands.map((x) => x.anim && x.anim.run));
 const SMOOTH = (await mv()).smooth; // null = ?move=classic (former controller: the 3 checks below keep their original model)
 if (!SMOOTH) ok(report.bands.every((x) => !x.anim || (x.anim.walkTS <= x.anim.s / vW + 1e-3 && x.anim.runTS <= x.anim.s / vR + 1e-3 && x.anim.walkTS <= x.speed / vW + 0.1)), 'walk/run playback rate ≤ actual speed / natural clip speed (feet never faster than the body)', report.bands.map((x) => x.anim && [x.anim.walkTS, x.anim.runTS]));
-else { // new model: the clips play at speed / MEASURED stride speed (animBlend STRIDE walk 0.377, run 1.9 × avatar scale 1.14), capped at GAIT
+else { // new model: the clips play at speed / MEASURED stride speed (animBlend STRIDE walk 0.377, run 1.9 × avatar scale 1.14), capped at GAIT (walkMaxTS 4.6, maxRunTS 1.4)
   const sW = 0.377 * 1.14, sR = 1.9 * 1.14, near = (a, b) => Math.abs(a - b) <= 0.03 * b + 0.02;
-  const st = report.bands.filter((x) => x.anim && x.speed > 0.05).map((x) => ({ d: x.d, body: x.speed, anim: x.anim.s, walkTS: x.anim.walkTS, wantW: +Math.min(x.anim.s / sW, 1.9).toFixed(3), runTS: x.anim.runTS, wantR: +Math.min(x.anim.s / sR, 1.2).toFixed(3) }));
+  const st = report.bands.filter((x) => x.anim && x.speed > 0.05).map((x) => ({ d: x.d, body: x.speed, anim: x.anim.s, walkTS: x.anim.walkTS, wantW: +Math.min(x.anim.s / sW, 4.6).toFixed(3), runTS: x.anim.runTS, wantR: +Math.min(x.anim.s / sR, 1.4).toFixed(3) }));
   ok(st.length >= 3 && st.every((x) => near(x.walkTS, x.wantW) && near(x.runTS, x.wantR) && Math.abs(x.anim - x.body) <= 0.08 * x.body + 0.02), 'stride: walk/run playback rate = actual speed / measured stride speed (±3 %), animation speed = body speed (±8 %)', st); }
 
 // ---------- 4. accel / decel / immediate stop (frame-rate independent: distances on the game clock) ----------

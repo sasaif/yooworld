@@ -195,7 +195,7 @@ describe('player glue: stick vs tap-to-move, sit & dance', () => {
     setStick(1, 0, -1, 1);
     for (let i = 0; i < 30; i++) expect(driveCharacter(c, 1 / 60, dir, nav)).toBe(true);
     expect(c.path).toHaveLength(0); expect(c.pendingSeat).toBeUndefined(); expect(c.pos.distanceTo(new THREE.Vector3(3, 0, 2.5))).toBeGreaterThan(0.3);
-    resetStick(); for (let i = 0; i < 20; i++) driveCharacter(c, 1 / 60, dir, nav);
+    resetStick(); for (let i = 0; i < 30; i++) driveCharacter(c, 1 / 60, dir, nav); // eased stop from the 1.8 m/s fast walk ≈ 0.36 s
     expect(driveCharacter(c, 1 / 60, dir, nav)).toBe(false); // at rest → tap-to-move owns the avatar again
   });
   it('stick while seated stands the avatar up (no teleport), and stops a dance via the engage hook', () => {
