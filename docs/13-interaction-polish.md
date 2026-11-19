@@ -195,13 +195,14 @@ course en mouvement faisait chuter la vitesse d'un coup (plafond de vitesse du f
 | ≥ 25 % (y compris à fond) | **une seule marche, 1,2 m/s** | **course 2,8 m/s** |
 
 - Animation : en mode marche, uniquement le clip **Walk** (poids du clip Run = 0, quelle que soit l'intensité du
-  stick) à vitesse / foulée mesurée de marche, plafonné au rythme planté de 1,2 m/s (≈ 2,79×, ≈ 4,47 pas/s) —
-  le « slow walk » de la première vidéo de comparaison. Ce plafond s'applique aussi pendant le ralentissement
-  de 0,3 s (2,8 → 1,2), pour qu'une lecture plus rapide du clip Walk (l'ancien 4,2× à 1,8 m/s) ne joue jamais
-  bouton course éteint. En mode course : clip Walk aux basses vitesses (rampe) puis fondu vers Run ; à 2,8 m/s
-  = 1,29× (plafond 1,4).
+  stick). Le rythme de lecture reprend le mélange d'avant la passation (`119643c`, `locoBlend`) :
+  `walkTS = min(vitesse / (LOCO.walk × échelle), 1,6)` ≈ **1,24× à 1,2 m/s**. `LOCO.walk` (0,85) surestime la
+  foulée réelle du clip (≈ 0,377) : les pieds glissent d'environ **56 %** à 1,2 m/s — c'est le rendu d'origine,
+  conservé volontairement. Le plafond 1,6 s'applique aussi pendant le ralentissement de 0,3 s (2,8 → 1,2).
+  En mode course : clip Walk aux basses vitesses (rampe) puis fondu vers Run ; à 2,8 m/s = 1,29× (plafond 1,4,
+  foulée mesurée).
 - Course → marche en mouvement : la vitesse redescend en douceur de 2,8 à 1,2 m/s (≈ 0,3 s, filtre critique ω = 18).
-  Le poids du clip Run s'estompe et le clip Walk reprend au rythme planté de 1,2 m/s (≈ 2,79×). Le plafond
+  Le poids du clip Run s'estompe et le clip Walk reprend au rythme d'avant la passation (≈ 1,24×). Le plafond
   anti-dépassement du filtre ne coupe plus la vitesse d'un coup.
 - Tap-to-move / clic : la course ne vient plus du double toucher, seulement du bouton 🏃 (`?move=classic` garde l'ancien
   comportement). Vitesses du trajet inchangées (0,85 / 1,9 m/s).

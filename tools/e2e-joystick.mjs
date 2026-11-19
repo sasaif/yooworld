@@ -145,14 +145,14 @@ const slowB = report.bands.find((x) => x.name === 'lent'), maxB = report.bands.f
 const vW = 0.85 * 1.14, vR = 1.9 * 1.14;
 if (!NEW) ok(slowB.anim.walk > 0.8 && maxB.anim.run > 0.8, `animation: slow = walk (${slowB.anim.walk}), max = run (${maxB.anim.run})`);
 else {
-  ok(maxB.anim.walk > 0.95 && maxB.anim.run === 0 && report.bands.every((x) => !x.anim || x.anim.run === 0), `animation (Run off): full push = Walk clip (${maxB.anim.walk}) at rate ${maxB.anim.walkTS}, run clip 0 in every band`, report.bands.map((x) => x.anim && [x.name, x.anim.walk, x.anim.run, x.anim.walkTS]));
+  ok(maxB.anim.walk > 0.95 && maxB.anim.run === 0 && report.bands.every((x) => !x.anim || x.anim.run === 0), `animation (Run off): full push = Walk clip (${maxB.anim.walk}) at pre-handoff rate ${maxB.anim.walkTS}, run clip 0 in every band`, report.bands.map((x) => x.anim && [x.name, x.anim.walk, x.anim.run, x.anim.walkTS]));
 }
 const SMOOTH = (await mv()).smooth; // null = ?move=classic (former controller: the 3 checks below keep their original model)
 if (!SMOOTH) ok(report.bands.every((x) => !x.anim || (x.anim.walkTS <= x.anim.s / vW + 1e-3 && x.anim.runTS <= x.anim.s / vR + 1e-3 && x.anim.walkTS <= x.speed / vW + 0.1)), 'walk/run playback rate ≤ actual speed / natural clip speed (feet never faster than the body)', report.bands.map((x) => x.anim && [x.anim.walkTS, x.anim.runTS]));
-else { // new model, Run off: Walk clip at speed / STRIDE.walk, capped at the planted 1.2 m/s rate (≈ 2.79×)
-  const sW = 0.377 * 1.14, sR = 1.9 * 1.14, near = (a, b) => Math.abs(a - b) <= 0.03 * b + 0.02;
-  const st = report.bands.filter((x) => x.anim && x.speed > 0.05).map((x) => ({ d: x.d, body: x.speed, anim: x.anim.s, walkTS: x.anim.walkTS, wantW: +Math.min(x.anim.s / sW, 1.2 / sW).toFixed(3), runTS: x.anim.runTS, wantR: +Math.min(x.anim.s / sR, 1.4).toFixed(3) }));
-  ok(st.length >= 3 && st.every((x) => near(x.walkTS, x.wantW) && near(x.runTS, x.wantR) && Math.abs(x.anim - x.body) <= 0.08 * x.body + 0.02), 'stride: walk playback rate = actual speed / measured walk stride (±3 %, cap 1.2 m/s ≈ 2.79×), animation speed = body speed (±8 %)', st); }
+else { // new model, Run off: pre-handoff 119643c mapping — walkTS = speed / (LOCO.walk × scale), cap 1.6
+  const vWn = 0.85 * 1.14, sR = 1.9 * 1.14, near = (a, b) => Math.abs(a - b) <= 0.03 * b + 0.02;
+  const st = report.bands.filter((x) => x.anim && x.speed > 0.05).map((x) => ({ d: x.d, body: x.speed, anim: x.anim.s, walkTS: x.anim.walkTS, wantW: +Math.min(x.anim.s / vWn, 1.6).toFixed(3), runTS: x.anim.runTS, wantR: +Math.min(x.anim.s / sR, 1.2).toFixed(3) }));
+  ok(st.length >= 3 && st.every((x) => near(x.walkTS, x.wantW) && near(x.runTS, x.wantR) && Math.abs(x.anim - x.body) <= 0.08 * x.body + 0.02), 'stride: walk playback rate = pre-handoff speed / (LOCO.walk × scale) (±3 %, cap 1.6), animation speed = body speed (±8 %)', st); }
 
 // ---------- 4. accel / decel / immediate stop (frame-rate independent: distances on the game clock) ----------
 await place(bst.x, bst.z, 0); await p.waitForTimeout(200); await resetSamples();
