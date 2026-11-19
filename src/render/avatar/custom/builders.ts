@@ -75,14 +75,14 @@ function hairRing(c: THREE.Vector3, axis: THREE.Vector3, R: number, r: number, s
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis.clone().normalize())); g.translate(c.x, c.y, c.z); return g; }
 /** Phase B: high doll bun on the crown + two thin face strands. Sizes scale with the target head (k), positions
  *  are found on the target's own cap (rayR), so it fits Juanita and Juan alike. */
-/** Phase B bun variants. 'top' = the doll top bun (kept inside the name-tag clearance: wide and low, slightly forward);
+/** Phase B bun variants. 'top' = the doll top bun (kept inside the name-tag clearance: wide, low and centred on the crown);
  *  'crown' = smaller bun showing through the crown ring; 'phones' = flatter top bun in front of the headphone band;
  *  'nape' = low bun at the nape, below the brim of caps / beanies / straw hats. All merged into the hair mesh. */
 type BunVariant = 'top' | 'crown' | 'phones' | 'nape';
 /** headwear → bun variant (unknown headwear keeps the top bun) */
 export const BUN_UNDER: Record<string, BunVariant> = { cap: 'nape', beanie: 'nape', strawhat: 'nape', crown: 'crown', headphones: 'phones' };
 const BUN: Record<BunVariant, { lift: number; r: [number, number, number]; fz: number; dz: number; wr: number }> = {
-  top: { lift: 0, r: [0.12, 0.055, 0.105], fz: -0.04, dz: 0, wr: 0.088 },
+  top: { lift: -0.01, r: [0.12, 0.055, 0.105], fz: 0, dz: 0, wr: 0.088 },
   crown: { lift: 0.01, r: [0.075, 0.06, 0.072], fz: -0.01, dz: 0.05, wr: 0.062 },
   phones: { lift: -0.01, r: [0.1, 0.055, 0.06], fz: -0.075, dz: 0, wr: 0.078 },
   nape: { lift: 0, r: [0.075, 0.068, 0.062], fz: 0, dz: 0, wr: 0.06 },
