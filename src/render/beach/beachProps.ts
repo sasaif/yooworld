@@ -13,7 +13,7 @@ const C = {
   dune: '#efd2a2', grass: '#7cc27a', sandDark: '#e6c393',
 };
 const box = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
-const cyl = (rt: number, rb: number, h: number, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg);
+const cyl = (rt: number, rb: number, h: number, seg = 10, open = false) => new THREE.CylinderGeometry(rt, rb, h, seg, 1, open);
 const base = (p: BeachProp) => T(p.x, 0, p.z, p.yaw);
 const mul = (a: THREE.Matrix4, b: THREE.Matrix4) => a.clone().multiply(b);
 
@@ -66,7 +66,8 @@ function palm(b: MeshBuilder, p: BeachProp, seed: number) {
     const len = a.distanceTo(c); const mid = a.clone().add(c).multiplyScalar(0.5);
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), c.clone().sub(a).normalize());
     const m = new THREE.Matrix4().compose(mid, q, new THREE.Vector3(1, 1, 1));
-    b.add(cyl(0.075 - t1 * 0.03, 0.085 - t0 * 0.03, len * 1.04, 9), i % 2 ? C.trunk : C.trunkDark, m);
+    // inner joints: no end caps (they sit inside the overlapping segments or in the sand); the top segment keeps its caps
+    b.add(cyl(0.075 - t1 * 0.03, 0.085 - t0 * 0.03, len * 1.04, 9, i < segs - 1), i % 2 ? C.trunk : C.trunkDark, m);
     top = c;
   }
   for (let k = 0; k < 3; k++) b.add(new THREE.SphereGeometry(0.065, 8, 6), '#6b4a2e', T(top.x + Math.cos(k * 2.1) * 0.08, top.y - 0.08, top.z + Math.sin(k * 2.1) * 0.08));
@@ -155,7 +156,8 @@ function surfboards(b: MeshBuilder, p: BeachProp) {
 function cooler(b: MeshBuilder, p: BeachProp) {
   const M = base(p); b.add(box(0.42, 0.26, 0.3), C.blue, mul(M, T(0, 0.13, 0))); b.add(box(0.44, 0.06, 0.32), C.white, mul(M, T(0, 0.29, 0))); b.add(box(0.24, 0.03, 0.04), C.white, mul(M, T(0, 0.34, 0)));
   // beach ball next to it
-  for (let k = 0; k < 6; k++) b.add(new THREE.SphereGeometry(0.16, 12, 8, (k / 6) * Math.PI * 2, Math.PI / 3), [C.pink, C.white, C.yellow, C.white, C.blue, C.white][k], mul(M, T(0.55, 0.16, 0.35, 0, 0.4)));
+  // 6 coloured wedges x 6 segments = 36 around (was 6 x 12 = 72) on a 0.16 m ball (flat-shaded facets 10° instead of 5°)
+  for (let k = 0; k < 6; k++) b.add(new THREE.SphereGeometry(0.16, 6, 8, (k / 6) * Math.PI * 2, Math.PI / 3), [C.pink, C.white, C.yellow, C.white, C.blue, C.white][k], mul(M, T(0.55, 0.16, 0.35, 0, 0.4)));
 }
 
 /** Boardwalk + pier, dunes behind it, lantern posts, sandcastle and small beach details. */
@@ -175,7 +177,8 @@ function environment(b: MeshBuilder) {
   // dunes + grass behind the boardwalk (frames the top-right of the screen)
   for (let k = 0; k < 16; k++) {
     const x = 1.5 + k * 1.0 + Math.sin(k * 3.1) * 0.3, z = -0.9 - (k % 3) * 0.7; if (Math.abs(x - CAFE.x) < 1.6 && z > -1.8) continue;
-    b.add(new THREE.SphereGeometry(1, 12, 8), jitter(C.dune, 0.05, k), T(x, -0.25, z, k, 0, 0, 0.9 + (k % 2) * 0.4, 0.55 + (k % 3) * 0.15, 0.7));
+    // upper half only: the centre sits 0.25 m under the sand, so the lower half was never visible (same vertices on top)
+    b.add(new THREE.SphereGeometry(1, 12, 4, 0, Math.PI * 2, 0, Math.PI / 2), jitter(C.dune, 0.05, k), T(x, -0.25, z, k, 0, 0, 0.9 + (k % 2) * 0.4, 0.55 + (k % 3) * 0.15, 0.7));
     for (let g = 0; g < 4; g++) b.add(new THREE.ConeGeometry(0.05, 0.38, 4), jitter(C.grass, 0.1, g + k), T(x + Math.cos(g * 1.7 + k) * 0.5, 0.28 + (k % 3) * 0.04, z + 0.35 + Math.sin(g * 2.3) * 0.2, 0, (g - 1.5) * 0.25, 0, 1, 1, 1), 0.5);
   }
   // low rope fence at the back edge of the boardwalk (gap behind the café)

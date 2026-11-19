@@ -73,7 +73,7 @@ Paramètres d'URL :
 - `?v=1|2|3` : variante de taille et de cadrage (V1 environ 75 px, V2 environ 85 px, **V3 = caméra rapprochée, par défaut**).
 - `?lieu=plage|beach|appart|home|maison` : lieu de départ.
 - `?joystick=1` force le joystick, `?joystick=0` le cache.
-- `?perf=1` : compteur FPS et draw calls (F9 pour le masquer).
+- `?perf=1` : compteur FPS et draw calls réels (total = passe principale + passe d'ombres, affichés séparément ; F9 pour le masquer).
 - `?fresh=1` : partie neuve sans la sauvegarde (utilisé par les tests).
 - `?shot=…` : modes de capture des outils.
 
@@ -96,7 +96,7 @@ Tests e2e (Node + playwright-core + Chrome ; URL en 1er argument, par défaut un
 | `tools/e2e-step2.mjs` | tap-to-move et click-to-move | `iphone15`, `desktop` |
 | `tools/e2e-joystick.mjs` | joystick avec vrais touchers (nouveau modèle par défaut ; ajouter `?move=classic` à l'URL pour l'ancien contrôleur) | `iphone15`, `pixel7`, `se`, `ipad` |
 | `tools/e2e-desktop-move.mjs`, `e2e-beach.mjs`, `e2e-fashion.mjs`, `e2e.mjs` | anciens lots : clavier/souris, plage, boutique, base | |
-| `tools/perf-baseline.mjs --check` | refuse une hausse des draw calls de plus de 20 % (`tools/perf-baseline.json`) | |
+| `tools/perf-baseline.mjs --check` | refuse une hausse du total des draw calls (ombres comprises) de plus de 20 % (`tools/perf-baseline.json`), et affiche l'écart au budget | |
 | `tools/seq-capture.mjs` | **transitions image par image en temps virtuel 60 i/s** : sauts par image, peau à l'intérieur du maillage du meuble, hauteur des semelles assis, position des pieds ; `CHECK=1` vérifie les limites, `CHAR=f|m` choisit l'avatar ; `tools/contact_sheet.py` pour les planches | `iphone15`, `desktop` |
 | `tools/e2e-gameplay.mjs` | profils de marche, course, allure vs foulée, glissement des pieds, étiquette vs puces, chat + clavier | iPhone 15 |
 | `tools/e2e-layout.mjs` | dock vs joystick / bouton 🏃 / place du bouton Humeur, de 667 à 932 px | |

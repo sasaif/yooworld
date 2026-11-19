@@ -1,14 +1,144 @@
 {
-  "recordedAt": "2026-11-18T13:37:00.000Z",
-  "note": "Headless Chrome + SwiftShader. FPS is not representative. Guard uses draw calls only (+20 %). First-load figures (apartment / beach, desktop 1440×900 and iPhone 15 landscape). unique* counts come from scene traversal via window.__perf().",
+  "recordedAt": "2026-11-19T15:27:25.105Z",
+  "note": "Headless SwiftShader FPS is not representative. calls = total draw calls per frame (main + shadow pass), median of RUNS fresh runs x FRAMES frames. Guard: median total draw calls +20 %. Budgets (docs/10): apartment 120, beach 40, reported only.",
+  "runs": 3,
+  "framesPerRun": 30,
+  "budgets": {
+    "apartment": 120,
+    "beach": 40
+  },
   "scenes": {
     "apartment": {
-      "desktop": { "calls": 86, "triangles": 54267, "geometries": 84, "textures": 13, "programs": 21, "uniqueGeometries": 87, "uniqueMaterials": 46 },
-      "iphone15": { "calls": 82, "triangles": 54037, "geometries": 82, "textures": 12, "programs": 21, "uniqueGeometries": 87, "uniqueMaterials": 46 }
+      "desktop": {
+        "calls": 94,
+        "callsMain": 87,
+        "callsShadow": 7,
+        "trianglesShadow": 30001,
+        "triangles": 84268,
+        "geometries": 86,
+        "textures": 13,
+        "programs": 37,
+        "uniqueGeometries": 89,
+        "uniqueMaterials": 48,
+        "spread": {
+          "calls": {
+            "min": 94,
+            "median": 94,
+            "max": 94,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 84268,
+            "median": 84268,
+            "max": 84268,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 507,
+            "median": 507,
+            "max": 507,
+            "stddev": 0
+          }
+        }
+      },
+      "iphone15": {
+        "calls": 90,
+        "callsMain": 83,
+        "callsShadow": 7,
+        "trianglesShadow": 30001,
+        "triangles": 84038,
+        "geometries": 82,
+        "textures": 12,
+        "programs": 37,
+        "uniqueGeometries": 89,
+        "uniqueMaterials": 48,
+        "spread": {
+          "calls": {
+            "min": 90,
+            "median": 90,
+            "max": 90,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 84038,
+            "median": 84038,
+            "max": 84038,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 489,
+            "median": 489,
+            "max": 489,
+            "stddev": 0
+          }
+        }
+      }
     },
     "beach": {
-      "desktop": { "calls": 21, "triangles": 68213, "geometries": 20, "textures": 11, "programs": 16, "uniqueGeometries": 46, "uniqueMaterials": 48 },
-      "iphone15": { "calls": 21, "triangles": 68213, "geometries": 20, "textures": 11, "programs": 16, "uniqueGeometries": 46, "uniqueMaterials": 48 }
+      "desktop": {
+        "calls": 31,
+        "callsMain": 21,
+        "callsShadow": 10,
+        "trianglesShadow": 41381,
+        "triangles": 106906,
+        "geometries": 20,
+        "textures": 11,
+        "programs": 16,
+        "uniqueGeometries": 46,
+        "uniqueMaterials": 48,
+        "spread": {
+          "calls": {
+            "min": 31,
+            "median": 31,
+            "max": 31,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 106906,
+            "median": 106906,
+            "max": 106906,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 205,
+            "median": 205,
+            "max": 205,
+            "stddev": 0
+          }
+        }
+      },
+      "iphone15": {
+        "calls": 31,
+        "callsMain": 21,
+        "callsShadow": 10,
+        "trianglesShadow": 41381,
+        "triangles": 106906,
+        "geometries": 20,
+        "textures": 11,
+        "programs": 16,
+        "uniqueGeometries": 46,
+        "uniqueMaterials": 48,
+        "spread": {
+          "calls": {
+            "min": 31,
+            "median": 31,
+            "max": 31,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 106906,
+            "median": 106906,
+            "max": 106906,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 205,
+            "median": 205,
+            "max": 205,
+            "stddev": 0
+          }
+        }
+      }
     }
   }
 }

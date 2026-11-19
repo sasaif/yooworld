@@ -3,8 +3,12 @@ export type PerfSnapshot = {
   fps: number;
   msAvg: number;
   msWorst: number;
+  /** draw calls of the last frame: main pass + shadow pass (see drawCounter.ts) */
   calls: number;
+  callsMain: number;
+  callsShadow: number;
   triangles: number;
+  trianglesShadow: number;
   geometries: number;
   textures: number;
   programs: number;
@@ -20,7 +24,7 @@ const stamp = new Float64Array(CAP);
 const msArr = new Float64Array(CAP);
 let w = 0, n = 0;
 
-const empty = (): PerfSnapshot => ({ fps: 0, msAvg: 0, msWorst: 0, calls: 0, triangles: 0, geometries: 0, textures: 0, programs: 0, uniqueGeometries: 0, uniqueMaterials: 0, visible: false, samples: 0 });
+const empty = (): PerfSnapshot => ({ fps: 0, msAvg: 0, msWorst: 0, calls: 0, callsMain: 0, callsShadow: 0, triangles: 0, trianglesShadow: 0, geometries: 0, textures: 0, programs: 0, uniqueGeometries: 0, uniqueMaterials: 0, visible: false, samples: 0 });
 let snap: PerfSnapshot = empty();
 let lowSince = 0;
 let warned = 0;
@@ -33,8 +37,11 @@ export type RendererInfo = {
 
 const rnd = (v: number, d = 1) => Math.round(v * (10 ** d)) / (10 ** d);
 
+/** Optional exact split of the last frame (drawCounter.ts). Without it, `info.render` is taken as the total. */
+export type DrawSplit = { calls: number; callsMain: number; callsShadow: number; triangles: number; trianglesShadow: number };
+
 /** Record one frame. `dt` is seconds (R3F useFrame). No heap allocations. */
-export function sampleFrame(dt: number, info: RendererInfo, uniques?: { geometries: number; materials: number }) {
+export function sampleFrame(dt: number, info: RendererInfo, uniques?: { geometries: number; materials: number }, draws?: DrawSplit) {
   const now = (typeof performance !== 'undefined' ? performance.now() : 0);
   const ms = Math.max(0, dt * 1000);
   stamp[w] = now; msArr[w] = ms; w = (w + 1) % CAP; if (n < CAP) n++;
@@ -48,12 +55,16 @@ export function sampleFrame(dt: number, info: RendererInfo, uniques?: { geometri
   const msAvg = k ? sum / k : 0;
   // useFrame runs before the render: we usually see the previous frame. If this tick caught a reset/skipped
   // frame (calls === 0), keep the last non-zero scene counters so __perf()/the HUD don't flicker to zero.
-  const keep = info.render.calls === 0 && snap.calls > 0;
+  const calls = draws ? draws.calls : info.render.calls, triangles = draws ? draws.triangles : info.render.triangles;
+  const keep = calls === 0 && snap.calls > 0;
   snap = {
     fps: k > 1 ? rnd((k - 1) * 1000 / span, 1) : (msAvg > 0 ? rnd(1000 / msAvg, 1) : 0),
     msAvg: rnd(msAvg, 2), msWorst: rnd(worst, 2),
-    calls: keep ? snap.calls : info.render.calls,
-    triangles: keep ? snap.triangles : info.render.triangles,
+    calls: keep ? snap.calls : calls,
+    callsMain: keep ? snap.callsMain : (draws ? draws.callsMain : calls),
+    callsShadow: keep ? snap.callsShadow : (draws ? draws.callsShadow : 0),
+    triangles: keep ? snap.triangles : triangles,
+    trianglesShadow: keep ? snap.trianglesShadow : (draws ? draws.trianglesShadow : 0),
     geometries: info.memory.geometries || (keep ? snap.geometries : 0),
     textures: info.memory.textures || (keep ? snap.textures : 0),
     programs: (info.programs?.length ?? 0) || (keep ? snap.programs : 0),
