@@ -4,12 +4,12 @@ import { createRequire } from 'module'; import fs from 'fs'; import { execFileSy
  * Deterministic virtual time (performance.now + rAF stepped exactly 1/60 s per frame, as e2e-gameplay.mjs), so the speeds
  * and timings are those of a 60 fps phone whatever the headless frame rate. Measured every frame from window.__move():
  * controller speed (m/s), animation weights (walk / run), clip rates, Run mode.
- *  A Run off + 25 % / B 60 % / C 100 % (thumb past the rim) → the single walk 1.2 m/s, long-stride Run clip at
- *  speed / STRIDE.run (~0.55×, planted, never the 2.8 m/s run-mode rate) · D Run on + 100 % → run 2.8 on the run clip
- *  at ≈ 1.29× · E Run on then off while moving (second finger on 🏃, thumb kept on the stick) → eases down to 1.2 m/s
- *  in ≈ 0.3 s, no jump, playback capped at the 1.2 m/s walk rate · F release → eased stop.
+ *  A Run off + 25 % / B 60 % / C 100 % (thumb past the rim) → the single walk 1.2 m/s, Walk clip only at ~2.79×
+ *  (planted, run weight 0 — the first comparison-video slow walk) · D Run on + 100 % → run 2.8 on the run clip at
+ *  ≈ 1.29× · E Run on then off while moving (second finger on 🏃, thumb kept on the stick) → eases down to 1.2 m/s
+ *  in ≈ 0.3 s, no jump, Walk clip at the 1.2 m/s rate, run weight fades out · F release → eased stop.
  * usage: node tools/e2e-walk-run.mjs [url] ; DEVS=iphone15,se ; OUT=dir (report json) ;
- *        VIDEO=dir → also records the comparison clips (slow walk / fast walk / run) on iPhone 15 with ffmpeg (side-on lane,
+ *        VIDEO=dir → also records the comparison clips (walk at full push / run) on iPhone 15 with ffmpeg (side-on lane,
  *        frames captured every 2nd virtual 1/60 s frame → real-time 30 fps video; VDPR=2 capture scale)
  */
 const url = process.argv[2] ?? `http://127.0.0.1:${process.env.PORT ?? '5410'}/`;
@@ -101,11 +101,12 @@ async function suite(devName) {
   }
   const A = await drive('A_off_25', 0.25), B = await drive('B_off_60', 0.6), C = await drive('C_off_100', 1.2, { secs: 3 }), D = await drive('D_on_100', 1.2, { run: true, secs: 3 });
   const near = (v, t, tol = 0.03) => Math.abs(v - t) / t <= tol;
-  const fastRunTS = 2.8 / STRIDE.run; // ≈ 1.29: the 2.8 m/s run-mode playback, must never play while Run is off
-  const walkPlanted = (r) => r.minRunW > 0.95 && r.clipErrRun < 0.03 && r.runTS < fastRunTS - 0.2 && near(r.runTS * STRIDE.run, 1.2);
-  ok(Math.abs(A.mag - 0.25) < 0.012 && near(A.speed, 1.2) && A.gait === 'walk' && walkPlanted(A), `${devName} A Run off + 25 %: walk ${A.speed} m/s (target 1.2), long-stride run clip ≥ ${A.minRunW} at rate ${A.runTS} (planted, stride error ${(A.clipErrRun * 100).toFixed(1)} %), below the 2.8 m/s run rate ${fastRunTS.toFixed(2)}`);
-  ok(Math.abs(B.mag - 0.6) < 0.012 && near(B.speed, 1.2) && B.gait === 'walk' && walkPlanted(B), `${devName} B Run off + 60 %: walk ${B.speed} m/s (target 1.2, same as 25 %), long-stride run clip ≥ ${B.minRunW} at rate ${B.runTS} (planted, stride error ${(B.clipErrRun * 100).toFixed(1)} %)`);
-  ok(C.mag === 1 && near(C.speed, 1.2) && C.maxV <= 1.2 * 1.002 && C.gait === 'walk' && walkPlanted(C), `${devName} C Run off + 100 % (thumb past the rim): walk ${C.speed} m/s (target 1.2, max ${C.maxV}, never a fast walk), long-stride run clip ≥ ${C.minRunW} at rate ${C.runTS} (planted, never the 2.8 m/s run rate)`);
+  const walkCapTS = 1.2 / STRIDE.walk; // ≈ 2.79: first comparison-video slow walk
+  const fastRunTS = 2.8 / STRIDE.run; // ≈ 1.29: the 2.8 m/s run-mode playback
+  const walkPlanted = (r) => r.maxRunW === 0 && r.minWalkW > 0.95 && r.clipErrWalk < 0.03 && near(r.walkTS * STRIDE.walk, 1.2) && near(r.walkTS, walkCapTS);
+  ok(Math.abs(A.mag - 0.25) < 0.012 && near(A.speed, 1.2) && A.gait === 'walk' && walkPlanted(A), `${devName} A Run off + 25 %: walk ${A.speed} m/s (target 1.2), Walk clip ≥ ${A.minWalkW} at rate ${A.walkTS} (planted ~2.79×, stride error ${(A.clipErrWalk * 100).toFixed(1)} %), run clip max ${A.maxRunW}`);
+  ok(Math.abs(B.mag - 0.6) < 0.012 && near(B.speed, 1.2) && B.gait === 'walk' && walkPlanted(B), `${devName} B Run off + 60 %: walk ${B.speed} m/s (target 1.2, same as 25 %), Walk clip ≥ ${B.minWalkW} at rate ${B.walkTS} (planted, stride error ${(B.clipErrWalk * 100).toFixed(1)} %), run clip max ${B.maxRunW}`);
+  ok(C.mag === 1 && near(C.speed, 1.2) && C.maxV <= 1.2 * 1.002 && C.gait === 'walk' && walkPlanted(C), `${devName} C Run off + 100 % (thumb past the rim): walk ${C.speed} m/s (target 1.2, max ${C.maxV}, never a faster walk), Walk clip ≥ ${C.minWalkW} at rate ${C.walkTS} (planted ~2.79×, run clip max ${C.maxRunW})`);
   ok(D.run && near(D.speed, 2.8) && D.minRunW > 0.95 && D.clipErrRun < 0.03 && near(D.runTS, fastRunTS), `${devName} D Run on + 100 %: run ${D.speed} m/s (target 2.8), run clip ≥ ${D.minRunW} at rate ${D.runTS} (stride error ${(D.clipErrRun * 100).toFixed(1)} %)`);
   for (const [k, r] of [['A', A], ['C', C], ['D', D]]) ok(r.stopS > 0.15 && r.stopS < 0.5 && !r.stopRev, `${devName} F release after ${k}: eased stop in ${r.stopS} s, never reverses (peak decel ${r.maxDecel} m/s²)`);
   // E: Run on → off while moving (thumb stays at 100 %)
@@ -117,14 +118,15 @@ async function suite(devName) {
     const offI = all.findIndex((s, i) => i >= i0 && s.run === false); const after = all.slice(Math.max(0, offI));
     const t12 = (after.findIndex((s) => s.v <= 1.2 * 1.02) + 1) / 60;
     const afterOff = after.filter((s) => s.run === false);
-    const maxRunTSOff = afterOff.length ? Math.max(...afterOff.map((s) => s.rts)) : NaN;
-    const endTS = mean(post.slice(-12).map((s) => s.rts));
+    const maxWalkTSOff = afterOff.length ? Math.max(...afterOff.map((s) => s.wts)) : NaN;
+    const tRun = (afterOff.findIndex((s) => s.ar < 0.05) + 1) / 60;
+    const endTS = mean(post.slice(-12).map((s) => s.wts));
     const endSp = mean(post.slice(-12).map((s) => s.sp));
-    const E = { v0: r3(v0), end: r3(endSp), maxFrameJump: r3(jump), maxDecel: r3(decel), minV: r3(Math.min(...after.map((s) => s.v))), t12, maxRunTSOff: r3(maxRunTSOff), endRunTS: r3(endTS), endRunW: r3(post.at(-1).ar), endGait: post.at(-1).gait, timeline: all.filter((_, i) => i % 3 === 0).map((s) => [r3(s.v), +s.aw.toFixed(2), +s.ar.toFixed(2), r3(s.rts), s.run ? 1 : 0]) };
+    const E = { v0: r3(v0), end: r3(endSp), maxFrameJump: r3(jump), maxDecel: r3(decel), minV: r3(Math.min(...after.map((s) => s.v))), t12, maxWalkTSOff: r3(maxWalkTSOff), endWalkTS: r3(endTS), endRunW: r3(post.at(-1).ar), endWalkW: r3(post.at(-1).aw), endGait: post.at(-1).gait, tRunFade: tRun, timeline: all.filter((_, i) => i % 3 === 0).map((s) => [r3(s.v), +s.aw.toFixed(2), +s.ar.toFixed(2), r3(s.wts), s.run ? 1 : 0]) };
     rep.cases.E_on_then_off = E; console.log('   E ' + JSON.stringify(Object.fromEntries(Object.entries(E).filter(([k]) => k !== 'timeline'))));
-    const plantedEnd = Math.abs(endTS * STRIDE.run - endSp) / endSp < 0.03;
-    ok(offI > 0 && near(v0, 2.8) && near(E.end, 1.2) && E.minV >= 1.15 && E.maxDecel <= LIM.accel && E.maxFrameJump <= LIM.frameJump && t12 > 0.1 && t12 < 0.45 && E.endGait === 'walk' && E.maxRunTSOff < fastRunTS - 0.2 && plantedEnd,
-      `${devName} E Run on → off while moving: ${E.v0} → ${E.end} m/s in ${t12} s, peak decel ${E.maxDecel} m/s² (limit ${LIM.accel}), max frame jump ${E.maxFrameJump} m/s (limit ${LIM.frameJump}), Run-off run rate max ${E.maxRunTSOff} (1.2 m/s walk cap, never the 2.8 m/s rate ${fastRunTS.toFixed(2)}), then planted at ${E.endRunTS}`);
+    const plantedEnd = Math.abs(endTS * STRIDE.walk - endSp) / endSp < 0.03;
+    ok(offI > 0 && near(v0, 2.8) && near(E.end, 1.2) && E.minV >= 1.15 && E.maxDecel <= LIM.accel && E.maxFrameJump <= LIM.frameJump && t12 > 0.1 && t12 < 0.45 && E.endGait === 'walk' && E.endRunW < 0.05 && E.endWalkW > 0.95 && E.maxWalkTSOff <= walkCapTS + 0.05 && plantedEnd && tRun > 0 && tRun < 0.5,
+      `${devName} E Run on → off while moving: ${E.v0} → ${E.end} m/s in ${t12} s, peak decel ${E.maxDecel} m/s² (limit ${LIM.accel}), max frame jump ${E.maxFrameJump} m/s (limit ${LIM.frameJump}), run clip out in ${tRun} s, Walk clip ${E.endWalkW} at rate ${E.endWalkTS} (cap ${walkCapTS.toFixed(2)}, planted)`);
   }
   ok(S.errs.length === 0, `${devName}: no console / page errors`, S.errs.slice(0, 3));
   await S.ctx.close(); return rep;

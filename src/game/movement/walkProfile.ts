@@ -9,7 +9,7 @@ import { DEAD_ZONE, type Anchor } from './speedCurve';
  *   ramp, intensity no longer changes the speed — there is one walk and one run.
  * - movement MODE (walk | run) comes ONLY from the explicit 🏃 Run toggle (button, or R on a keyboard). Walk is the
  *   default and is never persisted.
- * Run off: that single walk is 1.2 m/s (the slow-walk look: Option A, long-stride Run clip at ~0.55×, feet planted).
+ * Run off: that single walk is 1.2 m/s (the "slow walk" of the first comparison video: the Walk clip at ~2.79×, feet planted, run weight 0).
  * Run on: 2.8 m/s (the run from the comparison video). The same ramp/hold curve is used in both modes.
  *
  * Tunable on the iPhone with `?speeds=walk,run` (m/s). Velocity follows the target through the critically damped

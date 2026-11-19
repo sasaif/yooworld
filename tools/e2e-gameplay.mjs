@@ -3,8 +3,8 @@ import { createRequire } from 'module'; import fs from 'fs'; const { chromium } 
  * Gameplay polish regression suite (real game, deterministic virtual time: performance.now + requestAnimationFrame are
  * virtualised and stepped exactly 1/60 s per frame, so the numbers are those of a 60 fps phone whatever the headless speed).
  *  1. movement, walk (Run off: one walk 1.2 m/s from 25 % stick on, including 30 % and full stick) and run mode (🏃 button, 2.8 m/s): top speed, progressive acceleration, eased stop,
- *     no per-frame jump, gait (walk mode: long-stride Run clip at speed / run stride, never the 2.8 m/s run-mode rate;
- *     run mode: Run clip at 2.8 m/s) and clip rate = actual speed / stride speed; ?move=classic = the former controller
+ *     no per-frame jump, gait (walk mode: Walk clip only at 1.2 m/s, ~2.79×, run weight 0; run mode: Run clip at 2.8 m/s)
+ *     and clip rate = actual speed / stride speed, foot slip of the stance foot; ?move=classic = the former controller
  *     (reference numbers, not asserted beyond its own speed).
  *  2. name tag vs top-bar chips: Juan placed so his tag would sit under the 'Mode local' chip → the tag is moved, no overlap.
  *  3. chat with the iOS keyboard (visualViewport heights 170 / 140 / 120 / 100 px, and a panned viewport): input, Envoyer
@@ -112,9 +112,9 @@ if (ONLY.includes('move')) {
     ok(r.a1 < 6 && r.t50 < 0.21 && r.t95 > 0.3 && r.t95 < 0.65, `${name}: progressive start (1st frame ${r.a1.toFixed(1)} m/s², classic ${R.classic?.a1.toFixed(1)}; 50 % in ${r.t50.toFixed(2)} s, 95 % in ${r.t95.toFixed(2)} s)`);
     ok(r.stopT > 0.1 && r.stopT < 0.45 && !r.rev && r.stopD < Math.max(0.25, 2 * want / 18 * 1.15), `${name}: eased stop on release (rest after ${r.stopT.toFixed(2)} s, ${(r.stopD * 100).toFixed(1)} cm, never reverses)`);
     ok(r.maxStep <= Math.max(want, r.top) / 60 * 1.06, `${name}: no jump (max ${(r.maxStep * 100).toFixed(2)} cm/frame ≤ top speed × 1/60 s)`);
-    const fastRunTS = RUN_TOP / STRIDE.run;
-    if (!run) ok(r.runW > 0.95 && r.clipErrRun < 0.03 && r.runTS < fastRunTS - 0.2, `${name}: walk mode, long-stride run clip (≥ ${r.runW.toFixed(2)}) at rate ${r.runTS.toFixed(2)} = speed / run stride (max error ${(r.clipErrRun * 100).toFixed(1)} %), never the 2.8 m/s run-mode rate ${fastRunTS.toFixed(2)}`);
+    if (!run) ok(r.walkW > 0.95 && r.runMax === 0 && r.clipErrWalk < 0.03, `${name}: walk mode, Walk clip only (≥ ${r.walkW.toFixed(2)}, run clip max ${r.runMax}) at rate = speed / walk stride (max error ${(r.clipErrWalk * 100).toFixed(1)} %)`);
     else ok(r.runW > 0.95 && r.clipErrRun < 0.03, `${name}: run clip (≥ ${r.runW.toFixed(2)}), rate = speed / measured stride speed (max error ${(r.clipErrRun * 100).toFixed(1)} %)`);
+    if (!run) ok(Math.abs(r.slipR - 1) < 0.1, `${name}: walk feet planted — the clip's planted foot matches ${(r.slipR * r.top).toFixed(2)} m/s vs body ${r.top.toFixed(2)} m/s (${((r.slipR - 1) * 100).toFixed(0)} %)`);
   }
   fs.writeFileSync(`${SHOTS}/movement.json`, JSON.stringify(R, null, 1));
 }

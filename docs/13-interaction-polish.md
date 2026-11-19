@@ -182,11 +182,10 @@ course en mouvement faisait chuter la vitesse d'un coup (plafond de vitesse du f
 - Deux entrées indépendantes : la **zone morte** (10 %) et une courte rampe jusqu'à 25 % de course du stick, puis
   l'intensité ne change plus la vitesse ; **le mode** (marche / course) vient uniquement du bouton 🏃 (ou R au clavier).
   Marche par défaut, jamais mémorisé. Il n'y a plus de marche rapide ni de marche intermédiaire.
-- Vitesse de marche retenue : **1,2 m/s**. Sur l'ancien profil b de l'UAT (`59f577c`, fond 1,482 m/s, courbe
-  `DEFAULT_ANCHORS`), c'est un appui d'environ 73 % — le début de l'allure « clip Run ralenti, pieds posés »
-  (le fondu Walk→Run se termine à ≈ 1,19 m/s / 72 %). Un appui léger ou moyen (22–50 %) restait alors sur le
-  clip Walk, ce n'est pas le rendu vu dans l'enregistrement iPhone. Un stick à fond faisait 1,482 m/s (0,68×,
-  un peu plus rapide) : on ne reprend pas cette vitesse, pour ne pas accélérer quand on pousse plus fort.
+- Vitesse de marche retenue : **1,2 m/s**, celle de la « marche lente » de la première vidéo de comparaison
+  (`041d39a`, `movement-reports/video/slow_walk.mp4`) — clip Walk à ≈ 2,79×, pieds posés. Sur l'ancien profil b
+  de l'UAT (`59f577c`, fond 1,482 m/s), 1,2 m/s correspondait à un appui d'environ 73 % ; on ne reprend pas
+  1,482 m/s, pour ne pas accélérer quand on pousse plus fort.
 - Cibles (réglables, `?speeds=marche,course` pour tester sur iPhone) :
 
 | Joystick | Course désactivée | Course activée |
@@ -195,15 +194,15 @@ course en mouvement faisait chuter la vitesse d'un coup (plafond de vitesse du f
 | 10–25 % | rampe douce vers 1,2 m/s | rampe douce vers 2,8 m/s |
 | ≥ 25 % (y compris à fond) | **une seule marche, 1,2 m/s** | **course 2,8 m/s** |
 
-- Animation (Option A) : en mode marche, le rendu reprend l'allure de la marche lente de la vidéo de comparaison et
-  d'avant la séparation (`59f577c` `gaitBlend`) — le clip **Walk** seulement sous ≈ 0,82 m/s (uniquement pendant la
-  courte rampe), puis le clip **Run** existant à vitesse / foulée mesurée de course (≈ 0,55× à 1,2 m/s, pieds posés,
-  ≈ 1,3 pas/s). Ce n'est pas la course à 2,8 m/s (même clip, ≈ 1,29×, ≈ 3 pas/s) : en mode marche le taux est plafonné
-  au rythme planté de 1,2 m/s, y compris pendant le ralentissement de 0,3 s. En mode course : clip Walk aux basses
-  vitesses (rampe) puis fondu vers Run ; à 2,8 m/s = 1,29× (plafond 1,4).
-- Course → marche en mouvement : la vitesse redescend en douceur de 2,8 à 1,2 m/s (≈ 0,3 s, filtre critique ω = 18). Le
-  taux du clip Run passe au plafond marche (≈ 0,55×) dès que le bouton est coupé, pour que l'animation de course rapide
-  ne joue jamais bouton éteint. Le plafond anti-dépassement du filtre ne coupe plus la vitesse d'un coup.
+- Animation : en mode marche, uniquement le clip **Walk** (poids du clip Run = 0, quelle que soit l'intensité du
+  stick) à vitesse / foulée mesurée de marche, plafonné au rythme planté de 1,2 m/s (≈ 2,79×, ≈ 4,47 pas/s) —
+  le « slow walk » de la première vidéo de comparaison. Ce plafond s'applique aussi pendant le ralentissement
+  de 0,3 s (2,8 → 1,2), pour qu'une lecture plus rapide du clip Walk (l'ancien 4,2× à 1,8 m/s) ne joue jamais
+  bouton course éteint. En mode course : clip Walk aux basses vitesses (rampe) puis fondu vers Run ; à 2,8 m/s
+  = 1,29× (plafond 1,4).
+- Course → marche en mouvement : la vitesse redescend en douceur de 2,8 à 1,2 m/s (≈ 0,3 s, filtre critique ω = 18).
+  Le poids du clip Run s'estompe et le clip Walk reprend au rythme planté de 1,2 m/s (≈ 2,79×). Le plafond
+  anti-dépassement du filtre ne coupe plus la vitesse d'un coup.
 - Tap-to-move / clic : la course ne vient plus du double toucher, seulement du bouton 🏃 (`?move=classic` garde l'ancien
   comportement). Vitesses du trajet inchangées (0,85 / 1,9 m/s).
 - Clavier : Maj (intensité 0,5) donne déjà la marche à 1,2 m/s, comme un stick poussé à fond ; R = bouton 🏃.
