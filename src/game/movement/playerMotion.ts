@@ -6,7 +6,7 @@ import type { NavGrid } from '../nav/NavGrid';
 import { followPath, newFollow, type FollowState } from './pathFollow';
 import { arriveMarker, marker } from './marker';
 import type { CharState } from '../world';
-import { readMoveProfile, stickConfig, WALK_ONLY_MAX_TS, RUN_SPEED } from './walkProfile';
+import { readMoveProfile, stickConfig, RUN_SPEED } from './walkProfile';
 
 const profile = readMoveProfile();
 
@@ -53,8 +53,6 @@ export function onRunChange(l: () => void) { runListeners.add(l); return () => {
 /** Tap / click-to-move keeps its own walk / run speeds (PATH_CFG) and the 1st-order integrator it was tuned with. */
 let pathCfgFor: MoveConfig | null = null, pathCfgV: MoveConfig = MOVE_DEFAULTS;
 function pathConfig() { if (pathCfgFor !== motion.cfg) { pathCfgFor = motion.cfg; const { smooth: _s, ...rest } = motion.cfg; pathCfgV = { ...rest, maxSpeed: Math.max(rest.maxSpeed, RUN_SPEED) }; } return pathCfgV; }
-/** Walk clip only (rate cap) while the player drives in walk mode; 0 = normal walk → run blend. */
-export function walkOnlyTS(c: CharState): number { return !motion.profile.classic && !motion.run && !(c.path.length && c.running) ? WALK_ONLY_MAX_TS : 0; }
 
 /** The destination marker belongs to the player's current path: it fades as soon as the path ends (arrival),
  *  is cancelled (joystick) or is replaced by a path somewhere else (seat, dance spot, travel). */

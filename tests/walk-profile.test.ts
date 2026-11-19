@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { MOVE_DEFAULTS, newMoveState, stepMove, stepMoveWorld, type CamBasis } from '../src/game/movement/MovementController';
 import { DEFAULT_WALK, RUN_SPEED, SMOOTH, WALK_PROFILES, readMoveProfile, stickConfig } from '../src/game/movement/walkProfile';
-import { locoBlend } from '../src/game/movement/animBlend';
+import { GAIT, STRIDE, gaitBlend, locoBlend } from '../src/game/movement/animBlend';
 import { LOCO } from '../src/game/character/locomotion';
 
 const CAM: CamBasis = { fx: 0, fz: -1, sinEl: 1 };
@@ -62,13 +62,19 @@ describe('progressive acceleration / deceleration (2nd-order)', () => {
   });
 });
 
-describe('walk animation synced to the actual speed', () => {
-  const vW = LOCO.walk * 1.14, vR = LOCO.run * 1.14;
-  for (const k of ['a', 'b', 'c'] as const) it(`walk mode ${k}: walk clip only, rate = speed / stride speed`, () => {
-    const v = WALK_PROFILES[k].speed; const bl = locoBlend(v, vW, vR, 1.8);
-    expect(bl.run).toBe(0); expect(bl.walk).toBeCloseTo(1, 5); expect(bl.walkTS * vW).toBeCloseTo(v, 5);
+describe('gait synced to the actual speed (measured stride speeds)', () => {
+  const sc = 1.14, sW = STRIDE.walk * sc, sR = STRIDE.run * sc;
+  for (const k of ['a', 'b', 'c'] as const) it(`full stick ${k}: run clip only, rate = speed / its stride speed`, () => {
+    const v = WALK_PROFILES[k].speed; const bl = gaitBlend(v, sc);
+    expect(bl.run).toBeGreaterThan(0.99); expect(bl.runTS * sR).toBeCloseTo(v, 5); expect(bl.runTS).toBeGreaterThanOrEqual(GAIT.runMinTS - 1e-9);
   });
-  it('without walk-only the former walk → run blend is unchanged', () => {
-    expect(locoBlend(1.9, vW, vR)).toEqual(locoBlend(1.9, vW, vR, 0)); expect(locoBlend(1.9, vW, vR).run).toBeGreaterThan(0.9);
+  it('slow stick and walking paces (≤ 0.8 m/s): walk clip, rate = speed / its stride speed', () => {
+    for (const v of [0.3, 0.57, 0.8]) { const bl = gaitBlend(v, sc); expect(bl.walk).toBeGreaterThan(0.95); expect(bl.walkTS * sW).toBeCloseTo(v, 5); }
+  });
+  it('weights always sum to 1 and rise monotonically into the run clip', () => {
+    let prev = 0; for (let v = 0; v <= 2.2; v += 0.01) { const bl = gaitBlend(v, sc); expect(bl.idle + bl.walk + bl.run).toBeCloseTo(1, 9); expect(bl.run).toBeGreaterThanOrEqual(prev - 1e-12); prev = bl.run; }
+  });
+  it('classic blend (?move=classic) unchanged', () => {
+    const vW = LOCO.walk * sc, vR = LOCO.run * sc; expect(locoBlend(1.9, vW, vR).run).toBeGreaterThan(0.9); expect(locoBlend(0.5, vW, vR).walkTS).toBeCloseTo(0.5 / vW, 9);
   });
 });

@@ -4,7 +4,8 @@ import { MOVE_DEFAULTS, type MoveConfig } from './MovementController';
  * Gameplay movement profile (owner, Nov 2026: "walking is too fast", progressive acceleration, feet in sync, optional run).
  *
  * - Walk (default): full stick = a walking pace 15 / 22 / 30 % below the former full-stick speed (1.9 m/s), selectable
- *   with `?walk=a|b|c` for side-by-side testing; the gait stays the walk clip, its rate = actual speed / stride speed.
+ *   with `?walk=a|b|c` for side-by-side testing. The gait follows the actual speed with the clips' MEASURED stride
+ *   speeds (animBlend.gaitBlend): feet planted at every speed the clips can render.
  * - Run (🏃 button next to the joystick, or R on a keyboard): full stick = the former 1.9 m/s with the run clip.
  * - Velocity follows the stick through a critically damped 2nd-order filter (`smooth`): the acceleration itself ramps
  *   up, so starts and stops ease in / out instead of the former near-instant exponential jump; no overshoot, exact
@@ -25,8 +26,6 @@ export const RUN_SPEED = OLD_FULL_SPEED;
 /** natural frequencies (rad/s) of the critically damped velocity filter: 95 % of a start in ≈ 4.74/ω (0.47 s),
  *  95 % of a stop in ≈ 0.26 s (full stop ≈ 0.31 s); half of a start in ≈ 1.68/ω (0.17 s) so the stick still answers at once */
 export const SMOOTH = { accel: 10, decel: 18 };
-/** walk clip rate cap in walk mode (the run clip never takes over there) */
-export const WALK_ONLY_MAX_TS = 1.8;
 
 export interface MoveProfile { classic: boolean; walk: WalkKey }
 export function readMoveProfile(search = typeof location !== 'undefined' ? location.search : ''): MoveProfile {
