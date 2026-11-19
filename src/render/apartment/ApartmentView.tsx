@@ -1,7 +1,7 @@
 import { newTapMemo, registerTap } from '../../game/movement/doubleTap';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html, useGLTF } from '@react-three/drei';
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
@@ -17,6 +17,27 @@ import { Decor } from './Decor';
 import { TapMarker } from '../TapMarker';
 import { useDispose } from '../dispose';
 import { onFloorTap } from '../../app/floorTap';
+import { MergedShadowCaster } from '../shadow/mergedCaster';
+import { installShadowOnly } from '../shadow/shadowOnly';
+
+/** Static scenery (walls + furniture) casts its shadow through ONE merged shadow-only mesh instead of one draw per part. */
+const ShadowCasterCtx = createContext<MergedShadowCaster | null>(null);
+/** Track `meshes` in the merged caster for as long as `deps` hold (re-tracking marks the caster for a rebuild). */
+function useMergedShadow(meshes: () => (THREE.Mesh | null)[], deps: unknown[]) {
+  const caster = useContext(ShadowCasterCtx);
+  useLayoutEffect(() => {
+    if (!caster) return;
+    const un = meshes().filter((m): m is THREE.Mesh => !!m).map((m) => caster.track(m));
+    return () => un.forEach((f) => f());
+  }, [caster, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
+  return caster;
+}
+function ShadowCasterHost({ caster }: { caster: MergedShadowCaster }) {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => installShadowOnly(gl as unknown as Parameters<typeof installShadowOnly>[0]), [gl]);
+  useFrame(() => { caster.update(); }); // no-op unless a source changed
+  return <primitive object={caster.root} />;
+}
 
 const URL = (m: string) => `${import.meta.env.BASE_URL}models/furniture/${m}.glb`;
 Object.values(FURNITURE).forEach((d) => useGLTF.preload(URL(d.model)));
@@ -39,12 +60,13 @@ function FurnitureBatch({ defId, items, apt }: { defId: string; items: PlacedIte
     });
     refs.current.forEach((im) => { if (im) { im.count = items.length; im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); } });
   }, [items, apt, parts]);
+  const caster = useMergedShadow(() => refs.current.slice(0, parts.length), [items, apt, parts]);
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 8 || game.s.placing) return; e.stopPropagation();
     const it = items[e.instanceId ?? 0]; if (it) game.tapItem(it.uid);
   };
   return <>{parts.map((p, k) => (
-    <instancedMesh key={k + ':' + items.length} ref={(r) => { refs.current[k] = r; }} args={[p.geometry, p.material, Math.max(1, items.length)]} castShadow receiveShadow onClick={onClick} />
+    <instancedMesh key={k + ':' + items.length} ref={(r) => { refs.current[k] = r; }} args={[p.geometry, p.material, Math.max(1, items.length)]} castShadow={!caster} receiveShadow onClick={onClick} />
   ))}</>;
 }
 
@@ -65,8 +87,10 @@ function Walls({ apt }: { apt: ApartmentLayout }) {
   }, [gl]);
   useEffect(() => () => { built.forEach((b) => b.geo.dispose()); }, [built]);
   const tex = fin.kind === 'paint' ? null : wallTexture(fin);
-  return <>{built.map(({ key, geo, src }) => (
-    <mesh key={key} geometry={geo} castShadow receiveShadow>
+  const refs = useRef<(THREE.Mesh | null)[]>([]);
+  const caster = useMergedShadow(() => refs.current.slice(0, built.length), [built]);
+  return <>{built.map(({ key, geo, src }, k) => (
+    <mesh key={key} ref={(r) => { refs.current[k] = r; }} geometry={geo} castShadow={!caster} receiveShadow>
       {key.startsWith('paint')
         ? <meshLambertMaterial key={fin.id} map={tex} color={tex ? '#ffffff' : key === 'paint_back' ? fin.a : fin.b} />
         : key === 'glass' ? <meshLambertMaterial color="#cde9ff" emissive="#a9d6ff" emissiveIntensity={0.55} transparent opacity={0.92} />
@@ -181,14 +205,19 @@ export function ApartmentView() {
     for (const it of apt.items) { if (skip.has(it.uid)) continue; (by.get(it.defId) ?? by.set(it.defId, []).get(it.defId)!).push(it); }
     return [...by.entries()];
   }, [apt, placing?.moving]);
+  const caster = useMemo(() => new MergedShadowCaster(), []);
+  useEffect(() => () => caster.dispose(), [caster]);
   if (!apt) return null;
   const menuIt = menu ? apt.items.find((i) => i.uid === menu) : undefined;
   return (
     <group>
-      <Floor apt={apt} />
-      <Walls apt={apt} />
-      <Decor apt={apt} />
-      {batches.map(([defId, items]) => <FurnitureBatch key={defId} defId={defId} items={items} apt={apt} />)}
+      <ShadowCasterCtx.Provider value={caster}>
+        <ShadowCasterHost caster={caster} />
+        <Floor apt={apt} />
+        <Walls apt={apt} />
+        <Decor apt={apt} />
+        {batches.map(([defId, items]) => <FurnitureBatch key={defId} defId={defId} items={items} apt={apt} />)}
+      </ShadowCasterCtx.Provider>
       <ItemEffects apt={apt} />
       <EditOverlay apt={apt} />
       {menuIt && <InteractionMenu it={menuIt} apt={apt} />}
