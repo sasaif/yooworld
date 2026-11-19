@@ -112,33 +112,38 @@ compressés, tout ce qui est au-dessus descend d'autant. Largeur, profondeur, do
 
 | Meuble | Assise avant → après | Pieds de l'avatar |
 |---|---|---|
-| chaise | 0,288 → 0,195 m | à plat au sol |
-| chaise de bureau | 0,280 → 0,195 m | à plat au sol |
+| chaise | 0,288 → 0,195 m | presque au sol |
+| chaise de bureau | 0,280 → 0,195 m | presque au sol |
 | tabouret de bar | 0,522 → 0,422 m (−10 cm) + **repose-pied circulaire** (haut 0,26 m, rayon 0,17 m, centré 11 cm vers l'avant) | posés sur l'anneau |
-| canapé, fauteuil, canapé d'angle | 0,276 → 0,216 m (−6 cm) | à plat au sol |
+| canapé, fauteuil, canapé d'angle | 0,276 → 0,216 m (−6 cm) | 2 à 5 cm au-dessus du sol |
 
 - Pose assise : quand un preset a `soleY` (hauteur visée des semelles), l'inclinaison des cuisses est calculée pour chaque
   jambe à partir des vraies longueurs d'os (`sitPose.ts` `solveDroop`), pour Juanita comme pour Juan.
-- Ancrages retouchés pour éviter que les cuisses rentrent dans l'assise : canapé/fauteuil assis au bord (hipZ 0,25),
-  canapé d'angle −0,08, chaise de bureau 0,20, tabouret 0,13 ; tibias du canapé un peu vers l'avant (−18°).
-- **Pouf : non ajouté.** Avec −6 cm, les pieds touchent déjà le sol ; un pouf devant le canapé serait exactement sur la
-  case où l'avatar se place pour s'asseoir. À rediscuter si l'utilisateur veut un pouf comme meuble à part.
+- Ancrages retouchés pour éviter que les cuisses rentrent dans l'assise : canapé/fauteuil assis près du bord (hipZ 0,23),
+  canapé d'angle −0,08, tabouret 0,13.
+- **Pouf : non ajouté.** Un pouf devant le canapé serait exactement sur la case où l'avatar se place pour s'asseoir. À rediscuter si l'utilisateur veut un pouf comme meuble à part.
 
-Mesures (`tools/seq-capture.mjs`, temps virtuel 60 i/s, Juanita / Juan ; « peau dans le meuble » = sommet le plus profond à
-l'intérieur des triangles du meuble, pendant toute l'assise et le relevé) :
+- La cuisse ne descend jamais à plus de 25° (posture validée, vérifiée par `e2e-experience` : cuisses ≤ 25°, genoux
+  70–120°, semelles au-dessus du sol). Quand la jambe chibi ne suffit pas, les pieds restent donc un peu au-dessus du sol.
+
+Mesures (`tools/seq-capture.mjs`, temps virtuel 60 i/s, Juanita / Juan ; semelles = sommet le plus bas assis ; « peau dans
+le meuble » = sommet le plus profond à l'intérieur des triangles du meuble, pendant toute l'assise et le relevé) :
 
 | Siège | Semelles assis, avant → après (m) | Peau dans le meuble, avant → après (cm) |
 |---|---|---|
-| chaise | 0,119 / 0,098 → 0,002 / 0,002 | 0,7 / 0,3 → 1,0 / 0,8 |
-| chaise de bureau | 0,111 / 0,091 → 0,002 / 0,003 | 0,9 / 1,1 → 1,0 / 0 |
-| tabouret | 0,336 / 0,315 → 0,266 / 0,266 (anneau à 0,26) | 0 / 0 → 0,5 / 0 (0,8 si on arrive par le côté) |
-| canapé | 0,160 / 0,146 → 0,001 / 0,001 | 1,1 / 1,7 → 0,9 / 1,5 |
-| fauteuil | 0,160 / 0,146 → 0,001 / 0,001 | 0,9 / 1,5 → 0,9 / 1,5 |
-| canapé d'angle | 0,160 → 0,001 | 0,7 → 0,6 / 0,2 |
+| chaise | 0,119 / 0,098 → **0,027 / 0,012** | 0,7 / 0,3 → 1,0 / 0,5 |
+| chaise de bureau | 0,111 / 0,091 → **0,027 / 0,012** | 0,9 / 1,1 → 1,0 / 1,4 |
+| tabouret | 0,336 / 0,315 → **0,266 / 0,266** (anneau à 0,26 : pieds posés dessus) | 0 / 0 → 0,5 / 0 |
+| canapé | 0,160 / 0,146 → **0,047 / 0,024** | 1,1 / 1,7 → 1,0 / 1,9 |
+| fauteuil | 0,160 / 0,146 → **0,047 / 0,024** | 0,9 / 1,5 → 1,0 / 1,9 |
 
-Limites vérifiées par `CHECK=1` (et en CI) : semelles ≤ 1 cm du sol, semelles du tabouret à 0,26 ± 0,012 m et anneau sous
-les deux pieds, peau dans le meuble ≤ 1,0 cm (tabouret), 1,2 cm (chaises), 1,6 cm (canapé, fauteuil), 1,0 cm (angle).
-Captures avant/après : `gameplay/screens/r2_<siège>_<f|m>_before_after.png` (hors dépôt).
+Pour que Juanita pose vraiment les pieds à plat, il faudrait environ 2,5 cm de moins sur les chaises et 4,5 cm de moins
+sur le canapé (ou un pouf, voir plus haut) : décision à prendre avec l'utilisateur.
+
+Limites `CHECK=1` (CI) : semelles ≤ 3,5 cm (chaises) et ≤ 5,5 cm (canapé, fauteuil), tabouret 0,26 ± 0,012 m avec l'anneau
+sous les deux pieds ; peau dans le meuble ≤ 1,0 (tabouret), 1,2 (chaises), 1,6 cm (canapé, fauteuil) pour Juanita ; Juan
+(jamais contrôlé avant) : son contact d'avant l'option C + 0,3 cm. Captures avant/après :
+`gameplay/screens/r2_<siège>_<f|m>_before_after.png` (hors dépôt).
 
 ### Interface
 - Le dock ne recouvre plus le bouton 🏃 : sur un écran étroit (iPhone SE 667×375, il le recouvrait de 36 px) il commence
@@ -160,3 +165,4 @@ Captures avant/après : `gameplay/screens/r2_<siège>_<f|m>_before_after.png` (h
 - Canapé d'angle : un saut de 7,5 cm sur une image au moment de se tourner (il existait avant : 8,2 cm) ; hors limites,
   donc il n'est pas dans le lot `CHECK` de la CI.
 - Le contact « peau dans l'assise » de ~1 cm sur les chaises est celui d'un coussin qui s'enfonce (avant : 0,3 à 1,1 cm).
+- Juan allongé sur le transat de la plage : 1,0 cm dans la toile (limite 0,5, fixée pour Juanita) ; pas encore dans la CI.
