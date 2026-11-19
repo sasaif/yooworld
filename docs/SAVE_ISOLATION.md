@@ -23,6 +23,24 @@ Fail-closed rules: `GH_PAGES=1` without `GH_PAGES_BASE` → error; a base other 
 → error; `VITE_YW_ENV` that does not match the folder (e.g. a subfolder as `prod`) → error; `VITE_YW_ENV=prod` outside
 the Pages root build → error. `VITE_YW_BUILD_ID` defaults to `git rev-parse --short HEAD`.
 
+## Vercel (`feature/vercel-env`)
+On Vercel the base is always `/` and each production domain, branch alias (`<project>-git-<branch>-<team>.vercel.app`)
+and per-deployment URL is a **separate origin**, so `localStorage` is already isolated by the browser. The env id is still
+derived and baked in, so keys stay namespaced and a misconfigured build cannot reach the prod keyspace:
+
+| Vercel build (system env vars) | env id |
+|---|---|
+| `VERCEL_ENV=production`, `VERCEL_GIT_COMMIT_REF=main` | `prod` |
+| `VERCEL_ENV=preview`, `VERCEL_GIT_COMMIT_REF=<branch>` | `test/<slug>` (`feature/vercel-env` → `test/feature-vercel-env`, `uat` → `test/uat`) |
+| `VERCEL_ENV=development` (`vercel dev`) | `dev` / `dev/<name>` |
+
+Slug: lowercase, every run of characters outside `[a-z0-9._-]` → `-`, max 41 chars. Fail-closed (build error):
+production from any branch other than `main` or without a git ref (e.g. a CLI `--prod` upload); a preview with
+`VITE_YW_ENV=prod` (e.g. a project env var applied to all environments) or a `VITE_YW_ENV` that differs from its branch;
+a preview without a branch or of `main`; an unknown `VERCEL_ENV`; `GH_PAGES`/`GH_PAGES_BASE` set on a Vercel build.
+Do **not** add `VITE_YW_ENV` as a Vercel project env var; leave it derived. `vercel.json` pins framework `vite`,
+`npm run build`, output `dist`. Check locally: `VERCEL=1 VERCEL_ENV=preview VERCEL_GIT_COMMIT_REF=uat node tools/check-save-env.mjs`.
+
 ## Runtime
 - `src/persistence/saveEnv.ts`: env id, prefixes, `isProdKey`.
 - `src/persistence/prefixedKV.ts` (`EnvKV`): callers pass logical names (`profile`, `eco:dev`, `camView`). A full key or
