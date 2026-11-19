@@ -142,7 +142,12 @@ const bs = report.bands.filter((x) => x.target !== 0).map((x) => x.speed); ok(bs
 const slowB = report.bands.find((x) => x.name === 'lent'), maxB = report.bands.find((x) => x.name.startsWith('max (butée'));
 const vW = 0.85 * 1.14, vR = 1.9 * 1.14;
 ok(slowB.anim.walk > 0.8 && maxB.anim.run > 0.8, `animation: slow = walk (${slowB.anim.walk}), max = run (${maxB.anim.run})`);
-ok(report.bands.every((x) => !x.anim || (x.anim.walkTS <= x.anim.s / vW + 1e-3 && x.anim.runTS <= x.anim.s / vR + 1e-3 && x.anim.walkTS <= x.speed / vW + 0.1)), 'walk/run playback rate ≤ actual speed / natural clip speed (feet never faster than the body)', report.bands.map((x) => x.anim && [x.anim.walkTS, x.anim.runTS]));
+const SMOOTH = (await mv()).smooth; // null = ?move=classic (former controller: the 3 checks below keep their original model)
+if (!SMOOTH) ok(report.bands.every((x) => !x.anim || (x.anim.walkTS <= x.anim.s / vW + 1e-3 && x.anim.runTS <= x.anim.s / vR + 1e-3 && x.anim.walkTS <= x.speed / vW + 0.1)), 'walk/run playback rate ≤ actual speed / natural clip speed (feet never faster than the body)', report.bands.map((x) => x.anim && [x.anim.walkTS, x.anim.runTS]));
+else { // new model: the clips play at speed / MEASURED stride speed (animBlend STRIDE walk 0.377, run 1.9 × avatar scale 1.14), capped at GAIT
+  const sW = 0.377 * 1.14, sR = 1.9 * 1.14, near = (a, b) => Math.abs(a - b) <= 0.03 * b + 0.02;
+  const st = report.bands.filter((x) => x.anim && x.speed > 0.05).map((x) => ({ d: x.d, body: x.speed, anim: x.anim.s, walkTS: x.anim.walkTS, wantW: +Math.min(x.anim.s / sW, 1.9).toFixed(3), runTS: x.anim.runTS, wantR: +Math.min(x.anim.s / sR, 1.2).toFixed(3) }));
+  ok(st.length >= 3 && st.every((x) => near(x.walkTS, x.wantW) && near(x.runTS, x.wantR) && Math.abs(x.anim - x.body) <= 0.08 * x.body + 0.02), 'stride: walk/run playback rate = actual speed / measured stride speed (±3 %), animation speed = body speed (±8 %)', st); }
 
 // ---------- 4. accel / decel / immediate stop (frame-rate independent: distances on the game clock) ----------
 await place(bst.x, bst.z, 0); await p.waitForTimeout(200); await resetSamples();
@@ -157,8 +162,19 @@ const stopFrames = iStop - iRel + 1, stopGameMs = Math.round((sa[iStop].sim - r0
 const tail = sa.slice(iStop); const drift = Math.hypot(tail.at(-1).x - tail[0].x, tail.at(-1).z - tail[0].z);
 report.accelSamples = sa.slice(Math.max(0, iIn - 2), iIn + 8).map((s) => [Math.round(s.t), +s.sim.toFixed(3), +s.x.toFixed(3), +s.z.toFixed(3), +s.v.toFixed(2), +s.d.toFixed(2)]);
 Object.assign(report, { accelRamp: { windowS: +Xs.toFixed(3), distRatio: +ramp.toFixed(3), theory: +rampTheory.toFixed(3) }, stop: { coastM: +coast.toFixed(3), theoryM: +coastTheory.toFixed(3), under5pctMs: slowGameMs, frames: stopFrames, gameMs: stopGameMs }, drift: +drift.toFixed(4) });
+if (!SMOOTH) {
 ok(Math.abs(ramp - rampTheory) < 0.1 && ramp < 0.95, `smooth acceleration: in the first ${Math.round(Xs * 1000)} ms the avatar covers ${Math.round(ramp * 100)} % of the full-speed distance (model ${Math.round(rampTheory * 100)} %, ≈95 % speed after 0.21 s)`);
 ok(coast < 0.12 && slowGameMs <= 120 + 2 * frameMs && drift === 0, `immediate stop after release: coasts ${(coast * 100).toFixed(1)} cm (model ${(coastTheory * 100).toFixed(1)} cm), below 5 % speed after ${slowGameMs} ms, fully at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time, no drift`);
+} else { // new model: critically damped velocity filter, ω accel / decel (walkProfile.ts SMOOTH); exact closed forms
+  const wA = SMOOTH.accel, wD = SMOOTH.decel, q = wA * Xs;
+  const rampCD = 1 - 2 / q + Math.exp(-q) * (1 + 2 / q); // x(X) / (V·X) for v = V(1 − (1 + ωt)e^{−ωt})
+  const tAt = (k) => { const i = sa.findIndex((s, n) => n >= iIn && s.v >= k * MAX); return i < 0 ? Infinity : sa[i].sim - o.sim; };
+  const t50 = tAt(0.5), t95 = tAt(0.95), t50Th = 1.678 / wA, t95Th = 4.744 / wA, fr = frameMs / 1000;
+  const coastCD = 2 * r0.v / wD, t5Th = 4.744 / wD; // v = v0(1 + ωt)e^{−ωt}: travels 2v0/ω, 5 % after 4.74/ω
+  Object.assign(report, { smoothModel: { wA, wD, rampCD: +rampCD.toFixed(3), t50: +t50.toFixed(3), t50Th: +t50Th.toFixed(3), t95: +t95.toFixed(3), t95Th: +t95Th.toFixed(3), coastCD: +coastCD.toFixed(3) } });
+  ok(Math.abs(ramp - rampCD) < 0.05 && Math.abs(t50 - t50Th) <= 2 * fr && Math.abs(t95 - t95Th) <= 3 * fr, `smooth acceleration (ω ${wA}): in the first ${Math.round(Xs * 1000)} ms the avatar covers ${Math.round(ramp * 100)} % of the full-speed distance (model ${Math.round(rampCD * 100)} % ± 5), 50 % speed after ${Math.round(t50 * 1000)} ms (model ${Math.round(t50Th * 1000)}), 95 % after ${Math.round(t95 * 1000)} ms (model ${Math.round(t95Th * 1000)}, ± 3 frames)`);
+  ok(coast <= coastCD * 1.02 && coast >= coastCD * 0.85 && coast < 0.2 && slowGameMs <= t5Th * 1000 + 2 * frameMs && stopGameMs <= 400 && drift === 0, `eased stop after release (ω ${wD}): coasts ${(coast * 100).toFixed(1)} cm (model ${(coastCD * 100).toFixed(1)} cm, −15 / +2 %, < 20 cm), below 5 % speed after ${slowGameMs} ms (model ${Math.round(t5Th * 1000)} ms), fully at rest after ${stopFrames} frame(s) / ${stopGameMs} ms game time (≤ 400), no drift`);
+}
 // the knob springs back with a 0.14 s CSS transition and the idle pose is set by the next rendered frame: poll (≤ 1.5 s after release)
 let after2, knob, settleMs = 0; { const tR = Date.now(); for (;;) { after2 = await mv(); knob = (await J()).knob; settleMs = Date.now() - tR + 900;
   if ((!after2.stick.active && after2.mode === 'idle' && Math.hypot(knob[0] - joy.cx, knob[1] - joy.cy) < 2) || Date.now() - tR > 600) break; await p.waitForTimeout(100); } }
