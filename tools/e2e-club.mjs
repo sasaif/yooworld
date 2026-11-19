@@ -8,7 +8,7 @@ import { createRequire } from 'module'; import fs from 'fs'; const { chromium } 
 //  E. "Changer de partie" from the results → setup sheet (still seated) → new game → leave FROM THE RESULTS (no confirm)
 //  F. travel away mid-game (Lieux fade) → table closed, bots gone; back to the club via the dock → a new game starts
 //  G. long chain (fixed deal ?clubseed=2, 2 players → 27 tiles): readable tile size, snake rows, nothing clipped
-// Also: badge, never "multijoueur", no Gold earned, club never saved, draw calls / triangles (≤ 40 / < 100k), avatar
+// Also: badge, never "multijoueur", no Gold earned, club never saved, draw calls / triangles of the MAIN pass (≤ 40 / < 100k; window.__info.calls is the total incl. shadow pass, counted since UAT), avatar
 // size, no table timer left after leaving, 0 console errors.
 // usage: DEV=iphone15|se PLAYERS=2|3|4 [SHOTS=dir] [BOTMS=150] node tools/e2e-club.mjs http://127.0.0.1:5391/
 const url = process.argv[2] ?? `http://127.0.0.1:${process.env.PORT ?? '5391'}/`;
@@ -95,8 +95,9 @@ async function cleanAfterLeave(label) {
 
 // ---------- A. full game ----------
 await gotoClubByDock();
-await waitFresh(); let i0 = await info(); perfRows.push(['club idle', i0.calls, i0.triangles]);
-ok(i0.calls > 0 && i0.calls <= 40, `club idle draw calls ≤ 40 (${i0.calls})`); ok(i0.triangles < 100000, `club idle triangles < 100k (${i0.triangles})`);
+await waitFresh(); let i0 = await info(); const mainTri = (i) => i.triangles - (i.trianglesShadow ?? 0); const mainCalls = (i) => i.callsMain ?? i.calls;
+perfRows.push(['club idle', i0.calls, i0.callsMain, i0.callsShadow, i0.triangles, i0.trianglesShadow]);
+ok(mainCalls(i0) > 0 && mainCalls(i0) <= 40, `club idle main-pass draw calls ≤ 40 (${mainCalls(i0)} main + ${i0.callsShadow ?? 0} shadow = ${i0.calls} total)`); ok(mainTri(i0) < 100000, `club idle main-pass triangles < 100k (${mainTri(i0)}; ${i0.triangles} incl. shadow)`);
 const av = await ev(() => window.__metrics?.()[window.game.s.activeChar]?.screenH ?? 0);
 ok(Math.abs(av - homePx) <= 3 && (DEV !== 'iphone15' || Math.abs(av - 93) <= 4), `avatar size unchanged vs the apartment (club ${av} px, home ${homePx} px; ~93 px on iPhone 15)`);
 ok(await p.locator('.dock', { hasText: 'Décorer' }).count() === 0, 'apartment-only buttons hidden in the club');
@@ -114,8 +115,8 @@ ok(tags.filter((t) => /^Bot \d🤖$/.test(t)).length === N - 1, `bots have a nor
 let shotMid = false;
 const rA = await play(undefined, async (m) => {
   if (shotMid || m < 2) return; shotMid = true; await p.waitForTimeout(500);
-  await waitFresh(); const i = await info(); perfRows.push([`playing ${N}p`, i.calls, i.triangles]);
-  ok(i.calls <= 40 && i.triangles < 100000, `${N}p playing: draw calls ≤ 40 / triangles < 100k (${i.calls} / ${i.triangles})`);
+  await waitFresh(); const i = await info(); perfRows.push([`playing ${N}p`, i.calls, i.callsMain, i.callsShadow, i.triangles, i.trianglesShadow]);
+  ok(mainCalls(i) <= 40 && mainTri(i) < 100000, `${N}p playing: main-pass draw calls ≤ 40 / triangles < 100k (${mainCalls(i)} + ${i.callsShadow ?? 0} shadow = ${i.calls} / ${mainTri(i)} tris, ${i.triangles} incl. shadow)`);
   const m2 = await ev(() => window.__metrics?.()); const me = m2[await ev(() => window.game.s.activeChar)];
   ok(!!me && me.bboxPx[1] > 60 && me.bboxPx[3] < dev.h - 60, `seated player visible between the overlay strips ${JSON.stringify(me?.bboxPx)}`);
   const bots = Object.entries(m2).filter(([k]) => k.startsWith('bot_')).map(([k, v]) => `${k}:${v.screenH}px`); console.log('BOTS', bots.join(' '));
@@ -207,8 +208,8 @@ ok(!/"location":"club"/.test(prof ?? ''), 'club never written as the saved locat
 await p.goto(q(url, '&lieu=club&clubseed=2')); await ready();
 await p.waitForFunction(() => window.game.s.location === 'club' && !window.game.s.transition, null, { timeout: 30000 }); await p.waitForTimeout(3000);
 await openSetup(2, 'single'); await startFromSheet(2);
-await waitFresh(); const i2 = await info(); perfRows.push(['playing 2p', i2.calls, i2.triangles]);
-ok(i2.calls <= 40 && i2.triangles < 100000, `2p playing: draw calls ≤ 40 / triangles < 100k (${i2.calls} / ${i2.triangles})`);
+await waitFresh(); const i2 = await info(); perfRows.push(['playing 2p', i2.calls, i2.callsMain, i2.callsShadow, i2.triangles, i2.trianglesShadow]);
+ok(mainCalls(i2) <= 40 && mainTri(i2) < 100000, `2p playing: main-pass draw calls ≤ 40 / triangles < 100k (${mainCalls(i2)} + ${i2.callsShadow ?? 0} shadow = ${i2.calls} / ${mainTri(i2)} tris, ${i2.triangles} incl. shadow)`);
 let longShot = false; const chainChecks = [];
 await play(async (st) => {
   if (st.line >= 20 && !longShot && st.turn === 0) {

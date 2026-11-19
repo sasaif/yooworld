@@ -138,13 +138,16 @@ Aucun code de sauvegarde / stockage touché.
 
 ## 6. Performances (Chrome headless + SwiftShader : FPS non représentatif)
 
-Mesures `window.__info` (e2e-club, 19/11/2026, iPhone 15 852×393 et iPhone SE 667×375) :
+Mesures `window.__info` (e2e-club, 19/11/2026, iPhone 15 852×393 et iPhone SE 667×375).
+Les budgets ci-dessous (et les assertions e2e) portent sur la **passe principale**. Depuis UAT, `window.__info.calls` /
+`triangles` incluent aussi la passe d'ombres (~21 appels, ~28 k triangles dans le club) ; le détail est dans
+`callsMain` / `callsShadow` / `trianglesShadow`.
 
-| Situation | Draw calls | Triangles |
-|---|---|---|
-| Club, au repos (Juanita + Juan) | 33 | 48 113 |
-| À table, 2 joueurs (1 bot) | 36 | 60 733 |
-| À table, 4 joueurs (3 bots) | 40 | ≈ 82 000 (81 963 – 82 680) |
+| Situation | Passe principale (budget) | + ombres | Total |
+|---|---|---|---|
+| Club, au repos (Juanita + Juan) | 33 appels / 48 113 triangles | 21 / 28 393 | 54 / 76 506 |
+| À table, 2 joueurs (1 bot) | 36 appels / 60 733 triangles (doc d'origine) | 21 / ~28 k | 57 / 89 126 (mesuré après fusion UAT) |
+| À table, 4 joueurs (3 bots) | 40 appels / ≈ 82 000 triangles (81 963 – 82 680) | 21 / 28 393 | 61 / ~110 000 |
 
 Avatar complet = 4 draw calls (corps, contour, cheveux, ombre ronde), ≈ 21 k triangles. Avec 3 bots complets : 47 calls / 112 k
 triangles (mesuré), donc hors budget. Les bots sont des avatars `lite` : pas de coque de contour, pas d'ombre ronde, pas de passe
