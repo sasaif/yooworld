@@ -6,20 +6,24 @@
 //     no other env key appears, root keys created.
 //  C: build guard (a subfolder configured as prod must fail) + ?fresh on combined-1 leaves root untouched.
 // usage: node tools/e2e-save-isolation.mjs [--build]   (PORT=5571, OUT=shots/tmp/save-isolation, git-ignored)
+//        FOLDER=combined-2 SIBLING=combined-1 node tools/e2e-save-isolation.mjs --build   (test folder other than combined-1 + phase E)
 import { createRequire } from 'module'; import fs from 'fs'; import path from 'path'; import http from 'http'; import { execSync, spawnSync } from 'child_process';
 const { chromium } = createRequire(import.meta.url)('playwright-core');
-const PORT = Number(process.env.PORT ?? 5571); const OUT = path.resolve(process.env.OUT ?? 'shots/tmp/save-isolation'); const ROOT_DIR = path.join(OUT, 'yooworld'); const C1_DIR = path.join(ROOT_DIR, 'combined-1');
+const PORT = Number(process.env.PORT ?? 5571); const OUT = path.resolve(process.env.OUT ?? 'shots/tmp/save-isolation'); const ROOT_DIR = path.join(OUT, 'yooworld'); const F = process.env.FOLDER ?? 'combined-1'; const C1_DIR = path.join(ROOT_DIR, F);
+// SIBLING (optional, e.g. FOLDER=combined-2 SIBLING=combined-1): phase E checks the two test folders never touch each other's keys.
+const SIB = process.env.SIBLING || null; const SIB_DIR = SIB ? path.join(ROOT_DIR, SIB) : null;
 let failed = 0; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined ? ' ' + JSON.stringify(extra) : '')); if (!c) { failed++; process.exitCode = 1; } };
 
-if (process.argv.includes('--build') || !fs.existsSync(path.join(C1_DIR, 'index.html'))) {
+if (process.argv.includes('--build') || !fs.existsSync(path.join(C1_DIR, 'index.html')) || (SIB && !fs.existsSync(path.join(SIB_DIR, 'index.html')))) {
   fs.rmSync(OUT, { recursive: true, force: true });
   const run = (env, outDir) => execSync(`npx vite build --outDir ${JSON.stringify(outDir)} --emptyOutDir`, { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, ...env } });
   console.log('build prod root   GH_PAGES_BASE=/yooworld/'); run({ GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/', VITE_YW_ENV: '' }, ROOT_DIR);
-  console.log('build combined-1  GH_PAGES_BASE=/yooworld/combined-1/'); run({ GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/combined-1/', VITE_YW_ENV: '' }, C1_DIR);
+  console.log(`build ${F}  GH_PAGES_BASE=/yooworld/${F}/`); run({ GH_PAGES: '1', GH_PAGES_BASE: `/yooworld/${F}/`, VITE_YW_ENV: '' }, C1_DIR);
+  if (SIB) { console.log(`build ${SIB}  GH_PAGES_BASE=/yooworld/${SIB}/`); run({ GH_PAGES: '1', GH_PAGES_BASE: `/yooworld/${SIB}/`, VITE_YW_ENV: '' }, SIB_DIR); }
 }
 // bundles must carry the right env id (belt and braces: grep the built JS)
-const bundleEnv = (dir) => { const js = fs.readdirSync(path.join(dir, 'assets')).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(dir, 'assets', f), 'utf8')).join('\n'); return { prodKeys: js.includes('"yooworld:e:"') || js.includes('yooworld:e:'), c1: js.includes('test/combined-1'), prod: /["']prod["']/.test(js) }; };
-ok(bundleEnv(C1_DIR).c1, 'combined-1 bundle is built for env test/combined-1');
+const bundleEnv = (dir) => { const js = fs.readdirSync(path.join(dir, 'assets')).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(dir, 'assets', f), 'utf8')).join('\n'); return { prodKeys: js.includes('"yooworld:e:"') || js.includes('yooworld:e:'), c1: js.includes(`test/${F}`), prod: /["']prod["']/.test(js) }; };
+ok(bundleEnv(C1_DIR).c1, `${F} bundle is built for env test/${F}`);
 
 // --- one-origin static server -------------------------------------------------------------------------------
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.glb': 'model/gltf-binary', '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg', '.ktx2': 'image/ktx2', '.wasm': 'application/wasm' };
@@ -77,51 +81,51 @@ const ROOT_SEED = {
 };
 const ROOT_SESSION = { 'yw.portrait': 'ROOT-1', 'yw.lieuDefaultUsed': 'ROOT-1' };
 {
-  console.log('--- A: /yooworld/combined-1/ vs root keys');
+  console.log(`--- A: /yooworld/${F}/ vs root keys`);
   const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('crash', () => console.log('!! renderer crashed (headless Chrome), rerun the script'));
   await p.goto(BASE + '/__blank');
   await p.evaluate(([l, s]) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries(l)) localStorage.setItem(k, v); for (const [k, v] of Object.entries(s)) sessionStorage.setItem(k, v); }, [ROOT_SEED, ROOT_SESSION]);
   const before = await dump(p);
-  await boot(p, BASE + '/yooworld/combined-1/');
-  const env = await p.evaluate(() => window.__saveEnv); ok(env.id === 'test/combined-1' && !env.isProd, 'page reports env test/combined-1', env);
+  await boot(p, BASE + `/yooworld/${F}/`);
+  const env = await p.evaluate(() => window.__saveEnv); ok(env.id === `test/${F}` && !env.isProd, `page reports env test/${F}`, env);
   const r = await play(p, 'A'); console.log('     played:', JSON.stringify(r));
-  ok(r.gold < r.gold0, 'Gold spent in combined-1', { from: r.gold0, to: r.gold });
-  await boot(p, BASE + '/yooworld/combined-1/'); // reload: the test env's own save persisted
+  ok(r.gold < r.gold0, `Gold spent in ${F}`, { from: r.gold0, to: r.gold });
+  await boot(p, BASE + `/yooworld/${F}/`); // reload: the test env's own save persisted
   const re = await p.evaluate(() => ({ name: window.game.s.profile.name, gold: window.economy.goldBalance(), owns: window.economy.owns('tee_heart') }));
-  ok(re.name === 'Iso A' && re.owns && re.gold === r.gold, 'combined-1 progress persisted in its own keyspace after reload', re);
+  ok(re.name === 'Iso A' && re.owns && re.gold === r.gold, `${F} progress persisted in its own keyspace after reload`, re);
   const after = await dump(p);
   for (const [k, v] of Object.entries(ROOT_SEED)) ok(after.local[k] === v, `root key byte-identical: ${k}`);
   for (const [k, v] of Object.entries(ROOT_SESSION)) ok(after.session[k] === v, `root session key byte-identical: ${k}`);
   const newRoot = Object.keys(after.local).filter((k) => isProdKey(k) && !(k in before.local)); ok(newRoot.length === 0, 'no new un-namespaced localStorage key', newRoot);
   const newRootS = Object.keys(after.session).filter((k) => isProdKey(k) && !(k in before.session)); ok(newRootS.length === 0, 'no new un-namespaced sessionStorage key', newRootS);
-  const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !k.startsWith('yooworld:e:test.combined-1:') && !k.startsWith('yw:e:test.combined-1:'));
-  ok(foreign.length === 0, 'combined-1 wrote only its own prefixes', foreign);
-  const c1 = Object.keys(after.local).filter((k) => k.startsWith('yooworld:e:test.combined-1:') || k.startsWith('yw:e:test.combined-1:')).sort();
-  for (const k of ['yooworld:e:test.combined-1:eco:dev', 'yooworld:e:test.combined-1:profile', 'yooworld:e:test.combined-1:look:test-player:f', 'yw:e:test.combined-1:camView', 'yw:e:test.combined-1:placesSeen', 'yw:e:test.combined-1:chatCollapsed', 'yw:e:test.combined-1:controls.v1'])
-    ok(c1.includes(k), `combined-1 key written: ${k}`);
-  ok(c1.some((k) => k.startsWith('yooworld:e:test.combined-1:apt:')) && c1.some((k) => k.startsWith('yooworld:e:test.combined-1:inv:')), 'combined-1 apartment + inventory written');
-  const eco = JSON.parse(after.local['yooworld:e:test.combined-1:eco:dev']); ok(eco.accounts['test-player'].gold.balance === r.gold && !!eco.accounts['test-player'].owned.tee_heart, 'combined-1 economy changed (Gold + owned tee)', { gold: eco.accounts['test-player'].gold.balance });
-  ok(after.session['yw:e:test.combined-1:lieuDefaultUsed'] === '1', 'session flag namespaced (yw:e:test.combined-1:lieuDefaultUsed)');
-  console.log('     combined-1 keys:', c1.join(', '));
+  const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !k.startsWith(`yooworld:e:test.${F}:`) && !k.startsWith(`yw:e:test.${F}:`));
+  ok(foreign.length === 0, `${F} wrote only its own prefixes`, foreign);
+  const c1 = Object.keys(after.local).filter((k) => k.startsWith(`yooworld:e:test.${F}:`) || k.startsWith(`yw:e:test.${F}:`)).sort();
+  for (const k of [`yooworld:e:test.${F}:eco:dev`, `yooworld:e:test.${F}:profile`, `yooworld:e:test.${F}:look:test-player:f`, `yw:e:test.${F}:camView`, `yw:e:test.${F}:placesSeen`, `yw:e:test.${F}:chatCollapsed`, `yw:e:test.${F}:controls.v1`])
+    ok(c1.includes(k), `${F} key written: ${k}`);
+  ok(c1.some((k) => k.startsWith(`yooworld:e:test.${F}:apt:`)) && c1.some((k) => k.startsWith(`yooworld:e:test.${F}:inv:`)), `${F} apartment + inventory written`);
+  const eco = JSON.parse(after.local[`yooworld:e:test.${F}:eco:dev`]); ok(eco.accounts['test-player'].gold.balance === r.gold && !!eco.accounts['test-player'].owned.tee_heart, `${F} economy changed (Gold + owned tee)`, { gold: eco.accounts['test-player'].gold.balance });
+  ok(after.session[`yw:e:test.${F}:lieuDefaultUsed`] === '1', `session flag namespaced (yw:e:test.${F}:lieuDefaultUsed)`);
+  console.log(`     ${F} keys:`, c1.join(', '));
   ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
   // C2: ?fresh on combined-1 leaves root untouched too
-  await boot(p, BASE + '/yooworld/combined-1/?fresh'); await p.evaluate(() => { window.game.rename('FreshOnly'); }); await p.waitForTimeout(600);
-  const af = await dump(p); ok(Object.entries(ROOT_SEED).every(([k, v]) => af.local[k] === v), 'C: ?fresh on combined-1 leaves every root key byte-identical');
+  await boot(p, BASE + `/yooworld/${F}/?fresh`); await p.evaluate(() => { window.game.rename('FreshOnly'); }); await p.waitForTimeout(600);
+  const af = await dump(p); ok(Object.entries(ROOT_SEED).every(([k, v]) => af.local[k] === v), `C: ?fresh on ${F} leaves every root key byte-identical`);
   fs.mkdirSync(path.join(OUT, 'report'), { recursive: true }); fs.writeFileSync(path.join(OUT, 'report', 'A-keys.json'), JSON.stringify({ before, after }, null, 1));
   await ctx.close();
 }
 
 // ---------- B: root must not touch combined-1 ----------------------------------------------------------------
 const C1_SEED = {
-  'yooworld:e:test.combined-1:eco:dev': '{"version":1,"C1_SENTINEL":"eco ✓ 💎","accounts":{}}',
-  'yooworld:e:test.combined-1:profile': '{"schema":1,"savedAt":1,"data":{"C1_SENTINEL":"profile"}}',
-  'yooworld:e:test.combined-1:apt:home_x': '{"C1_SENTINEL":"apt"}', 'yooworld:e:test.combined-1:inv:p_x': '{"C1_SENTINEL":"inv"}',
-  'yooworld:e:test.combined-1:look:test-player:f': '{"C1":"look"}', 'yooworld:e:test.combined-1:backup:snap': '[]',
-  'yw:e:test.combined-1:camView': 'avatar', 'yw:e:test.combined-1:controls.v1': '{"C1":1}', 'yw:e:test.combined-1:chatCollapsed': 'C1', 'yw:e:test.combined-1:placesSeen': 'C1', 'yw:e:test.combined-1:hairSheen': 'C1',
+  [`yooworld:e:test.${F}:eco:dev`]: '{"version":1,"C1_SENTINEL":"eco ✓ 💎","accounts":{}}',
+  [`yooworld:e:test.${F}:profile`]: '{"schema":1,"savedAt":1,"data":{"C1_SENTINEL":"profile"}}',
+  [`yooworld:e:test.${F}:apt:home_x`]: '{"C1_SENTINEL":"apt"}', [`yooworld:e:test.${F}:inv:p_x`]: '{"C1_SENTINEL":"inv"}',
+  [`yooworld:e:test.${F}:look:test-player:f`]: '{"C1":"look"}', [`yooworld:e:test.${F}:backup:snap`]: '[]',
+  [`yw:e:test.${F}:camView`]: 'avatar', [`yw:e:test.${F}:controls.v1`]: '{"C1":1}', [`yw:e:test.${F}:chatCollapsed`]: 'C1', [`yw:e:test.${F}:placesSeen`]: 'C1', [`yw:e:test.${F}:hairSheen`]: 'C1',
 };
-const C1_SESSION = { 'yw:e:test.combined-1:portrait': 'C1', 'yw:e:test.combined-1:lieuDefaultUsed': 'C1' };
+const C1_SESSION = { [`yw:e:test.${F}:portrait`]: 'C1', [`yw:e:test.${F}:lieuDefaultUsed`]: 'C1' };
 {
-  console.log('--- B: /yooworld/ (prod root) vs combined-1 keys');
+  console.log(`--- B: /yooworld/ (prod root) vs ${F} keys`);
   const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('crash', () => console.log('!! renderer crashed (headless Chrome), rerun the script'));
   await p.goto(BASE + '/__blank');
   await p.evaluate(([l, s]) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries(l)) localStorage.setItem(k, v); for (const [k, v] of Object.entries(s)) sessionStorage.setItem(k, v); }, [C1_SEED, C1_SESSION]);
@@ -129,8 +133,8 @@ const C1_SESSION = { 'yw:e:test.combined-1:portrait': 'C1', 'yw:e:test.combined-
   const env = await p.evaluate(() => window.__saveEnv); ok(env.id === 'prod' && env.isProd, 'page reports env prod', env);
   const r = await play(p, 'B'); console.log('     played:', JSON.stringify(r));
   const after = await dump(p);
-  for (const [k, v] of Object.entries(C1_SEED)) ok(after.local[k] === v, `combined-1 key byte-identical: ${k}`);
-  for (const [k, v] of Object.entries(C1_SESSION)) ok(after.session[k] === v, `combined-1 session key byte-identical: ${k}`);
+  for (const [k, v] of Object.entries(C1_SEED)) ok(after.local[k] === v, `${F} key byte-identical: ${k}`);
+  for (const [k, v] of Object.entries(C1_SESSION)) ok(after.session[k] === v, `${F} session key byte-identical: ${k}`);
   const envKeys = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !(k in C1_SEED) && !(k in C1_SESSION));
   ok(envKeys.length === 0, 'prod root wrote no env-namespaced key', envKeys);
   for (const k of ['yooworld:eco:dev', 'yooworld:profile', 'yooworld:look:test-player:f', 'yw.camView', 'yw.placesSeen', 'yw.chatCollapsed', 'yw.controls.v1']) ok(k in after.local, `root (legacy) key written by prod: ${k}`);
@@ -167,13 +171,38 @@ const C1_SESSION = { 'yw:e:test.combined-1:portrait': 'C1', 'yw:e:test.combined-
   await ctx.close();
 }
 
+// ---------- E (SIBLING set): two test folders on the same origin never touch each other's keys -------------------
+if (SIB) {
+  ok(fs.existsSync(path.join(SIB_DIR, 'index.html')), `sibling ${SIB} build present`);
+  const retag = (o, from, to) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.replace(`test.${from}:`, `test.${to}:`), v]));
+  for (const [seedF, playF] of [[SIB, F], [F, SIB]]) {
+    console.log(`--- E: /yooworld/${playF}/ vs ${seedF} keys`);
+    const seed = retag(C1_SEED, F, seedF), sess = retag(C1_SESSION, F, seedF);
+    const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('crash', () => console.log('!! renderer crashed (headless Chrome), rerun the script'));
+    await p.goto(BASE + '/__blank');
+    await p.evaluate(([l, s, r]) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries({ ...l, ...r })) localStorage.setItem(k, v); for (const [k, v] of Object.entries(s)) sessionStorage.setItem(k, v); }, [seed, sess, ROOT_SEED]);
+    await boot(p, BASE + `/yooworld/${playF}/`);
+    const env = await p.evaluate(() => window.__saveEnv); ok(env.id === `test/${playF}` && !env.isProd, `E: page reports env test/${playF}`, env);
+    const r = await play(p, 'E-' + playF); console.log('     played:', JSON.stringify(r));
+    const after = await dump(p);
+    for (const [k, v] of Object.entries(seed)) ok(after.local[k] === v, `E: ${seedF} key byte-identical after playing ${playF}: ${k}`);
+    for (const [k, v] of Object.entries(sess)) ok(after.session[k] === v, `E: ${seedF} session key byte-identical after playing ${playF}: ${k}`);
+    for (const [k, v] of Object.entries(ROOT_SEED)) ok(after.local[k] === v, `E: root key byte-identical after playing ${playF}: ${k}`);
+    const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !(k in seed) && !(k in sess) && !(k in ROOT_SEED) && !k.startsWith(`yooworld:e:test.${playF}:`) && !k.startsWith(`yw:e:test.${playF}:`));
+    ok(foreign.length === 0, `E: ${playF} wrote only its own prefixes`, foreign);
+    ok(Object.keys(after.local).some((k) => k.startsWith(`yooworld:e:test.${playF}:eco:`)) && r.gold < r.gold0, `E: ${playF} economy written in its own keyspace`, { gold: r.gold });
+    ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
+    await ctx.close();
+  }
+}
+
 // ---------- C: build guard ---------------------------------------------------------------------------------
 {
-  const bad = spawnSync(process.execPath, ['tools/check-save-env.mjs'], { env: { ...process.env, GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/combined-1/', VITE_YW_ENV: 'prod' }, encoding: 'utf8' });
+  const bad = spawnSync(process.execPath, ['tools/check-save-env.mjs'], { env: { ...process.env, GH_PAGES: '1', GH_PAGES_BASE: `/yooworld/${F}/`, VITE_YW_ENV: 'prod' }, encoding: 'utf8' });
   ok(bad.status !== 0, 'C: subfolder build configured as prod exits non-zero', (bad.stderr || '').trim());
   const nobase = spawnSync(process.execPath, ['tools/check-save-env.mjs'], { env: { ...process.env, GH_PAGES: '1', GH_PAGES_BASE: '', VITE_YW_ENV: '' }, encoding: 'utf8' });
   ok(nobase.status !== 0, 'C: gh-pages build without GH_PAGES_BASE exits non-zero', (nobase.stderr || '').trim());
-  const vb = spawnSync('npx', ['vite', 'build', '--outDir', path.join(OUT, 'should-not-exist')], { env: { ...process.env, GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/combined-1/', VITE_YW_ENV: 'prod' }, encoding: 'utf8' });
+  const vb = spawnSync('npx', ['vite', 'build', '--outDir', path.join(OUT, 'should-not-exist')], { env: { ...process.env, GH_PAGES: '1', GH_PAGES_BASE: `/yooworld/${F}/`, VITE_YW_ENV: 'prod' }, encoding: 'utf8' });
   ok(vb.status !== 0 && !fs.existsSync(path.join(OUT, 'should-not-exist', 'index.html')), 'C: vite build itself fails closed (subfolder as prod)');
 }
 await b.close(); server.close();
