@@ -7,7 +7,10 @@
  *   test/<f>   yooworld:e:test.<f>:<name>             yw:e:test.<f>:<name>
  *   dev        yooworld:e:dev:<name>                  yw:e:dev:<name>
  *
- *  prod = only the public root build (/yooworld/). The build SHA is NOT part of the key (stable per folder,
+ *  Vercel (feature/vercel-env): base '/', each deployment / branch alias / domain is its own origin; production of
+ *  `main` -> prod, preview of branch <b> -> test/<slug(b)>, vercel dev -> dev (tools/save-env-rules.mjs, fail closed).
+ *
+ *  prod = only the public root build (/yooworld/) or the Vercel production build of `main`. The build SHA is NOT part of the key (stable per folder,
  *  owner decision 2026-11-19); it is recorded in save envelopes / backups as `buildId`. */
 declare const __YW_ENV__: string | undefined;
 declare const __YW_BUILD_ID__: string | undefined;

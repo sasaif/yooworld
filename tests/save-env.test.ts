@@ -8,7 +8,7 @@ import { LocalStorageRepository } from '../src/persistence/LocalStorageRepositor
 import { LocalDevEconomy } from '../src/economy/LocalDevEconomy';
 import { defaultApartment } from '../src/data/defaultApartment';
 // @ts-expect-error plain .mjs build helper (no types)
-import { resolveSaveEnv } from '../tools/save-env-rules.mjs';
+import { resolveSaveEnv, branchSlug } from '../tools/save-env-rules.mjs';
 
 const prod = makeSaveEnv('prod'); const c1 = makeSaveEnv('test/combined-1'); const dev = makeSaveEnv('dev');
 const LEGACY = ['yooworld:profile', 'yooworld:eco:dev', 'yooworld:look:test-player:f', 'yooworld:apt:home_x', 'yooworld:inv:p_x', 'yw.camView', 'yw.controls.v1', 'yw.chatCollapsed', 'yw.placesSeen', 'yw.lieuDefaultUsed', 'yw.hairSheen', 'yw.portrait'];
@@ -84,6 +84,50 @@ describe('build-time env resolution fails closed (P0.A guard)', () => {
     expect(run({ GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/combined-1/', VITE_YW_ENV: 'prod' })).not.toBe(0);
     expect(run({ GH_PAGES: '1' })).not.toBe(0);
     expect(run({ GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/combined-1/' })).toBe(0);
+  });
+});
+
+describe('Vercel env resolution fails closed (feature/vercel-env)', () => {
+  const V = (o: Record<string, string>) => resolveSaveEnv({ VERCEL: '1', ...o });
+  it('production of main is prod, a preview is test/<branch-slug>, vercel dev is dev; base is always /', () => {
+    expect(V({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'main' })).toEqual({ base: '/', envId: 'prod' });
+    expect(V({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'main', VITE_YW_ENV: 'prod' }).envId).toBe('prod');
+    expect(V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'feature/vercel-env' })).toEqual({ base: '/', envId: 'test/feature-vercel-env' });
+    expect(V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat' }).envId).toBe('test/uat');
+    expect(V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat', VITE_YW_ENV: 'test/uat' }).envId).toBe('test/uat');
+    expect(V({ VERCEL_ENV: 'development' }).envId).toBe('dev');
+    expect(V({}).envId).toBe('dev');
+  });
+  it('branch slugs are key-safe and valid env segments', () => {
+    expect(branchSlug('feature/vercel-env')).toBe('feature-vercel-env');
+    expect(branchSlug('Test/Combined_2')).toBe('test-combined_2');
+    expect(branchSlug('--a//b--')).toBe('a-b');
+    const long = branchSlug('feature/' + 'x'.repeat(80));
+    expect(long.length).toBeLessThanOrEqual(41);
+    expect(makeSaveEnv(`test/${long}`).isProd).toBe(false);
+    expect(branchSlug('///')).toBe('');
+  });
+  it('a preview build can never get the prod keyspace', () => {
+    expect(() => V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat', VITE_YW_ENV: 'prod' })).toThrow(/never allowed/);
+    expect(() => V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat', VITE_YW_ENV: 'test/other' })).toThrow(/must use VITE_YW_ENV=test\/uat/);
+    expect(() => V({ VERCEL_ENV: 'preview' })).toThrow(/without VERCEL_GIT_COMMIT_REF/);
+    expect(() => V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'main' })).toThrow(/production branch/);
+    expect(() => V({ VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: '///' })).toThrow(/cannot derive/);
+  });
+  it('production only from main, unknown envs and mixed GH Pages/Vercel targets throw', () => {
+    expect(() => V({ VERCEL_ENV: 'production' })).toThrow(/must come from git branch "main"/);
+    expect(() => V({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'uat' })).toThrow(/must come from git branch "main"/);
+    expect(() => V({ VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'main', VITE_YW_ENV: 'test/x' })).toThrow(/unset or prod/);
+    expect(() => V({ VERCEL_ENV: 'staging', VERCEL_GIT_COMMIT_REF: 'uat' })).toThrow(/unknown VERCEL_ENV/);
+    expect(() => V({ VERCEL_ENV: 'development', VITE_YW_ENV: 'prod' })).toThrow();
+    expect(() => V({ VERCEL_ENV: 'development', VITE_YW_ENV: 'test/x' })).toThrow();
+    expect(() => resolveSaveEnv({ VERCEL: '1', VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat', GH_PAGES: '1', GH_PAGES_BASE: '/yooworld/' })).toThrow(/ambiguous/);
+  });
+  it('tools/check-save-env.mjs exits non-zero for a Vercel preview configured as prod', () => {
+    const run = (env: Record<string, string>) => { try { execFileSync(process.execPath, ['tools/check-save-env.mjs'], { env: { PATH: process.env.PATH ?? '', ...env }, stdio: 'pipe' }); return 0; } catch (e) { return (e as { status: number }).status; } };
+    expect(run({ VERCEL: '1', VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat', VITE_YW_ENV: 'prod' })).not.toBe(0);
+    expect(run({ VERCEL: '1', VERCEL_ENV: 'production', VERCEL_GIT_COMMIT_REF: 'uat' })).not.toBe(0);
+    expect(run({ VERCEL: '1', VERCEL_ENV: 'preview', VERCEL_GIT_COMMIT_REF: 'uat' })).toBe(0);
   });
 });
 
