@@ -8,7 +8,8 @@ import { createRequire } from 'module'; import fs from 'fs'; import { execFileSy
  *  run clip weight exactly 0 · D Run on + 100 % → run 2.8 on the run clip · E Run on then off while moving (second finger on
  *  🏃, thumb kept on the stick) → eases down to walking, no jump · F release → eased stop.
  * usage: node tools/e2e-walk-run.mjs [url] ; DEVS=iphone15,se ; OUT=dir (report json) ;
- *        VIDEO=dir → also records the comparison clips (slow walk / fast walk / run) on iPhone 15 with ffmpeg
+ *        VIDEO=dir → also records the comparison clips (slow walk / fast walk / run) on iPhone 15 with ffmpeg (side-on lane,
+ *        frames captured every 2nd virtual 1/60 s frame → real-time 30 fps video; VDPR=2 capture scale)
  */
 const url = process.argv[2] ?? `http://127.0.0.1:${process.env.PORT ?? '5410'}/`;
 const DEVICES = { iphone15: { w: 852, h: 393, dpr: 3, label: 'iPhone 15 paysage' }, se: { w: 667, h: 375, dpr: 2, label: 'iPhone SE paysage' } };
@@ -49,16 +50,16 @@ function touchApi(cdp) {
 }
 const SAMPLE = () => { const m = window.__move(); return { pos: m.pos, sp: m.speed, v: Math.hypot(m.vel[0], m.vel[1]), mag: m.stick.mag, run: m.run, gait: m.gait, mode: m.mode, aw: m.anim?.walk ?? 0, ar: m.anim?.run ?? 0, ai: m.anim?.idle ?? 1, wts: m.anim?.walkTS ?? 0, rts: m.anim?.runTS ?? 0, am: m.anim?.mode }; };
 
-async function setup(dev, dpr) {
+async function setup(dev, dpr, angles = [0, 45, 90, 135, 180, 225, 270, 315]) {
   const S = await open(dev, dpr); const { p } = S;
   await p.evaluate(() => window.game.travel('beach')); await p.evaluate(() => window.__steps(150));
-  S.lane = await p.evaluate(() => { // longest clear lane on the live nav grid among the 8 stick directions
+  S.lane = await p.evaluate((angles) => { // longest clear lane on the live nav grid among the 8 stick directions
     const d = new window.__cam.position.constructor(); window.__cam.getWorldDirection(d); const h = Math.hypot(d.x, d.z), fx = d.x / h, fz = d.z / h, sinEl = Math.max(0.2, Math.abs(d.y) / d.length());
     const n = window.__world.nav; const free = (x, z) => x > 0 && z > 0 && n.free(Math.floor(x / n.cell), Math.floor(z / n.cell)); const R = 0.2;
     const disc = (x, z) => [[0, 0], [R, 0], [-R, 0], [0, R], [0, -R]].every(([a, c]) => free(x + a, z + c)); let best = null;
-    for (const a of [0, 45, 90, 135, 180, 225, 270, 315]) { const sx = Math.cos(a * Math.PI / 180), sy = -Math.sin(a * Math.PI / 180), up = -sy / sinEl; let wx = -fz * sx + fx * up, wz = fx * sx + fz * up; const l = Math.hypot(wx, wz); wx /= l; wz /= l;
+    for (const a of angles) { const sx = Math.cos(a * Math.PI / 180), sy = -Math.sin(a * Math.PI / 180), up = -sy / sinEl; let wx = -fz * sx + fx * up, wz = fx * sx + fz * up; const l = Math.hypot(wx, wz); wx /= l; wz /= l;
       for (let j = 1; j < n.nz; j++) for (let i = 1; i < n.nx; i++) { const x = (i + 0.5) * n.cell, z = (j + 0.5) * n.cell; let s = 0; while (s < 12 && disc(x + wx * s, z + wz * s)) s += 0.05; if (!best || s > best.len) best = { a, x, z, wx, wz, len: s }; } }
-    return best; });
+    return best; }, angles);
   S.joy = await p.evaluate(() => { const j = document.querySelector('.joy'), k = document.querySelector('.joy-knob'); const r = j.getBoundingClientRect(); return { cx: r.x + r.width / 2, cy: r.y + r.height / 2, R: Math.max(20, j.offsetWidth / 2 - k.offsetWidth * 0.18) }; });
   S.T = touchApi(S.cdp);
   return S;
@@ -136,7 +137,7 @@ if (VIDEO) {
   ];
   const meta = [];
   for (const cl of clips) {
-    const S = await setup(dev, DPR); const dir = `${VIDEO}/frames/${cl.key}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+    const S = await setup(dev, DPR, [0, 180]); const dir = `${VIDEO}/frames/${cl.key}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
     await placeStart(S); await frames(S, 20, false);
     if (cl.run) await tapRun(S, false);
     await S.p.evaluate(([t, s]) => { const o = document.createElement('div'); o.id = 'rec-label'; o.style.cssText = 'position:fixed;left:50%;top:44px;transform:translateX(-50%);z-index:99999;background:rgba(20,10,30,.78);color:#fff;font:600 15px/1.25 system-ui,sans-serif;padding:6px 12px;border-radius:10px;text-align:center;pointer-events:none;white-space:nowrap';
@@ -144,7 +145,7 @@ if (VIDEO) {
     let n = 0; const vs = []; let teleports = 0;
     const label = () => S.p.evaluate(() => { const m = window.__move(); const a = m.anim ?? { walk: 0, run: 0 }; const clip = a.run > 0.5 ? 'course' : a.walk > 0.5 ? 'marche' : 'repos';
       document.getElementById('rec-v').textContent = `vitesse mesurée ${m.speed.toFixed(2)} m/s · animation : ${clip}`; return m.speed; });
-    const shot = async () => { const r = await S.cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 88 }); fs.writeFileSync(`${dir}/f${String(n++).padStart(4, '0')}.jpg`, Buffer.from(r.data, 'base64')); };
+    const shot = async () => { const r = await S.cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: 90, clip: { x: 0, y: 0, width: dev.w, height: dev.h, scale: DPR } }); fs.writeFileSync(`${dir}/f${String(n++).padStart(4, '0')}.jpg`, Buffer.from(r.data, 'base64')); };
     await label(); for (let i = 0; i < 12; i++) { await S.p.evaluate(() => window.__steps(2)); await label(); await shot(); } // 0.4 s at rest
     await push(S, cl.d);
     const total = Math.round(cl.secs * 60); for (let f = 0; f < total; f += STEP) { await S.p.evaluate((k) => window.__steps(k), STEP); if (await recycle(S)) teleports++; vs.push(await label()); await shot(); }
@@ -155,7 +156,7 @@ if (VIDEO) {
   }
   const [a, c, r] = clips.map((x) => `${VIDEO}/${x.key}.mp4`);
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', a, '-i', c, '-i', r, '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]', '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-movflags', '+faststart', `${VIDEO}/comparison_sequential.mp4`]);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', a, '-i', c, '-i', r, '-filter_complex', '[0:v]scale=852:-2[a];[1:v]scale=852:-2[b];[2:v]scale=852:-2[c];[a][b][c]vstack=inputs=3[v]', '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '21', '-movflags', '+faststart', `${VIDEO}/comparison_stacked.mp4`]);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', a, '-i', c, '-i', r, '-filter_complex', '[0:v]scale=1280:-2[a];[1:v]scale=1280:-2[b];[2:v]scale=1280:-2[c];[a][b][c]vstack=inputs=3[v]', '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '21', '-movflags', '+faststart', `${VIDEO}/comparison_stacked.mp4`]);
   fs.writeFileSync(`${VIDEO}/video-meta.json`, JSON.stringify(meta, null, 1)); console.log('VIDEO', JSON.stringify(meta));
 }
 console.log(`SUMMARY walk-run: ${results.filter((r) => r.ok).length}/${results.length} passed`);
