@@ -1,8 +1,8 @@
 {
-  "recordedAt": "2026-11-19T12:29:20.561Z",
+  "recordedAt": "2026-11-19T15:27:25.105Z",
   "note": "Headless SwiftShader FPS is not representative. calls = total draw calls per frame (main + shadow pass), median of RUNS fresh runs x FRAMES frames. Guard: median total draw calls +20 %. Budgets (docs/10): apartment 120, beach 40, reported only.",
-  "runs": 5,
-  "framesPerRun": 60,
+  "runs": 3,
+  "framesPerRun": 30,
   "budgets": {
     "apartment": 120,
     "beach": 40
@@ -10,21 +10,21 @@
   "scenes": {
     "apartment": {
       "desktop": {
-        "calls": 154,
+        "calls": 94,
         "callsMain": 87,
-        "callsShadow": 67,
+        "callsShadow": 7,
         "trianglesShadow": 30001,
         "triangles": 84268,
-        "geometries": 85,
+        "geometries": 86,
         "textures": 13,
-        "programs": 22,
-        "uniqueGeometries": 88,
-        "uniqueMaterials": 47,
+        "programs": 37,
+        "uniqueGeometries": 89,
+        "uniqueMaterials": 48,
         "spread": {
           "calls": {
-            "min": 154,
-            "median": 154,
-            "max": 154,
+            "min": 94,
+            "median": 94,
+            "max": 94,
             "stddev": 0
           },
           "triangles": {
@@ -34,29 +34,29 @@
             "stddev": 0
           },
           "buffers": {
-            "min": 505,
-            "median": 505,
-            "max": 505,
+            "min": 507,
+            "median": 507,
+            "max": 507,
             "stddev": 0
           }
         }
       },
       "iphone15": {
-        "calls": 150,
+        "calls": 90,
         "callsMain": 83,
-        "callsShadow": 67,
+        "callsShadow": 7,
         "trianglesShadow": 30001,
         "triangles": 84038,
-        "geometries": 83,
+        "geometries": 82,
         "textures": 12,
-        "programs": 22,
-        "uniqueGeometries": 88,
-        "uniqueMaterials": 47,
+        "programs": 37,
+        "uniqueGeometries": 89,
+        "uniqueMaterials": 48,
         "spread": {
           "calls": {
-            "min": 150,
-            "median": 150,
-            "max": 150,
+            "min": 90,
+            "median": 90,
+            "max": 90,
             "stddev": 0
           },
           "triangles": {
@@ -66,9 +66,9 @@
             "stddev": 0
           },
           "buffers": {
-            "min": 497,
-            "median": 497,
-            "max": 497,
+            "min": 489,
+            "median": 489,
+            "max": 489,
             "stddev": 0
           }
         }
@@ -79,8 +79,8 @@
         "calls": 31,
         "callsMain": 21,
         "callsShadow": 10,
-        "trianglesShadow": 44069,
-        "triangles": 112282,
+        "trianglesShadow": 41381,
+        "triangles": 106906,
         "geometries": 20,
         "textures": 11,
         "programs": 16,
@@ -94,9 +94,9 @@
             "stddev": 0
           },
           "triangles": {
-            "min": 112282,
-            "median": 112282,
-            "max": 112282,
+            "min": 106906,
+            "median": 106906,
+            "max": 106906,
             "stddev": 0
           },
           "buffers": {
@@ -111,8 +111,8 @@
         "calls": 31,
         "callsMain": 21,
         "callsShadow": 10,
-        "trianglesShadow": 44069,
-        "triangles": 112282,
+        "trianglesShadow": 41381,
+        "triangles": 106906,
         "geometries": 20,
         "textures": 11,
         "programs": 16,
@@ -126,9 +126,9 @@
             "stddev": 0
           },
           "triangles": {
-            "min": 112282,
-            "median": 112282,
-            "max": 112282,
+            "min": 106906,
+            "median": 106906,
+            "max": 106906,
             "stddev": 0
           },
           "buffers": {

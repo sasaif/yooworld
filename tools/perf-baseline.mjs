@@ -14,7 +14,8 @@ const { chromium } = createRequire(import.meta.url)(process.env.PW ?? 'playwrigh
 // usage: node tools/perf-baseline.mjs [url] [--write] [--check] [--table]
 //   RUNS=3 FRAMES=30 STABLE=10 DEVS=desktop,iphone15 SCENES=apartment,beach OUT=<json>
 //   --write  updates tools/perf-baseline.json with the run medians (and their spread)
-//   --check  fails if the median total draw calls exceed the saved baseline by more than 20 %
+//   --check  fails if the median total draw calls exceed the saved baseline by more than 20 %,
+//            or if a scene with a HARD budget (apartment: total < 120) is not strictly under it
 //   --table  prints a Markdown variance table (min / median / max / stddev per metric)
 // The soft budgets of docs/10 (apartment 120, beach 40, total incl. shadows) are reported, never hidden; going over a
 // budget is printed as AU-DESSUS DU BUDGET but does not fail the run (the guard is about regressions).
@@ -27,6 +28,7 @@ const DEVS = {
   iphone15: { w: 852, h: 393, dpr: 3, touch: true, label: 'iPhone 15 paysage' },
 };
 const BUDGETS = { apartment: 120, beach: 40 }; // docs/10-performance-foundations.md, total draw calls incl. shadow pass
+const HARD_BUDGETS = { apartment: 120 }; // --check fails unless total < budget (met since feature/qa-drawcalls: 94 / 90)
 const CHROME = process.env.CHROME ?? '/usr/bin/google-chrome';
 const SCENES = [
   { id: 'apartment', query: 'lieu=appart&fresh=1&perf=1', label: 'Appartement' },
@@ -167,6 +169,13 @@ if (CHECK && fs.existsSync(BASE)) {
   }
   if (failed) console.log(`FAIL ${failed} scène(s) dépassent +20 % de draw calls`);
   else console.log('PASS garde draw calls ≤ baseline + 20 %');
+  let over = 0;
+  for (const r of results) {
+    const hard = HARD_BUDGETS[r.scene]; if (!hard) continue;
+    const ok = r.calls < hard; if (!ok) { over++; process.exitCode = 1; }
+    console.log((ok ? 'PASS' : 'FAIL') + ` budget dur ${r.scene}/${r.device}: total ${r.calls} (principal ${r.callsMain} + ombres ${r.callsShadow}) doit rester < ${hard}`);
+  }
+  if (over) console.log(`FAIL ${over} scène(s) au-dessus du budget dur`);
 } else if (CHECK && !fs.existsSync(BASE)) {
   console.log('SKIP --check : pas de tools/perf-baseline.json (lancer avec --write une première fois)');
 }
