@@ -7,6 +7,7 @@ import { compositePixels } from './composite';
 import { paintDecals } from './decals';
 import { FACE_MORPHS } from './faceMorphs';
 import { resolveLook, hasHat, type RenderSpec } from './spec';
+import { applyHairSheen } from './hairSheen';
 import { buildAccessory, buildBeard, buildHair, buildJacketExtra, buildLegShell } from './builders';
 import type { Prepared } from './source';
 type GLTFLike = { scene: THREE.Group; animations: THREE.AnimationClip[] };
@@ -37,7 +38,7 @@ export function buildCustomAvatar(src: Prepared, fem: Prepared, mal: Prepared, l
   const groups = new Map<string, THREE.Group>();
   const attach = (bone: string) => { let g = groups.get(bone); if (g) return g; const i = bm.skeleton.bones.findIndex((b) => b.name === bone); const b = bm.skeleton.bones[i];
     g = new THREE.Group(); g.name = 'attach_' + bone; g.matrixAutoUpdate = false; g.matrix.copy(bm.skeleton.boneInverses[i]).premultiply(new THREE.Matrix4()).multiply(bm.bindMatrix); b.add(g); groups.set(bone, g); return g; };
-  const hairMat = new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide, emissive: new THREE.Color('#3b2a30'), emissiveMap: tex });
+  const hairMat = new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide, emissive: new THREE.Color('#3b2a30'), emissiveMap: tex }); applyHairSheen(hairMat);
   const beardMat = new THREE.MeshLambertMaterial({ map: tex, emissive: new THREE.Color('#3b2a30'), emissiveMap: tex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   const bagMat = new THREE.MeshLambertMaterial({ map: tex, emissive: new THREE.Color('#3b2a30'), emissiveMap: tex });
   const accMat = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 60, specular: new THREE.Color('#5a4a50'), emissive: new THREE.Color('#2a1c22') });
