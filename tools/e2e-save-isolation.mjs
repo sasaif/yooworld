@@ -33,11 +33,13 @@ const server = http.createServer((req, res) => {
 });
 await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
 const BASE = `http://127.0.0.1:${PORT}`;
-const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'] });
 
 const isProdKey = (k) => (k.startsWith('yooworld:') && !k.startsWith('yooworld:e:')) || k.startsWith('yw.');
 const dump = (p) => p.evaluate(() => ({ local: Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])), session: Object.fromEntries(Object.keys(sessionStorage).map((k) => [k, sessionStorage.getItem(k)])) }));
 async function boot(p, url) {
+  // unload the previous WebGL page first (headless SwiftShader Chrome sometimes dies on a direct heavy -> heavy reload)
+  if (p.url().includes('/yooworld/')) { await p.goto(p.url().split('/yooworld/')[0] + '/__blank'); await p.waitForTimeout(500); }
   await p.goto(url); await p.waitForFunction(() => window.game?.s.ready && window.economy && window.fashion, null, { timeout: 180000 }); await p.waitForTimeout(1500);
 }
 /** Real writes through the game's own code paths (the UI calls the same methods) + real HUD clicks for prefs. */
@@ -76,7 +78,7 @@ const ROOT_SEED = {
 const ROOT_SESSION = { 'yw.portrait': 'ROOT-1', 'yw.lieuDefaultUsed': 'ROOT-1' };
 {
   console.log('--- A: /yooworld/combined-1/ vs root keys');
-  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('crash', () => console.log('!! renderer crashed (headless Chrome), rerun the script'));
   await p.goto(BASE + '/__blank');
   await p.evaluate(([l, s]) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries(l)) localStorage.setItem(k, v); for (const [k, v] of Object.entries(s)) sessionStorage.setItem(k, v); }, [ROOT_SEED, ROOT_SESSION]);
   const before = await dump(p);
@@ -120,7 +122,7 @@ const C1_SEED = {
 const C1_SESSION = { 'yw:e:test.combined-1:portrait': 'C1', 'yw:e:test.combined-1:lieuDefaultUsed': 'C1' };
 {
   console.log('--- B: /yooworld/ (prod root) vs combined-1 keys');
-  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('crash', () => console.log('!! renderer crashed (headless Chrome), rerun the script'));
   await p.goto(BASE + '/__blank');
   await p.evaluate(([l, s]) => { localStorage.clear(); sessionStorage.clear(); for (const [k, v] of Object.entries(l)) localStorage.setItem(k, v); for (const [k, v] of Object.entries(s)) sessionStorage.setItem(k, v); }, [C1_SEED, C1_SESSION]);
   await boot(p, BASE + '/yooworld/');
@@ -149,7 +151,7 @@ const C1_SESSION = { 'yw:e:test.combined-1:portrait': 'C1', 'yw:e:test.combined-
     'yooworld:inv:p_d': '{"schema":9,"savedAt":1,"data":{"ownerId":"p_d","items":{}}}', // written by a "newer" build
     'yooworld:eco:dev': '{"version":2,"accounts":{"test-player":{}}}',
   };
-  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('crash', () => console.log('!! renderer crashed (headless Chrome), rerun the script'));
   await p.goto(BASE + '/__blank'); await p.evaluate((l) => { localStorage.clear(); for (const [k, v] of Object.entries(l)) localStorage.setItem(k, v); }, SEED);
   await p.goto(BASE + '/yooworld/'); await p.waitForSelector('[data-testid="save-recovery"]', { timeout: 180000 }); await p.waitForTimeout(1500);
   const txt = await p.textContent('[data-testid="save-recovery"]'); ok(/Rien n’a été effacé/.test(txt) && /apt:home_p_d/.test(txt) && /inv:p_d/.test(txt) && /eco:dev/.test(txt), 'recovery panel lists the 3 unreadable records', txt.slice(0, 160));
