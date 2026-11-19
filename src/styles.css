@@ -136,6 +136,12 @@ html, body { position:fixed; inset:0; } /* no rubber-band scrolling / address-ba
 .joy-arrows i:nth-child(2) { transform:translate(-50%, -50%) rotate(90deg) translateY(calc(var(--joy) * -0.40)); }
 .joy-arrows i:nth-child(3) { transform:translate(-50%, -50%) rotate(180deg) translateY(calc(var(--joy) * -0.40)); }
 .joy-arrows i:nth-child(4) { transform:translate(-50%, -50%) rotate(270deg) translateY(calc(var(--joy) * -0.40)); }
+.run-btn { position:absolute; z-index:90; left:calc(max(18px, calc(var(--sal) + 6px)) + var(--joy, 132px) + 8px); bottom:max(22px, calc(var(--sab) + 8px));
+  width:48px; height:48px; border-radius:50%; border:1.5px solid rgba(255,255,255,.7); background:rgba(40,30,60,.32); color:#fff; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:0; font-size:19px; line-height:1; touch-action:manipulation; -webkit-tap-highlight-color:transparent; padding:0; }
+.run-btn small { font-size:8.5px; font-weight:700; letter-spacing:.02em; margin-top:1px; }
+.run-btn.on { background:#e8579c; border-color:#fff; box-shadow:0 0 0 3px rgba(232,87,156,.35); }
+.run-btn.joy-hidden { display:none; }
 .joy-knob { position:absolute; left:50%; top:50%; width:44%; height:44%; border-radius:50%; pointer-events:none; transform:translate(-50%, -50%);
   background:radial-gradient(circle at 38% 32%, #fff, #f7e6fb 55%, #e2c6ee); box-shadow:0 4px 12px rgba(80,30,90,.35), inset 0 -3px 6px rgba(150,80,170,.25);
   transition:transform .14s cubic-bezier(.2,.9,.3,1.2); }

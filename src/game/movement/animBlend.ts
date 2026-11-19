@@ -7,9 +7,12 @@
 export interface Blend { idle: number; walk: number; run: number; walkTS: number; runTS: number }
 export const BLEND = { idleTo: 0.3, runFrom: 1.3, runTo: 1.6, maxWalkTS: 1.6, maxRunTS: 1.2 };
 const sstep = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-export function locoBlend(speed: number, vWalk: number, vRun: number): Blend {
+/** `walkOnlyTS` (walk mode of the stick): the run clip never takes over, the walk clip's rate keeps following the
+ *  actual speed up to that cap (feet in sync at the slower walking paces a / b / c). */
+export function locoBlend(speed: number, vWalk: number, vRun: number, walkOnlyTS = 0): Blend {
   const v = Math.max(0, speed);
   const moving = sstep(0, BLEND.idleTo * vWalk, v);
+  if (walkOnlyTS > 0) return { idle: 1 - moving, walk: moving, run: 0, walkTS: Math.min(v / vWalk, walkOnlyTS), runTS: Math.min(v / vRun, BLEND.maxRunTS) };
   const run = sstep(BLEND.runFrom * vWalk, Math.min(BLEND.runTo * vWalk, vRun), v);
   return {
     idle: 1 - moving, walk: moving * (1 - run), run: moving * run,

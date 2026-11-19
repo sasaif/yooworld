@@ -6,6 +6,9 @@ import type { NavGrid } from '../nav/NavGrid';
 import { followPath, newFollow, type FollowState } from './pathFollow';
 import { arriveMarker, marker } from './marker';
 import type { CharState } from '../world';
+import { readMoveProfile, stickConfig, WALK_ONLY_MAX_TS, RUN_SPEED } from './walkProfile';
+
+const profile = readMoveProfile();
 
 /**
  * Glue between the analog input (virtual joystick / keyboard), the MovementController and the active
@@ -16,7 +19,11 @@ import type { CharState } from '../world';
  *   and the stick is centred, tap-to-move works again exactly as before.
  */
 export const motion = {
-  cfg: { ...MOVE_DEFAULTS } as MoveConfig,
+  /** `?walk=a|b|c` / `?move=classic` (walkProfile.ts) */
+  profile,
+  /** run mode of the stick / keyboard (🏃 button, R key); classic profile: the stick reaches run speed anyway */
+  run: false,
+  cfg: stickConfig(profile, false) as MoveConfig,
   radius: 0.08,
   st: newMoveState(),
   engaged: false,
@@ -39,6 +46,15 @@ function collider(nav: NavGrid | null) { if (!nav) return undefined; if (nav !==
  *  12 cm), and interaction targets (seat fronts, dance spots) may lie closer than the stick's 8 cm disc to a padded cell. */
 function pathCollider(nav: NavGrid | null) { if (!nav) return undefined; collider(nav); return pathCol!; }
 const dirV = { x: 0, y: 0, z: 0 };
+const runListeners = new Set<() => void>();
+/** Switch the stick between walk and run (keeps the current velocity: the filter eases into the new top speed). */
+export function setRun(on: boolean) { if (motion.profile.classic || motion.run === on) return; motion.run = on; motion.cfg = stickConfig(motion.profile, on); runListeners.forEach((l) => l()); }
+export function onRunChange(l: () => void) { runListeners.add(l); return () => { runListeners.delete(l); }; }
+/** Tap / click-to-move keeps its own walk / run speeds (PATH_CFG) and the 1st-order integrator it was tuned with. */
+let pathCfgFor: MoveConfig | null = null, pathCfgV: MoveConfig = MOVE_DEFAULTS;
+function pathConfig() { if (pathCfgFor !== motion.cfg) { pathCfgFor = motion.cfg; const { smooth: _s, ...rest } = motion.cfg; pathCfgV = { ...rest, maxSpeed: Math.max(rest.maxSpeed, RUN_SPEED) }; } return pathCfgV; }
+/** Walk clip only (rate cap) while the player drives in walk mode; 0 = normal walk → run blend. */
+export function walkOnlyTS(c: CharState): number { return !motion.profile.classic && !motion.run && !(c.path.length && c.running) ? WALK_ONLY_MAX_TS : 0; }
 
 /** The destination marker belongs to the player's current path: it fades as soon as the path ends (arrival),
  *  is cancelled (joystick) or is replaced by a path somewhere else (seat, dance spot, travel). */
@@ -51,14 +67,14 @@ function syncMarker(c: CharState) {
 /** Tap / click-to-move: follow the nav path with the analog controller's integrator (same feel as the stick). */
 function followTapPath(c: CharState, dt: number, nav: NavGrid | null): boolean {
   let st = motion.st;
-  if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st = motion.st = { ...st, x: c.pos.x, z: c.pos.z, yaw: c.yaw, vx: motion.driving ? st.vx : 0, vz: motion.driving ? st.vz : 0 }; }
+  if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st = motion.st = { ...st, x: c.pos.x, z: c.pos.z, yaw: c.yaw, vx: motion.driving ? st.vx : 0, vz: motion.driving ? st.vz : 0, ax: 0, az: 0 }; }
   if (motion.followPath !== c.path) { motion.followPath = c.path; motion.follow = newFollow(c.pos.x, c.pos.z); }
   const goal = c.path[c.path.length - 1];
-  const r = followPath(st, c.path, c.running, dt, motion.cfg, pathCollider(nav), motion.follow);
+  const r = followPath(st, c.path, c.running, dt, pathConfig(), pathCollider(nav), motion.follow);
   motion.st = r.st; motion.frames++; motion.simTime += Math.min(Math.max(dt, 0), motion.cfg.maxDt); motion.pathStats.frames++;
   c.pos.x = r.st.x; c.pos.z = r.st.z; c.yaw = r.st.yaw; c.speed = r.st.speed;
   if (r.arrived) {
-    c.path = []; c.speed = 0; motion.st = { ...r.st, vx: 0, vz: 0, speed: 0 }; motion.driving = false; motion.pathStats.arrived++; arriveMarker();
+    c.path = []; c.speed = 0; motion.st = { ...r.st, vx: 0, vz: 0, ax: 0, az: 0, speed: 0 }; motion.driving = false; motion.pathStats.arrived++; arriveMarker();
     return false; // <Character> now handles the pending seat / dance exactly as before
   }
   if (r.stuck) {
@@ -83,12 +99,12 @@ export function driveCharacter(c: CharState, dt: number, camDir: { x: number; y:
     if (!motion.driving) motion.st = newMoveState(c.pos.x, c.pos.z, c.yaw);
   }
   motion.engaged = engaged;
-  if (c.mode === 'sitting' || c.mode === 'standing') { motion.st.vx = motion.st.vz = 0; motion.st.speed = 0; motion.driving = false; return false; }
+  if (c.mode === 'sitting' || c.mode === 'standing') { motion.st.vx = motion.st.vz = 0; motion.st.ax = motion.st.az = 0; motion.st.speed = 0; motion.driving = false; return false; }
   if (engaged && c.path.length) c.path = [];
   syncMarker(c);
   const st = motion.st, rest = st.vx === 0 && st.vz === 0;
   if (!engaged && c.path.length) return followTapPath(c, dt, nav);
-  if (!engaged && rest) { st.vx = st.vz = 0; st.speed = 0; st.d = inp.mag; st.factor = 0; motion.driving = false; return false; } // idle
+  if (!engaged && rest) { st.vx = st.vz = 0; st.ax = st.az = 0; st.speed = 0; st.d = inp.mag; st.factor = 0; motion.driving = false; return false; } // idle
   // keep in sync with anything else that moved the character (travel, seat, tap path)
   if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st.x = c.pos.x; st.z = c.pos.z; st.yaw = c.yaw; } // teleported (travel) or moved by something else
   dirV.x = camDir.x; dirV.y = camDir.y; dirV.z = camDir.z;

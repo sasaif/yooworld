@@ -24,6 +24,7 @@ export function installMoveDebug() {
       location: world.location, t: performance.now(),
       marker: { phase: marker.phase, x: marker.x, z: marker.z, alpha: marker.alpha, seq: marker.seq }, tap: { ...floorTapLog }, settings: moveSettings.get(), pointerKind: lastPointerKind(),
       seat: seatDebug[id] ? { ...seatDebug[id] } : null,
+      profile: { ...motion.profile }, run: motion.run, smooth: motion.cfg.smooth ?? null, acc: [st.ax ?? 0, st.az ?? 0],
       pathStats: { ...motion.pathStats }, pathPts: c ? c.path.map((p) => [p.x, p.z]) : [], running: c?.running,
     };
   };

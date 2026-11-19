@@ -7,7 +7,7 @@ import type { Look } from '../fashion/types';
 import { useCustomAvatar } from './avatar/custom/useCustomAvatar';
 import { LOCO, stepMoverSub } from '../game/character/locomotion';
 import { locoBlend } from '../game/movement/animBlend';
-import { driveCharacter } from '../game/movement/playerMotion';
+import { driveCharacter, walkOnlyTS } from '../game/movement/playerMotion';
 import { world } from '../game/world';
 import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
@@ -56,7 +56,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     if (cur.current === 'loco') for (const lk of LOCO_KEYS) built.actions[lk].fadeOut(fade); else built.actions[cur.current].fadeOut(fade);
     cur.current = k;
   };
-  const loco = (speed: number, dt: number) => {
+  const loco = (speed: number, dt: number, walkOnly = 0) => {
     if (cur.current !== 'loco') {
       const prev = cur.current; const w = lw.current;
       if (prev === 'idle' || prev === 'walk' || prev === 'run') { for (const lk of LOCO_KEYS) w[lk] = lk === prev ? built.actions[lk].getEffectiveWeight() : 0; }
@@ -65,7 +65,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       cur.current = 'loco';
     }
     const vW = LOCO.walk * def.scale, vR = LOCO.run * def.scale; // stride grows with the avatar scale
-    const b = locoBlend(speed, vW, vR); const k = 1 - Math.exp(-dt * 10); const w = lw.current;
+    const b = locoBlend(speed, vW, vR, walkOnly); const k = 1 - Math.exp(-dt * 10); const w = lw.current;
     w.idle += (b.idle - w.idle) * k; w.walk += (b.walk - w.walk) * k; w.run += (b.run - w.run) * k;
     const A = built.actions;
     A.idle.setEffectiveWeight(w.idle); A.walk.setEffectiveWeight(w.walk); A.run.setEffectiveWeight(w.run);
@@ -106,7 +106,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       const moving = driven ? s.speed > 0.005 : stepMoverSub(s, dt);
       if (moving) {
         s.mode = 'walk';
-        loco(s.speed, dt);
+        loco(s.speed, dt, controlled ? walkOnlyTS(s) : 0);
       } else if (!driven && s.pendingSeat) {
         const seat = s.pendingSeat; s.pendingSeat = undefined; s.sitOn = seat; s.mode = 'sitting';
         if (motionSeat(seat)) { beginSeat(M, seat, s.pos, s.yaw); loco(0, dt); }

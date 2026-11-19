@@ -22,10 +22,13 @@ export interface MoveConfig {
   stopEps: number;    // m/s – below this with no input, snap to a full stop
   maxDt: number;      // s – frame time clamp (slow devices keep full speed; a long hitch never teleports)
   subStep: number;    // m – max displacement per collision sub-step
+  /** optional critically damped 2nd-order velocity filter (natural frequencies in rad/s, accelerating / braking);
+   *  absent = the 1st-order exponential smoothing above (accel / decel) */
+  smooth?: { accel: number; decel: number };
 }
 export const MOVE_DEFAULTS: MoveConfig = { maxSpeed: 1.9, accel: 14, decel: 32, turnRate: 12, anchors: DEFAULT_ANCHORS, stopEps: 0.03, maxDt: 0.25, subStep: 0.04 };
 
-export interface MoveState { x: number; z: number; vx: number; vz: number; yaw: number; speed: number; d: number; factor: number; blocked: boolean }
+export interface MoveState { x: number; z: number; vx: number; vz: number; yaw: number; speed: number; d: number; factor: number; blocked: boolean; ax?: number; az?: number }
 export const newMoveState = (x = 0, z = 0, yaw = 0): MoveState => ({ x, z, vx: 0, vz: 0, yaw, speed: 0, d: 0, factor: 0, blocked: false });
 
 /** Camera basis on the floor: horizontal forward (fx, fz) and how much floor depth is foreshortened on screen
@@ -64,12 +67,25 @@ export function stepMoveWorld(st: MoveState, dir: { x: number; z: number } | nul
   if (!(f > 0)) dir = null;
   const tx = dir ? dir.x * f * cfg.maxSpeed : 0, tz = dir ? dir.z * f * cfg.maxSpeed : 0;
   const cur = Math.hypot(st.vx, st.vz), want = Math.hypot(tx, tz);
-  const rate = want < 1e-6 || want < cur - 1e-6 ? cfg.decel : cfg.accel;
-  // v(t) = t + (v0 - t)e^{-kt}  →  exact displacement over dt
-  const e = Math.exp(-rate * dt), g = (1 - e) / rate;
-  let dx = tx * dt + (st.vx - tx) * g, dz = tz * dt + (st.vz - tz) * g;
-  let vx = tx + (st.vx - tx) * e, vz = tz + (st.vz - tz) * e;
-  if (!dir && Math.hypot(vx, vz) < cfg.stopEps) { vx = 0; vz = 0; }
+  const braking = want < 1e-6 || want < cur - 1e-6;
+  let dx: number, dz: number, vx: number, vz: number, ax = 0, az = 0;
+  if (cfg.smooth) {
+    // critically damped: x = v − target, x(t) = (x0 + c t)e^{−ωt}, c = a0 + ω x0  →  exact v, a and displacement over dt
+    const w = braking ? cfg.smooth.decel : cfg.smooth.accel, e = Math.exp(-w * dt);
+    const ax0 = st.ax ?? 0, az0 = st.az ?? 0, x0 = st.vx - tx, z0 = st.vz - tz, cx = ax0 + w * x0, cz = az0 + w * z0;
+    const g1 = (1 - e) / w, g2 = (1 - e * (1 + w * dt)) / (w * w);
+    dx = tx * dt + x0 * g1 + cx * g2; dz = tz * dt + z0 * g1 + cz * g2;
+    vx = tx + (x0 + cx * dt) * e; vz = tz + (z0 + cz * dt) * e;
+    ax = (ax0 - cx * w * dt) * e; az = (az0 - cz * w * dt) * e;
+    const vm = Math.hypot(vx, vz), cap = cfg.maxSpeed * 1.001; if (vm > cap) { vx *= cap / vm; vz *= cap / vm; }
+  } else {
+    const rate = braking ? cfg.decel : cfg.accel;
+    // v(t) = t + (v0 - t)e^{-kt}  →  exact displacement over dt
+    const e = Math.exp(-rate * dt), g = (1 - e) / rate;
+    dx = tx * dt + (st.vx - tx) * g; dz = tz * dt + (st.vz - tz) * g;
+    vx = tx + (st.vx - tx) * e; vz = tz + (st.vz - tz) * e;
+  }
+  if (!dir && Math.hypot(vx, vz) < cfg.stopEps) { vx = 0; vz = 0; ax = 0; az = 0; }
   const len0 = Math.hypot(dx, dz); if (len0 > maxStep) { const k = maxStep / len0; dx *= k; dz *= k; }
   // move through the collider in small sub-steps; cancel the velocity component pushing into an obstacle
   let x = st.x, z = st.z, blocked = false;
@@ -77,11 +93,13 @@ export function stepMoveWorld(st: MoveState, dir: { x: number; z: number } | nul
   if (len > 0) {
     if (collide) {
       const n = Math.max(1, Math.ceil(len / cfg.subStep)); const sx = dx / n, sz = dz / n;
-      for (let k = 0; k < n; k++) { const h = collide(x, z, sx, sz); x = h.x; z = h.z; if (h.hitX) { vx = 0; blocked = true; } if (h.hitZ) { vz = 0; blocked = true; } }
+      for (let k = 0; k < n; k++) { const h = collide(x, z, sx, sz); x = h.x; z = h.z; if (h.hitX) { vx = 0; ax = 0; blocked = true; } if (h.hitZ) { vz = 0; az = 0; blocked = true; } }
     } else { x += dx; z += dz; }
   }
   const moved = Math.hypot(x - st.x, z - st.z);
   let yaw = st.yaw;
   if (want > 0) { const ty = Math.atan2(tx, tz); yaw = wrap(yaw + wrap(ty - yaw) * (1 - Math.exp(-cfg.turnRate * dt))); }
-  return { x, z, vx, vz, yaw, speed: moved / dt, d, factor: f, blocked };
+  const out: MoveState = { x, z, vx, vz, yaw, speed: moved / dt, d, factor: f, blocked };
+  if (cfg.smooth) { out.ax = ax; out.az = az; }
+  return out;
 }

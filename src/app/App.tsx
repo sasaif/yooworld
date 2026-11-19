@@ -29,6 +29,7 @@ import { VARIANT } from './variant';
 import { camStore, camViewFollow, camViewZoomMul } from './camView';
 import { startLocation } from './startLocation';
 import { VirtualJoystick, wantsJoystick } from '../input/joystick/VirtualJoystick';
+import { RunButton } from '../input/joystick/RunButton';
 import { installGlobalInput, setInputEnabled } from '../input/joystick/joystickState';
 import { motion } from '../game/movement/playerMotion';
 import { installMoveDebug } from '../game/movement/debug';
@@ -99,6 +100,7 @@ export default function App() {
       </Canvas>
       {(!SHOT || SHOT.startsWith('ui')) && <Hud />}
       {JOY && <VirtualJoystick hidden={joyHidden} panelOpen={!!panel} />}
+      {!SHOT && <RunButton hidden={joyHidden || !!panel} showButton={JOY} />}
       <TravelFade />
       {studio && <FashionStudio />}
       {!SHOT && <RotateOverlay />}
