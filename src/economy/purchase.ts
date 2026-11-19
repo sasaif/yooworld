@@ -1,6 +1,6 @@
 import type { ItemDef } from '../fashion/types';
 import { EconomyError, zeroTotals, type Totals } from './money';
-import { post } from './ledger';
+import { hasTx, post } from './ledger';
 import type { Account, EconomyState } from './bank';
 /** Purchase transactions (pure). A cart may mix Gold and Diamond items; checkout is ATOMIC:
  *  either every item is granted and both wallets are debited, or nothing changes. */
@@ -20,7 +20,7 @@ export interface CheckoutResult { state: EconomyState; granted: string[]; totals
 export function checkout(state: EconomyState, accountId: string, ids: string[], catalogue: Record<string, ItemDef>, txId: string, at: number): CheckoutResult {
   const acc = state.accounts[accountId]; if (!acc) throw new EconomyError('unknown_account');
   // idempotency: the same checkout replayed (network retry) returns the already-applied result
-  if (acc.gold.entries.some((e) => e.txId === txId) || acc.diamond.entries.some((e) => e.txId === txId) || Object.values(acc.owned).some((o) => o.txId === txId))
+  if (hasTx(acc.gold, txId) || hasTx(acc.diamond, txId) || Object.values(acc.owned).some((o) => o.txId === txId))
     return { state, granted: [], totals: zeroTotals(), txId };
   const q = quoteCart(ids, catalogue);
   for (const it of q.items) if (acc.owned[it.id]) throw new EconomyError('already_owned', `Déjà possédé : ${it.name}`);

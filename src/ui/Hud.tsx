@@ -14,6 +14,7 @@ import { enterLandscape } from '../app/screen';
 import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
+import { storage } from '../persistence/storage';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
@@ -35,9 +36,9 @@ export function Hud() {
     </>
   );
 }
-const SEEN_KEY = 'yw.placesSeen';
-const placesNew = () => { try { return localStorage.getItem(SEEN_KEY) !== '1'; } catch { return false; } };
-const markPlacesSeen = () => { try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* */ } };
+const SEEN_KEY = 'placesSeen'; // logical pref names, namespaced per save env by storage.prefs
+const placesNew = () => { try { return storage.prefs.getItem(SEEN_KEY) !== '1'; } catch { return false; } };
+const markPlacesSeen = () => { try { storage.prefs.setItem(SEEN_KEY, '1'); } catch { /* */ } };
 function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const i = setInterval(() => f((n) => n + 1), ms); return () => clearInterval(i); }, [ms]); }
 
 function TopBar() {
@@ -199,15 +200,15 @@ function NetChip() {
     </span>
   );
 }
-const CHAT_COLLAPSED = 'yw.chatCollapsed';
-const readCollapsed = () => { try { return localStorage.getItem(CHAT_COLLAPSED) === '1'; } catch { return false; } };
+const CHAT_COLLAPSED = 'chatCollapsed';
+const readCollapsed = () => { try { return storage.prefs.getItem(CHAT_COLLAPSED) === '1'; } catch { return false; } };
 function ChatSheet() {
   const [msg, setMsg] = useState(''); const [, f] = useState(0);
   // collapsible card: folds to its header (unread counter), state kept across sessions
   const [collapsed, setCollapsed] = useState(readCollapsed); const [unread, setUnread] = useState(0); const [noteOpen, setNoteOpen] = useState(false);
   const col = useRef(collapsed); col.current = collapsed;
   useEffect(() => game.chat.onMessage(() => { f((n) => n + 1); if (col.current) setUnread((n) => n + 1); }), []);
-  const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { localStorage.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
+  const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { storage.prefs.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
   const log = useRef<HTMLDivElement>(null);
   useEffect(() => { const el = log.current; if (el) el.scrollTop = el.scrollHeight; }); // newest message in view
   const local = netBadge(game.net.status).tone === 'local'; const note = chatScopeNote(game.net.status);

@@ -1,10 +1,12 @@
 import { Store } from '../core/store';
 import type { KV } from '../persistence/LocalStorageRepository';
+import { storage } from '../persistence/storage';
 /** Optional camera framing chosen with the 🔍 HUD button. Pure parts are unit-tested.
  *  'room'   = Vue appartement: the whole room fitted to the screen (× variant zoom)
  *  'avatar' = Vue perso: closer, centred on and following the player's own avatar */
 export type CamView = 'room' | 'avatar';
-export const CAM_VIEW_KEY = 'yw.camView';
+/** logical pref name (stored as yw.camView in prod, yw:e:<env>:camView elsewhere — see persistence/saveEnv.ts) */
+export const CAM_VIEW_KEY = 'camView';
 export const AVATAR_VIEW_MUL = 2.0;
 export const CAM_VIEW_LABEL: Record<CamView, string> = { room: 'Vue appartement', avatar: 'Vue perso' };
 export const nextCamView = (v: CamView): CamView => (v === 'room' ? 'avatar' : 'room');
@@ -16,7 +18,7 @@ export function saveCamView(kv: Pick<KV, 'setItem'> | null, v: CamView) { try { 
 export const camViewZoomMul = (v: CamView, variantMul: number) => (v === 'avatar' ? Math.max(AVATAR_VIEW_MUL, variantMul * 1.5) : variantMul);
 export const camViewFollow = (v: CamView, variantFollow: number) => (v === 'avatar' ? 0 : variantFollow);
 
-const ls = (): KV | null => { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; } };
+const ls = (): KV | null => storage.prefs;
 export const camStore = new Store<{ view: CamView }>({ view: loadCamView(ls()) });
 export function toggleCamView() {
   const view = nextCamView(camStore.get().view); camStore.set({ view }); saveCamView(ls(), view);

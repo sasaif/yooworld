@@ -22,6 +22,7 @@ import { ThumbStage, THUMBS } from '../ui/fashion/ThumbStage';
 import { useActivityRewards } from '../fashion/useActivityRewards';
 import { SHOT, SHOT_CAM, runShotScript } from './shots';
 import { RotateOverlay } from '../ui/RotateOverlay';
+import { SaveRecovery } from '../ui/SaveRecovery';
 import { BeachAmbience, BeachView } from '../render/beach/BeachView';
 import { BEACH, BEACH_CENTER, BEACH_FRAME } from '../game/beach/beachLayout';
 import { TravelFade } from '../ui/TravelFade';
@@ -33,12 +34,13 @@ import { installGlobalInput, setInputEnabled } from '../input/joystick/joystickS
 import { motion } from '../game/movement/playerMotion';
 import { installMoveDebug } from '../game/movement/debug';
 import { trackPointerKind } from '../input/moveSettings';
+import { storage } from '../persistence/storage';
 
-const LIEU_KEY = 'yw.lieuDefaultUsed';
+const LIEU_KEY = 'lieuDefaultUsed'; // per-tab flag, namespaced per save env
 function startAt() {
-  let used = false; try { used = sessionStorage.getItem(LIEU_KEY) === '1'; } catch { /* */ }
+  let used = false; try { used = storage.session.getItem(LIEU_KEY) === '1'; } catch { /* */ }
   const s = startLocation(location.search, import.meta.env.VITE_DEFAULT_LIEU as string | undefined, used);
-  try { sessionStorage.setItem(LIEU_KEY, '1'); } catch { /* */ }
+  try { storage.session.setItem(LIEU_KEY, '1'); } catch { /* */ }
   return s;
 }
 
@@ -70,11 +72,13 @@ export default function App() {
   const joyHidden = !ready || studio || mode === 'edit' || moving;
   useEffect(() => { setInputEnabled(!joyHidden); }, [joyHidden]);
   useActivityRewards();
-  useEffect(() => { game.init({ startAt: SHOT ? null : startAt() }).then(() => {
+  const onStarted = () => {
+    if (!game.s.ready) return; // P0.B: unreadable save -> <SaveRecovery> waits for an explicit choice
     const p = game.s.profile!; world.chars[game.s.activeChar].name = p.name;
     if (SHOT?.startsWith('beach')) game.travel('beach');
     if (SHOT) setTimeout(runShotScript, 300); else say(game.s.activeChar, JOY ? 'Utilise le joystick pour marcher !' : 'Touche le sol pour marcher !', 5000);
-  }); }, []);
+  };
+  useEffect(() => { game.init({ startAt: SHOT ? null : startAt() }).then(onStarted); }, []);
   const beach = loc === 'beach';
   if (THUMBS) return <ThumbStage />;
   const cam = SHOT ? SHOT_CAM[SHOT] : { target: beach ? BEACH_CENTER : CENTER, zoom: small ? 70 : 122 };
@@ -102,6 +106,7 @@ export default function App() {
       <TravelFade />
       {studio && <FashionStudio />}
       {!SHOT && <RotateOverlay />}
+      <SaveRecovery onStarted={onStarted} />
       <PerfLayer />
     </div>
   );
