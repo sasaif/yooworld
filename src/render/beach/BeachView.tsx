@@ -1,3 +1,4 @@
+import { newTapMemo, registerTap } from '../../game/movement/doubleTap';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -26,11 +27,11 @@ const noRay = () => {};
 function Ground() {
   const tex = useMemo(() => { const t = sandTexture(); t.repeat.set(24, 24); return t; }, []);
   const water = waterMaterial();
-  const lastTap = useRef({ t: 0, p: new THREE.Vector3() });
+  const lastTap = useRef(newTapMemo());
   useFrame(() => { water.uniforms.uTime.value = beachTime.value; water.uniforms.uMood.value = mood.value; });
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 8) return; e.stopPropagation();
-    const now = performance.now(); const dbl = (now - lastTap.current.t < 380 && e.point.distanceTo(lastTap.current.p) < 0.6) || (e.nativeEvent?.detail ?? 0) >= 2; // timing, or the browser's own click count (double-click) lastTap.current = { t: now, p: e.point.clone() };
+    const dbl = registerTap(lastTap.current, performance.now(), e.point.x, e.point.z, e.nativeEvent?.detail ?? 0); // timing, or the browser's own click count
     onFloorTap(e.point.clone(), dbl);
   };
   return (

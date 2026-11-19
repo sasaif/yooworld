@@ -1,3 +1,4 @@
+import { newTapMemo, registerTap } from '../../game/movement/doubleTap';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
@@ -78,13 +79,13 @@ function Floor({ apt }: { apt: ApartmentLayout }) {
   const W = apt.cols * CELL, D = apt.rows * CELL; const fin = floorById(apt.floor);
   const tex = useMemo(() => { const t = floorTexture(fin); t.repeat.set(W / 2.4, D / 2.4); t.needsUpdate = true; return t; }, [fin, W, D]);
   const placing = useStore(game.store, (s) => !!s.placing);
-  const lastTap = useRef({ t: 0, p: new THREE.Vector3() });
+  const lastTap = useRef(newTapMemo());
   const onClick = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 8) return;
     if (game.s.placing) { game.ghostAt(e.point.x, e.point.z); return; }
     if (game.s.mode === 'edit') { game.store.set({ selItem: null }); return; }
     e.stopPropagation();
-    const now = performance.now(); const dbl = (now - lastTap.current.t < 380 && e.point.distanceTo(lastTap.current.p) < 0.6) || (e.nativeEvent?.detail ?? 0) >= 2; // timing, or the browser's own click count (double-click) lastTap.current = { t: now, p: e.point.clone() };
+    const dbl = registerTap(lastTap.current, performance.now(), e.point.x, e.point.z, e.nativeEvent?.detail ?? 0); // timing, or the browser's own click count
     onFloorTap(e.point.clone(), dbl);
   };
   return (
