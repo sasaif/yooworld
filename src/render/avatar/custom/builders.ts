@@ -80,7 +80,7 @@ function hairRing(c: THREE.Vector3, axis: THREE.Vector3, R: number, r: number, s
  *  'nape' = low bun at the nape, below the brim of caps / beanies / straw hats. All merged into the hair mesh. */
 type BunVariant = 'top' | 'crown' | 'phones' | 'nape';
 /** headwear → bun variant (unknown headwear keeps the top bun) */
-const BUN_UNDER: Record<string, BunVariant> = { cap: 'nape', beanie: 'nape', strawhat: 'nape', crown: 'crown', headphones: 'phones' };
+export const BUN_UNDER: Record<string, BunVariant> = { cap: 'nape', beanie: 'nape', strawhat: 'nape', crown: 'crown', headphones: 'phones' };
 const BUN: Record<BunVariant, { lift: number; r: [number, number, number]; fz: number; dz: number; wr: number }> = {
   top: { lift: 0, r: [0.12, 0.055, 0.105], fz: -0.04, dz: 0, wr: 0.088 },
   crown: { lift: 0.01, r: [0.075, 0.06, 0.072], fz: -0.01, dz: 0.05, wr: 0.062 },
