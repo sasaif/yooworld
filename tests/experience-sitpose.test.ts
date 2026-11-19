@@ -26,14 +26,14 @@ describe('procedural seated pose (SitPose)', () => {
     for (const s of ['Left', 'Right']) {
       const k = angle(P(r, s + 'UpLeg'), P(r, s + 'Leg'), P(r, s + 'Foot')); expect(k).toBeGreaterThan(80); expect(k).toBeLessThan(110);
       expect(P(r, s + 'Leg').z - P(r, s + 'UpLeg').z).toBeGreaterThan(0.11); // knee in front of the hip joint (facing +Z)
-      expect(Math.abs(P(r, s + 'Foot').y - AY)).toBeLessThan(0.004); // feet planted: ankle at the planted height
+      expect(Math.abs(P(r, s + 'Foot').y - (AY + SIT_STYLES.chair.soleY!))).toBeLessThan(0.004); // feet planted: ankle at the planted height
     }
   });
   it('planted feet: the thigh droop is solved from the bone lengths, for any seat height the legs can reach', () => {
     const AY = ANKLE_H;
-    for (const hy of [0.19, 0.22, 0.25, 0.29]) { const r = rig(); new SitPose(r).apply(1, new THREE.Vector3(0, hy, 0), 0, SIT_STYLES.chair); r.updateMatrixWorld(true);
-      expect(Math.abs(P(r, 'LeftFoot').y - AY)).toBeLessThan(0.004); }
-    expect(solveDroop(0.18, 0.09, 0.12, 0.09, 0)).toBeCloseTo(0, 9); expect(solveDroop(1, 0, 0.12, 0.09, 0)).toBeCloseTo((65 * Math.PI) / 180, 9); // out of reach: clamped
+    for (const hy of [0.19, 0.21, 0.23]) { const r = rig(); new SitPose(r).apply(1, new THREE.Vector3(0, hy, 0), 0, SIT_STYLES.chair); r.updateMatrixWorld(true);
+      expect(Math.abs(P(r, 'LeftFoot').y - (AY + SIT_STYLES.chair.soleY!))).toBeLessThan(0.004); }
+    expect(solveDroop(0.18, 0.09, 0.12, 0.09, 0)).toBeCloseTo(0, 9); expect(solveDroop(1, 0, 0.12, 0.09, 0)).toBeCloseTo((25 * Math.PI) / 180, 9); // out of reach: clamped to the approved posture (thighs ≤ 25°)
   });
   it('blends: weight 0 leaves the standing pose untouched, 0.5 is half-way', () => {
     const r = rig(); const sp = new SitPose(r); const k0 = P(r, 'LeftLeg');

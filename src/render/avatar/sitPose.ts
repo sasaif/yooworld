@@ -19,7 +19,8 @@ export const LIE_NOD = 22 * D;
 /** height of the ankle (Foot bone) above the sole when the foot is flat, both avatars standing (measured: 0.089–0.091 m) */
 export const ANKLE_H = 0.09;
 /** thigh droop range when solving for planted feet (rad): knees may rise a little above the hips on a low seat */
-const DROOP_MIN = -35 * D, DROOP_MAX = 65 * D;
+/* max 25°: the approved seated posture (e2e-experience: thighs ≤ 25° from horizontal, knees 70–120°) wins over planting the feet */
+export const DROOP_MIN = -35 * D, DROOP_MAX = 25 * D;
 /** Thigh droop (rad) that puts the ankle at `ankleY` with the shin at `shinBack`: hipY − a·sin θ − b·cos(shinBack) = ankleY. */
 export function solveDroop(hipY: number, ankleY: number, thigh: number, shin: number, shinBack: number) {
   const s = (hipY - ankleY - shin * Math.cos(shinBack)) / thigh;

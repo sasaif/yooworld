@@ -41,13 +41,15 @@ import { legDrop, LEG_RESHAPE } from './furnitureReshape';
 const D = Math.PI / 180;
 /** seat height after the leg reshape (data/furnitureReshape.ts): measured cushion height of the original model − drop */
 const cut = (model: string, h: number) => +(h - legDrop(model)).toFixed(4);
+/** planted soles aim 8 mm above the floor (just touching, never through it) */
+const FLOOR = 0.008;
 export const PRESETS: Record<PresetId, PosePreset> = {
   lounger: { kind: 'bed', style: { droop: 0, shinBack: 0, splay: 0.06, footDown: 0, lean: 0 }, approach: 0.3, feet: 'floor', turn: 0.45, sitIn: 0.65, sitOut: 0.65, recline: 1.1, unrecline: 0.95, liePitch: -(Math.PI / 2 - 0.98), lieCurve: { legs: [0, 0.4], pitch: [0.1, 0.9], slide: [0.35, 1] } },
   stool: { clearance: 0.06 /* pelvis lifts 6 cm mid-way: clears the stool's front edge (seq-capture: 0 cm, was 4.9–7.4 cm) */, kind: 'stool', style: { droop: 18 * D, shinBack: 10 * D, splay: 0.12, footDown: 0, lean: 3 * D, soleY: LEG_RESHAPE.stoolBar.ring!.y }, approach: 0.28, feet: 'floor', turn: 0.45, sitIn: 0.7, sitOut: 0.55 },
-  chair: { kind: 'chair', style: { droop: 18 * D, shinBack: 0, splay: 0.08, footDown: 0, lean: 0, soleY: 0 }, approach: 0.2, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
-  deskChair: { kind: 'chair', style: { droop: 18 * D, shinBack: 0, splay: 0.1, footDown: 0, lean: 0, soleY: 0 }, approach: 0.22, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
-  sofa: { kind: 'sofa', style: { droop: 0, shinBack: -18 * D, splay: 0.1, footDown: 0, lean: -4 * D, soleY: 0 }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
-  armchair: { kind: 'sofa', style: { droop: 0, shinBack: -18 * D, splay: 0.1, footDown: 0, lean: -5 * D, soleY: 0 }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
+  chair: { kind: 'chair', style: { droop: 18 * D, shinBack: 0, splay: 0.08, footDown: 0, lean: 0, soleY: FLOOR }, approach: 0.2, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
+  deskChair: { kind: 'chair', style: { droop: 18 * D, shinBack: 0, splay: 0.1, footDown: 0, lean: 0, soleY: FLOOR }, approach: 0.22, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
+  sofa: { kind: 'sofa', style: { droop: 0, shinBack: 0, splay: 0.1, footDown: 0, lean: -4 * D, soleY: FLOOR }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
+  armchair: { kind: 'sofa', style: { droop: 0, shinBack: 0, splay: 0.1, footDown: 0, lean: -5 * D, soleY: FLOOR }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
   bedEdge: { kind: 'bed', style: { droop: 2 * D, shinBack: -8 * D, splay: 0.08, footDown: 0, lean: 0 }, approach: 0.22, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
   lie: { kind: 'bed', style: { droop: 2 * D, shinBack: -8 * D, splay: 0.08, footDown: 0, lean: 0 }, approach: 0.22, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5, recline: 1.1, unrecline: 0.9 },
 };
@@ -61,12 +63,12 @@ export interface FurnitureInteractions {
 }
 const sofa = (xs: number[], hipZ: number, h: number, preset: PresetId = 'sofa'): SitSlot[] => xs.map((x) => ({ x, hipZ, h, preset }));
 export const INTERACTIONS: Record<string, FurnitureInteractions> = {
-  loungeSofa: { interactions: ['sit', 'watch'], sit: sofa([-0.27, 0.27], 0.25, cut('loungeSofa', 0.276)) },
+  loungeSofa: { interactions: ['sit', 'watch'], sit: sofa([-0.27, 0.27], 0.23, cut('loungeSofa', 0.276)) },
   loungeDesignSofa: { interactions: ['sit', 'watch'], sit: sofa([-0.4, 0, 0.4], 0.17, 0.276) },
   loungeSofaCorner: { interactions: ['sit', 'watch'], sit: sofa([-0.32, 0.18], -0.08, cut('loungeSofaCorner', 0.276)) },
-  loungeChair: { interactions: ['sit', 'watch'], sit: sofa([0], 0.25, cut('loungeChair', 0.276), 'armchair') },
+  loungeChair: { interactions: ['sit', 'watch'], sit: sofa([0], 0.23, cut('loungeChair', 0.276), 'armchair') },
   chair: { interactions: ['sit', 'watch'], depth: 0.05, sit: [{ x: 0, hipZ: 0.12, h: cut('chair', 0.288), preset: 'chair' }] },
-  chairDesk: { interactions: ['sit', 'watch', 'use'], sit: [{ x: 0, hipZ: 0.2, h: cut('chairDesk', 0.28), preset: 'deskChair' }] },
+  chairDesk: { interactions: ['sit', 'watch', 'use'], sit: [{ x: 0, hipZ: 0.18, h: cut('chairDesk', 0.28), preset: 'deskChair' }] },
   stoolBar: { interactions: ['sit'], sit: [{ x: 0, hipZ: 0.13, h: cut('stoolBar', 0.522), preset: 'stool' }] },
   bedDouble: {
     interactions: ['sit', 'lie'], depth: 0.42,
