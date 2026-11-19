@@ -25,27 +25,42 @@ export function locoBlend(speed: number, vWalk: number, vRun: number): Blend {
  * measurement (flight phases, fewer planted frames) agrees with LOCO.run within its noise, so it is kept.
  */
 export const STRIDE = { walk: 0.377, run: 1.9 };
-/** playback-rate window in which each clip still reads naturally; between the two the clips cross-fade (run mode only).
- *  walkMaxTS: highest walk-clip rate. The walk clip's stride is short (≈ 0.43 m/s at rate 1 at the avatars' scale), so a
- *  1.8 m/s fast walk needs rate ≈ 4.2 to keep the feet planted; 4.6 leaves room for the ≤ 0.3 s run → walk slow-down.
- *  maxRunTS: the 2.8 m/s run needs ≈ 1.29 (run clip stride ≈ 2.17 m/s at rate 1). */
-export const GAIT = { walkMaxTS: 4.6, runFrom: 1.9 * STRIDE.walk, runMinTS: 0.55, maxRunTS: 1.4 };
+/**
+ * playback-rate window in which the Walk and Run clips cross-fade (same handoff as pre-handoff gaitBlend:
+ * Walk clip up to walkClipMaxTS, then the long-stride Run clip from runMinTS).
+ * walkClipMaxTS: pre-handoff Walk-clip cap (1.9× ≈ 0.82 m/s at the avatars' scale) — used in walk mode at low speed.
+ * walkMaxRunSpeed: 1.2 m/s, the single walk speed (must match walkProfile.WALK_SPEED). In walk mode the Run clip
+ *   plays at speed / STRIDE.run but never faster than this, so the 2.8 m/s run-mode playback (≈ 1.29×) never plays
+ *   while Run is off (including the 0.3 s ease-down from 2.8 to 1.2).
+ * walkMaxTS / maxRunTS: run-mode caps (unchanged): 2.8 m/s needs ≈ 1.29, ceiling 1.4; walkMaxTS keeps headroom if a
+ *   low-speed run-mode walk clip must keep up.
+ */
+export const GAIT = { walkMaxTS: 4.6, walkClipMaxTS: 1.9, runFrom: 1.9 * STRIDE.walk, runMinTS: 0.55, maxRunTS: 1.4, walkMaxRunSpeed: 1.2 };
 export type GaitMode = 'walk' | 'run';
 /**
- * Mode-aware gait (default profile). The MODE decides which clips are allowed, the actual SPEED decides the weights and rates:
- * - 'walk' (default, Run toggle off): idle ↔ walk clip only — the run clip weight is always 0, whatever the speed or the
- *   joystick intensity; walk rate = actual speed / measured walk stride speed (feet planted).
- * - 'run' (Run toggle on): walk clip at low speed, cross-fading into the run clip as the speed rises (same window as
- *   before: from walk rate 1.9 to run rate 0.55); run rate = actual speed / measured run stride speed.
+ * Mode-aware gait (default profile). The MODE decides the rate cap and which look is allowed; SPEED sets weights and rates:
+ * - 'walk' (default, Run toggle off): same clip selection as pre-handoff gaitBlend (59f577c) — Walk clip below ≈ 0.82 m/s
+ *   (only during the short post-dead-zone ramp), then the long-stride Run clip at speed / measured run stride
+ *   (≈ 0.55× at the 1.2 m/s walk, feet planted). The 2.8 m/s run-mode playback rate is never reached
+ *   (runTS capped at the planted 1.2 m/s walk rate).
+ * - 'run' (Run toggle on): Walk clip at low speed, cross-fading into the Run clip as the speed rises (same window);
+ *   at 2.8 m/s the Run clip plays at ≈ 1.29× (cap maxRunTS 1.4).
  */
 export function modeBlend(speed: number, scale: number, mode: GaitMode): Blend {
   const v = Math.max(0, speed), sW = STRIDE.walk * scale, sR = STRIDE.run * scale;
   const moving = sstep(0, BLEND.idleTo * 0.85 * scale, v);
-  const run = mode === 'run' ? sstep(GAIT.runFrom * scale, GAIT.runMinTS * sR, v) : 0;
+  const run = sstep(GAIT.runFrom * scale, GAIT.runMinTS * sR, v);
+  if (mode === 'walk') {
+    return {
+      idle: 1 - moving, walk: moving * (1 - run), run: moving * run,
+      walkTS: Math.min(v / sW, GAIT.walkClipMaxTS), runTS: Math.min(v / sR, GAIT.walkMaxRunSpeed / sR),
+    };
+  }
   return { idle: 1 - moving, walk: moving * (1 - run), run: moving * run, walkTS: Math.min(v / sW, GAIT.walkMaxTS), runTS: Math.min(v / sR, GAIT.maxRunTS) };
 }
 /** Former speed-only gait (before 19 Nov 2026): kept for reference / tests. Its run weight rose with the speed alone, so
- *  any walk faster than ≈ 0.82 m/s (≈ 45 % stick in walk mode) played the RUN clip: the "auto-run at full joystick" bug. */
+ *  any walk faster than ≈ 0.82 m/s played the RUN clip even with the Run toggle off. modeBlend walk keeps that clip's
+ *  planted walk-rate look (Option A) but caps playback so the 2.8 m/s run-mode rate is never reached while Run is off. */
 export function gaitBlend(speed: number, scale: number): Blend {
   const v = Math.max(0, speed), sW = STRIDE.walk * scale, sR = STRIDE.run * scale;
   const moving = sstep(0, BLEND.idleTo * 0.85 * scale, v);

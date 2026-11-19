@@ -203,7 +203,7 @@ const KIND = TOUCH ? 'tap' : 'click';
     if (m.running !== true && gap > 380) skip(`double ${KIND} = run`, `harness: the headless renderer (~${Math.round(fps)} fps) delivered the 2nd ${KIND} ${Math.round(gap)} ms after the 1st (> 380 ms double-tap window), cannot test here`);
     else if (m.profile.classic) ok(m.running === true, `double ${KIND} = run (classic) (running ${m.running}, gap between the two ${KIND}s as seen by the game ${Math.round(m.tap.last?.gap ?? -1)} ms)`, { dbl: m.tap.last?.dbl, result: m.tap.last?.result });
     // walk / run separation: a double tap is still recognised but only the 🏃 Run toggle makes the avatar run
-    else ok(m.gait === 'walk' && m.run === false && !(m.anim?.run > 0.01), `double ${KIND} recognised (path flag ${m.running}) but the avatar walks: Run toggle off → gait ${m.gait}, run clip ${(m.anim?.run ?? 0).toFixed(2)}`, { dbl: m.tap.last?.dbl, result: m.tap.last?.result }); }
+    else ok(m.gait === 'walk' && m.run === false && (m.anim?.runTS ?? 0) < 2.8 / (1.9 * 1.14) - 0.2, `double ${KIND} recognised (path flag ${m.running}) but the avatar walks: Run toggle off → gait ${m.gait}, runTS ${(m.anim?.runTS ?? 0).toFixed(2)} (not the 2.8 m/s run rate)`, { dbl: m.tap.last?.dbl, result: m.tap.last?.result, speed: m.speed, runW: m.anim?.run }); }
 }
 
 if (TOUCH) {
