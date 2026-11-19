@@ -1,5 +1,6 @@
 import type { Features } from './parts';
 import type { RenderSpec } from './spec';
+import { paintSmile, paintSparkleEyes } from '../../../avatar/face/faceV2';
 /** Face decals (makeup, freckles, blush, stickers, lips, stubble) and T-shirt prints, painted with Canvas 2D
  *  in atlas space on top of the recoloured texture. Positions come from the face UV landmarks of build_parts.py. */
 const PRINT_AT = { x: 262, y: 207, s: 1 }; // where the original cheese print sits on the tee island (px @1024)
@@ -52,11 +53,16 @@ export function paintDecals(x: CanvasRenderingContext2D, spec: RenderSpec, f: Fe
   // lips (shape from the mouth option, colour from lipstick or a natural tint)
   const L = spec.lips; const w = 12 * L.w * k, h = 4.2 * L.h * k, bow = L.bow;
   const lipCol = L.color ?? mix(spec.skin, '#b8506a', 0.55);
-  x.globalAlpha = L.color ? 0.92 : 0.55; x.fillStyle = lipCol;
-  x.beginPath(); x.moveTo(mx - w, my); x.bezierCurveTo(mx - w * 0.6, my - h * 1.1, mx - w * 0.25, my - h * (1.1 + bow * 0.4), mx, my - h * (0.7 - bow * 0.2));
-  x.bezierCurveTo(mx + w * 0.25, my - h * (1.1 + bow * 0.4), mx + w * 0.6, my - h * 1.1, mx + w, my); x.bezierCurveTo(mx + w * 0.55, my + h * 1.6, mx - w * 0.55, my + h * 1.6, mx - w, my); x.fill();
-  x.globalAlpha = 0.5; x.strokeStyle = mix(spec.skin, '#5a2030', 0.6); x.lineWidth = 1 * k; x.beginPath(); x.moveTo(mx - w * 0.9, my); x.quadraticCurveTo(mx, my + h * 0.25, mx + w * 0.9, my); x.stroke();
-  if (L.gloss) { x.globalAlpha = 0.55; const g = x.createLinearGradient(mx - w, my, mx + w, my); g.addColorStop(0, '#9ff3ff'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(1, '#ffb3f0'); x.fillStyle = g; x.beginPath(); x.ellipse(mx, my + h * 0.55, w * 0.45, h * 0.35, 0, 0, 7); x.fill(); }
+  // face v2 (new opt-in items only): smiling mouth instead of the painted lips, sparkle eyes
+  if (spec.faceV2?.smile) paintSmile(x, f.mouthUV, size, spec.skin, L.color);
+  else {
+    x.globalAlpha = L.color ? 0.92 : 0.55; x.fillStyle = lipCol;
+    x.beginPath(); x.moveTo(mx - w, my); x.bezierCurveTo(mx - w * 0.6, my - h * 1.1, mx - w * 0.25, my - h * (1.1 + bow * 0.4), mx, my - h * (0.7 - bow * 0.2));
+    x.bezierCurveTo(mx + w * 0.25, my - h * (1.1 + bow * 0.4), mx + w * 0.6, my - h * 1.1, mx + w, my); x.bezierCurveTo(mx + w * 0.55, my + h * 1.6, mx - w * 0.55, my + h * 1.6, mx - w, my); x.fill();
+    x.globalAlpha = 0.5; x.strokeStyle = mix(spec.skin, '#5a2030', 0.6); x.lineWidth = 1 * k; x.beginPath(); x.moveTo(mx - w * 0.9, my); x.quadraticCurveTo(mx, my + h * 0.25, mx + w * 0.9, my); x.stroke();
+  }
+  if (spec.faceV2?.sparkle) paintSparkleEyes(x, size);
+  if (L.gloss && !spec.faceV2?.smile) { x.globalAlpha = 0.55; const g = x.createLinearGradient(mx - w, my, mx + w, my); g.addColorStop(0, '#9ff3ff'); g.addColorStop(0.5, '#ffffff'); g.addColorStop(1, '#ffb3f0'); x.fillStyle = g; x.beginPath(); x.ellipse(mx, my + h * 0.55, w * 0.45, h * 0.35, 0, 0, 7); x.fill(); }
   // T-shirt print
   const pr = spec.top.print; const cx = PRINT_AT.x * k, cy = PRINT_AT.y * k, s = 15 * k * PRINT_AT.s; x.globalAlpha = 1;
   if (pr === 'star') { star(x, cx, cy, s * 1.3); x.fillStyle = '#ffd23f'; x.fill(); x.lineWidth = 2 * k; x.strokeStyle = '#ffffff'; x.stroke(); }

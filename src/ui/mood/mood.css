@@ -1,0 +1,25 @@
+/* Mood/Emotes menu (Phase A). The dock button inherits `.dock button`; the popover sits above the dock. */
+.mood-wrap { position:relative; display:flex; }
+.dock .mood-menu { position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%); display:flex; gap:4px; padding:6px; border-radius:18px;
+  background:rgba(255,255,255,.96); box-shadow:0 8px 22px rgba(0,0,0,.28); z-index:110; }
+.dock .mood-menu button { min-width:52px; min-height:52px; padding:4px; border-radius:14px; font-size:24px; }
+.dock .mood-menu button:hover, .dock .mood-menu button:focus-visible { background:#f3e3f7; outline:2px solid #b24bd1; outline-offset:-2px; }
+.dock .mood-menu .mood-emoji { font-size:24px; line-height:1; margin:0; }
+.dock .mood-menu .mood-label { font-size:10px; font-weight:700; margin-top:1px; white-space:nowrap; }
+@media (max-height: 430px) { .dock .mood-menu button { min-width:48px; min-height:50px; } .dock .mood-menu .mood-emoji { font-size:22px; } }
+@media (prefers-reduced-motion: no-preference) { .dock .mood-menu { animation:mood-pop .14s ease-out; } }
+@keyframes mood-pop { from { opacity:0; transform:translate(-50%, 6px); } to { opacity:1; transform:translate(-50%, 0); } }
+/* "!" mark (surprised) popping just under the name tag, over the top of the head: crisp DOM text, readable at the real
+   93 px avatar size. `order:1` puts it after the name tag in the .tagwrap column whatever the DOM order; height 0 so the
+   tag/bubble layout never moves. */
+.expr-badge { order:1; align-self:center; height:0; overflow:visible; font:900 19px/1 system-ui, sans-serif; color:#ff7a00;
+  text-shadow:0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 1px 2px rgba(0,0,0,.35); opacity:0; transition:opacity .15s ease-out; pointer-events:none; }
+/* Small landscape phones (iPhone SE 667x375 …): the dock must not grow over the Run button / joystick. The Mood button
+   leaves the dock flow and sits just right of it (the dock is transformed, so it is the containing block); the popover
+   then opens above it, right-aligned, inside the viewport. Measured: dock width unchanged vs gameplay-polish. */
+@media (orientation: landscape) and (max-width: 740px) {
+  .dock > .mood-wrap { position:absolute; left:calc(100% + 6px); bottom:0; }
+  .dock > .mood-wrap > button { background:rgba(255,255,255,.86); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); border-radius:16px; box-shadow:0 6px 18px rgba(0,0,0,.3); min-width:52px; }
+  .dock > .mood-wrap > button.on { background:#f3e3f7; }
+  .dock .mood-menu { left:auto; right:0; transform:none; animation:none; }
+}

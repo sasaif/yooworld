@@ -12,7 +12,7 @@ export type Slot =
   | 'acc.glasses' | 'acc.earrings' | 'acc.necklace' | 'acc.hat' | 'acc.bag' | 'acc.wrist' | 'acc.neck2' | 'acc.head2';
 export type Pattern = 'none' | 'stripes' | 'dots' | 'check' | 'tiedye' | 'galaxy' | 'denim' | 'camo' | 'sequin' | 'leather';
 export type Print = 'none' | 'cheese' | 'star' | 'heart' | 'yoo' | 'bolt';
-export type HairStyle = 'buns' | 'quiff' | 'bob' | 'pony' | 'long' | 'buzz' | 'afro' | 'pigtails' | 'manbun' | 'mohawk';
+export type HairStyle = 'buns' | 'quiff' | 'bob' | 'pony' | 'long' | 'buzz' | 'afro' | 'pigtails' | 'manbun' | 'mohawk' | 'braids' | 'bun_high';
 export type BeardStyle = 'none' | 'stubble' | 'goatee' | 'short' | 'full' | 'mustache';
 export type AccModel = 'glasses_round' | 'sunglasses' | 'glasses_heart' | 'earrings_pearl' | 'earrings_hoops' | 'earrings_diamond' | 'necklace_chain' | 'necklace_heart'
   | 'cap' | 'beanie' | 'strawhat' | 'crown' | 'backpack' | 'beltbag' | 'tote' | 'watch' | 'headphones' | 'scarf';
@@ -27,6 +27,7 @@ export interface Render {
   /** face decals / makeup */ decal?: 'freckles' | 'mole' | 'blush' | 'glow' | 'star'; makeup?: 'lips' | 'shadow' | 'liner'; gloss?: boolean;
   /** lips drawn on the face texture (shape of the mouth option) */ lips?: { w: number; h: number; bow: number };
   hair?: HairStyle; beard?: BeardStyle; acc?: AccModel;
+  /** face v2 (src/avatar/face): smiling mouth / sparkle eyes painted on the atlas */ face?: { smile?: boolean; sparkle?: boolean };
 }
 export interface ItemDef {
   id: string; name: string; category: ShopCategory; slot: Slot;

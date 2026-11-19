@@ -14,6 +14,8 @@ import { enterLandscape } from '../app/screen';
 import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
+import { MoodMenu, ExpressionChatBridge } from './mood/MoodMenu';
+const isChar = (id: string) => !!world.chars[id];
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
@@ -25,6 +27,7 @@ export function Hud() {
       <TopBar />
       {s.toast && Date.now() - s.toast.at < 2500 && <div className="toast" key={s.toast.at}>{s.toast.text}</div>}
       {s.mode === 'play' ? <PlayDock /> : <EditDock />}
+      <ExpressionChatBridge chat={game.chat} isChar={isChar} />
       {s.panel === 'catalog' && <CatalogSheet />}
       {s.panel === 'finishes' && <FinishesSheet />}
       {s.panel === 'chat' && <ChatSheet />}
@@ -107,6 +110,7 @@ function PlayDock() {
       </> : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
       <button onClick={() => fashion.open(active as Body)} className="style-btn" aria-label="Style : avatar et boutique mode">👗<span>Style</span></button>
       <button onClick={() => game.toggleEmote()} className={emote ? 'on' : ''}>🎉<span>Danse</span></button>
+      <MoodMenu charId={active} />
       <button onClick={() => game.setPanel('chat')} className={panel === 'chat' ? 'on' : ''}>💬<span>Chat</span></button>
     </nav>
   );

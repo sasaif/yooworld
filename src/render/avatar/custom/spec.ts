@@ -13,6 +13,7 @@ export interface RenderSpec {
   pants: ClothSpec & { length: 'long' | 'short' };
   shoes: { color: string; color2: string; shaft?: 'boot' | 'high'; glow?: number };
   acc: { model: AccModel; color: string; color2?: string }[];
+  /** face v2 options (absent = classic face) */ faceV2?: { smile: boolean; sparkle: boolean };
 }
 export function resolveLook(look: Look): RenderSpec {
   const g = (slot: keyof Look['slots']) => { const id = look.slots[slot]; return id ? ITEMS[id] : undefined; };
@@ -34,6 +35,7 @@ export function resolveLook(look: Look): RenderSpec {
     pants: { color: pants.color ?? '#2d2a33', color2: pants.color2, pattern: pants.pattern ?? 'none', length: pants.length ?? 'long' },
     shoes: { color: shoes.color ?? '#cfe05a', color2: shoes.color2 ?? '#ffffff', shaft: shoes.shaft, glow: shoes.glow },
     acc,
+    faceV2: r('mouth').face?.smile || r('eyes').face?.sparkle ? { smile: !!r('mouth').face?.smile, sparkle: !!r('eyes').face?.sparkle } : undefined,
   };
 }
 /** Hats flatten voluminous hair: the hair renderer swaps to a cap-friendly variant. */

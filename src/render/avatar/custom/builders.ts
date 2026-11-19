@@ -65,11 +65,67 @@ const strip = (g: THREE.BufferGeometry) => { const o = g.index ? g.toNonIndexed(
 function rayR(g: THREE.BufferGeometry, C: THREE.Vector3, d: THREE.Vector3) { const p = g.getAttribute('position'); let best = 0.15; const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).sub(C); const l = v.length(); if (l > 1e-4 && v.dot(d) / l > 0.978) best = Math.max(best, l); } return best; }
 const dirAt = (C: THREE.Vector3, az: number, el: number, r: number) => new THREE.Vector3(C.x + Math.sin(az) * Math.cos(el) * r, C.y + Math.sin(el) * r, C.z - Math.cos(az) * Math.cos(el) * r);
+/** Hair-textured ellipsoid (low poly; braid lobes, high bun). */
+function hairEgg(c: THREE.Vector3, r: THREE.Vector3, w = 10, h = 7, rot?: THREE.Euler) { const g = new THREE.SphereGeometry(1, w, h); const p = g.getAttribute('position'); const uv = g.getAttribute('uv');
+  for (let i = 0; i < p.count; i++) { const hh = hairUV(uv.getX(i), 1 - uv.getY(i)); uv.setXY(i, hh[0], hh[1]); }
+  g.scale(r.x, r.y, r.z); if (rot) g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(rot)); g.translate(c.x, c.y, c.z); return g; }
+/** Hair-textured torus (bun wrap, braid ties) merged into the hair mesh: no extra draw call. */
+function hairRing(c: THREE.Vector3, axis: THREE.Vector3, R: number, r: number, seg = 16, rad = 6) { const g = new THREE.TorusGeometry(R, r, rad, seg); const uv = g.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) { const hh = hairUV(uv.getX(i), 0.15 + 0.7 * uv.getY(i)); uv.setXY(i, hh[0], hh[1]); }
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis.clone().normalize())); g.translate(c.x, c.y, c.z); return g; }
+/** Phase B: high doll bun on the crown + two thin face strands. Sizes scale with the target head (k), positions
+ *  are found on the target's own cap (rayR), so it fits Juanita and Juan alike. */
+/** Phase B bun variants. 'top' = the doll top bun (kept inside the name-tag clearance: wide, low and centred on the crown);
+ *  'crown' = smaller bun showing through the crown ring; 'phones' = flatter top bun in front of the headphone band;
+ *  'nape' = low bun at the nape, below the brim of caps / beanies / straw hats. All merged into the hair mesh. */
+type BunVariant = 'top' | 'crown' | 'phones' | 'nape';
+/** headwear → bun variant (unknown headwear keeps the top bun) */
+export const BUN_UNDER: Record<string, BunVariant> = { cap: 'nape', beanie: 'nape', strawhat: 'nape', crown: 'crown', headphones: 'phones' };
+const BUN: Record<BunVariant, { lift: number; r: [number, number, number]; fz: number; dz: number; wr: number }> = {
+  top: { lift: -0.01, r: [0.12, 0.055, 0.105], fz: 0, dz: 0, wr: 0.088 },
+  crown: { lift: 0.01, r: [0.075, 0.06, 0.072], fz: -0.01, dz: 0.05, wr: 0.062 },
+  phones: { lift: -0.02, r: [0.09, 0.048, 0.048], fz: -0.12, dz: 0, wr: 0.07 },
+  nape: { lift: 0, r: [0.075, 0.068, 0.062], fz: 0, dz: 0, wr: 0.06 },
+};
+function bunHigh(t: Prepared, cap: THREE.BufferGeometry, parts: THREE.BufferGeometry[], v: BunVariant = 'top') {
+  const B = BUN[v]; const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424;
+  if (v === 'nape') { // low bun: on the back of the head below the hat rim, pointing back/down
+    const el = -0.32; const d = new THREE.Vector3(0, Math.sin(el), Math.cos(el)); const base = C.clone().addScaledVector(d, rayR(cap, C, d)); const out = d.clone();
+    parts.push(hairEgg(base.clone().addScaledVector(out, 0.045 * k), new THREE.Vector3(B.r[0], B.r[1], B.r[2]).multiplyScalar(k), 12, 8, new THREE.Euler(-el, 0, 0)));
+    parts.push(hairRing(base.clone().addScaledVector(out, 0.006 * k), out, B.wr * k, 0.017 * k));
+  } else {
+    const up = new THREE.Vector3(0, 1, B.dz).normalize(); const top = C.clone().addScaledVector(up, rayR(cap, C, up));
+    parts.push(hairEgg(top.clone().add(new THREE.Vector3(0, B.lift * k, B.fz * k)), new THREE.Vector3(B.r[0], B.r[1], B.r[2]).multiplyScalar(k), 14, 9));
+    parts.push(hairRing(top.clone().add(new THREE.Vector3(0, 0.004 * k, 0.004 * k)), up.clone().add(new THREE.Vector3(0, 0, 0.06)), B.wr * k, 0.02 * k));
+  }
+  for (const sd of [1, -1]) {
+    const hatted = v === 'nape'; const el0 = hatted ? 0.15 : 0.5; // under a hat the strands start below the rim and hug the head
+    const a0 = sd * 1.0, a1 = sd * 1.22; const d0 = new THREE.Vector3(Math.sin(a0) * Math.cos(el0), Math.sin(el0), -Math.cos(a0) * Math.cos(el0));
+    const s = C.clone().addScaledVector(d0, rayR(cap, C, d0) - 0.004 * k); const yEnd = C.y - 0.1 * k; const e = dirAt(C, a1, 0, t.headRadius(a1, yEnd) + (hatted ? 0.018 : 0.026) * k); e.y = yEnd;
+    const m = s.clone().lerp(e, 0.45); const out = new THREE.Vector3(m.x - C.x, 0, m.z - C.z).normalize(); m.addScaledVector(out, (hatted ? 0.012 : 0.03) * k);
+    parts.push(tube(new THREE.CatmullRomCurve3([s, m, e]), (x) => (0.016 - 0.008 * x) * k, 6, 5));
+  }
+}
+/** Phase B: two braids from behind the ears falling forward over the shoulders (7 lobes + a tie each). */
+function braids(t: Prepared, parts: THREE.BufferGeometry[]) {
+  const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424;
+  for (const sd of [1, -1]) {
+    const a0 = sd * 2.09; const y0 = C.y + 0.036 * k; const s = dirAt(C, a0, 0, t.headRadius(a0, y0) - 0.004 * k); s.y = y0;
+    const e = new THREE.Vector3(C.x + sd * 0.17 * k, C.y - 0.234 * k, C.z - 0.054 * k);
+    const cur = new THREE.CatmullRomCurve3([s, s.clone().lerp(e, 0.5).add(new THREE.Vector3(sd * 0.022 * k, 0, 0.02 * k)), e]);
+    parts.push(tube(new THREE.CatmullRomCurve3([s.clone().add(new THREE.Vector3(-sd * 0.02 * k, 0.03 * k, -0.01 * k)), s]), () => 0.024 * k, 4, 6));
+    for (let i = 0; i < 7; i++) { const u = i / 6; const p = cur.getPointAt(u * 0.94);
+      parts.push(hairEgg(p, new THREE.Vector3(0.028 - 0.006 * u, 0.026, 0.024).multiplyScalar(k), 8, 5, new THREE.Euler(0, 0, sd * (i % 2 ? 0.55 : -0.55)))); }
+    const end = cur.getPointAt(1); parts.push(hairRing(end, cur.getTangentAt(1), 0.016 * k, 0.006 * k, 12, 5));
+    parts.push(tube(new THREE.CatmullRomCurve3([end, end.clone().add(new THREE.Vector3(0, -0.035 * k, -0.006 * k))]), (x) => (0.016 - 0.01 * x) * k, 4, 6));
+  }
+}
 
 export interface HairBuild { hair: THREE.BufferGeometry; ties: { pos: THREE.Vector3; r: number; axis: THREE.Vector3 }[]; /** geometry the hats are fitted on */ under: THREE.BufferGeometry }
 const hairCache = new Map<string, HairBuild>();
-export function buildHair(style: HairStyle, hat: boolean, t: Prepared, f: Prepared, m: Prepared): HairBuild {
-  const key = `${style}|${hat}|${t.parts.vertexCount}|${t.parts.features.headTop[1]}`; const hit = hairCache.get(key); if (hit) return hit;
+/** `wear` = headwear model (hat or headphones), only used by bun_high to pick its variant. */
+export function buildHair(style: HairStyle, hat: boolean, t: Prepared, f: Prepared, m: Prepared, wear = ''): HairBuild {
+  const key = `${style}|${hat}|${t.parts.vertexCount}|${t.parts.features.headTop[1]}|${style === 'bun_high' ? wear : ''}`; const hit = hairCache.get(key); if (hit) return hit;
   const C = t.cranium; const fe = t.parts.features; const fCap = transferHead(f.hairCap, f, t); const mCap = transferHead(m.hairCap, m, t);
   const parts: THREE.BufferGeometry[] = []; const ties: HairBuild['ties'] = []; let under = fCap;
   const R = t.headRadius(Math.PI, C.y);
@@ -77,6 +133,8 @@ export function buildHair(style: HairStyle, hat: boolean, t: Prepared, f: Prepar
   switch (hat && ['buns', 'afro', 'mohawk', 'manbun', 'quiff'].includes(style) ? (style === 'buns' ? 'bob0' : 'buzz') : style) {
     case 'buns': parts.push(fCap); if (f.buns) parts.push(transferHead(f.buns, f, t)); break;
     case 'bob0': parts.push(fCap); break;
+    case 'bun_high': parts.push(fCap); bunHigh(t, fCap, parts, BUN_UNDER[wear] ?? 'top'); break;
+    case 'braids': parts.push(fCap); braids(t, parts); break;
     case 'quiff': parts.push(mCap); under = mCap; break;
     case 'buzz': { const g = buzz(); parts.push(g); under = g; break; }
     case 'bob': parts.push(fCap, curtain(t, C.y + 0.02, fe.mouth[1] - 0.012, Math.PI - 1.85, Math.PI + 1.85, 0.012, 0.01)); break;
@@ -154,6 +212,20 @@ const col = (g: THREE.BufferGeometry, c: string) => { const o = g.index ? g.toNo
 const at = (g: THREE.BufferGeometry, p: THREE.Vector3 | [number, number, number], rot?: [number, number, number], s?: [number, number, number]) => { if (s) g.scale(...s); if (rot) g.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot))); const v = Array.isArray(p) ? p : [p.x, p.y, p.z]; g.translate(v[0], v[1], v[2]); return g; };
 function heartShape(s: number) { const h = new THREE.Shape(); h.moveTo(0, -0.9 * s); h.bezierCurveTo(-1.4 * s, 0.1 * s, -0.7 * s, 1.1 * s, 0, 0.4 * s); h.bezierCurveTo(0.7 * s, 1.1 * s, 1.4 * s, 0.1 * s, 0, -0.9 * s); return h; }
 export interface AccBuild { bone: 'Head' | 'Spine2' | 'Hips' | 'LeftHand' | 'RightHand' | 'Neck'; solid: THREE.BufferGeometry; lens?: { geo: THREE.BufferGeometry; color: string; opacity: number }; /** uses the avatar atlas (native backpack) */ textured?: boolean }
+/** How cap / beanie / straw hat sit on the head (procedural meshes, no asset edit).
+ *  `yAboveBrow` = hatFit y0 minus the brow height (the dome starts here).
+ *  `tilt` = rotation around X in radians: positive lifts the front of the brim so the
+ *  downward three-quarter camera can still see the eyes, brows and face (the previous
+ *  constant −0.18, labelled "front up", actually dropped the brim over the face).
+ *  `th` = dome phi length (smaller = the crown stops higher).
+ *  `brimTilt` = extra front-up rotation of the cap visor / straw brim only.
+ *  The straw brim pivots around its back inner edge so the front lifts without
+ *  dropping the back of the brim into the hair. */
+export const HAT_SIT: Record<'cap' | 'beanie' | 'strawhat', { yAboveBrow: number; tilt: number; th: number; brimTilt: number }> = {
+  cap: { yAboveBrow: 0.038, tilt: 0.06, th: 1.56, brimTilt: 0.18 },
+  beanie: { yAboveBrow: 0.048, tilt: 0.05, th: 1.56, brimTilt: 0 },
+  strawhat: { yAboveBrow: 0.042, tilt: 0.07, th: 1.55, brimTilt: 0.22 },
+};
 export function buildAccessory(model: AccModel, c1: string, c2: string | undefined, t: Prepared, f: Prepared, hairUnder: THREE.BufferGeometry | null): AccBuild | null {
   const fe = t.parts.features; const C = t.cranium; const parts: THREE.BufferGeometry[] = []; const c2_ = c2 ?? c1;
   const eyes = [new THREE.Vector3(...fe.eyeP), new THREE.Vector3(...fe.eyeN)]; const eyeY = eyes[0].y; const fz = Math.min(t.faceZ(eyes[0].x, eyeY, 0.03), t.faceZ(0, eyeY, 0.02)) - 0.016;
@@ -196,22 +268,26 @@ export function buildAccessory(model: AccModel, c1: string, c2: string | undefin
       parts.push(col(at(new THREE.BoxGeometry(0.045, 0.11, 0.016), [0.04, ny - 0.065, fe.chestFront - 0.016], [0.1, 0, -0.12]), c2_)); parts.push(col(at(new THREE.BoxGeometry(0.045, 0.012, 0.018), [0.046, ny - 0.118, fe.chestFront - 0.024], [0.1, 0, -0.12]), c1));
       return { bone: 'Spine2', solid: mergeGeometries(parts)! }; }
     case 'cap': case 'beanie': case 'strawhat': case 'crown': {
-      const { R, top } = hatFit(); const cy = C.y; void cy; const tilt = -0.18; // front up
+      const { R, top } = hatFit(); const cy = C.y; void cy;
       if (model === 'crown') { const r = Math.min(R * 0.6, 0.12); const y = top - 0.035; const band = new THREE.CylinderGeometry(r, r * 0.92, 0.05, 24, 1, true); parts.push(col(at(band, [0, y + 0.02, C.z + 0.01], [0.12, 0, 0]), c1));
         for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; parts.push(col(at(new THREE.ConeGeometry(0.016, 0.045, 6), [Math.sin(a) * r, y + 0.065 - Math.cos(a) * 0.006, C.z + 0.01 - Math.cos(a) * r], [0.12, 0, 0]), c1));
           parts.push(col(at(new THREE.SphereGeometry(0.009, 8, 6), [Math.sin(a) * r * 1.02, y + 0.02, C.z + 0.01 - Math.cos(a) * r * 1.02]), i % 2 ? c2_ : '#7fe0ff')); }
         return { bone: 'Head', solid: mergeGeometries(parts)! }; }
-      const fit = hatFit(fe.browP[1] + (model === 'beanie' ? 0.012 : 0.024)); const H = fit.H; const th = model === 'beanie' ? 1.66 : 1.57; const R2 = fit.R; const cy2 = fit.y0; const hz = fit.cz;
+      const sit = HAT_SIT[model]; const tilt = sit.tilt; const fit = hatFit(fe.browP[1] + sit.yAboveBrow); const H = fit.H; const th = sit.th; const R2 = fit.R; const cy2 = fit.y0; const hz = fit.cz;
       const dome = new THREE.SphereGeometry(1, 32, 14, 0, Math.PI * 2, 0, th); dome.scale(R2, H, fit.Rz); parts.push(col(at(dome, [0, cy2, hz], [tilt, 0, 0]), c1));
       const rimY = cy2 + Math.cos(th) * H; const rimR = R2 * Math.sin(th);
-      if (model === 'cap') { const brim = new THREE.CylinderGeometry(rimR * 0.95, rimR * 0.95, 0.01, 24, 1, false, -0.95, 1.9); brim.scale(1, 1, 1.35); parts.push(col(at(brim, [0, rimY + 0.01, hz - 0.03], [tilt - 0.05, Math.PI, 0]), c2_));
-        parts.push(col(at(new THREE.SphereGeometry(0.014, 8, 6), [0, cy2 + H, hz + Math.sin(-tilt) * H * 0.2]), c2_)); }
-      if (model === 'beanie') { const band = new THREE.TorusGeometry(1, 0.02, 8, 32); band.scale(rimR + 0.006, rimR * 1.04 + 0.006, 1); parts.push(col(at(band, [0, rimY + 0.012, hz], [Math.PI / 2 + tilt, 0, 0]), c2_)); parts.push(col(at(new THREE.IcosahedronGeometry(0.035, 1), [0, cy2 + H + 0.025, hz + Math.sin(-tilt) * H * 0.2]), c2_)); }
-      if (model === 'strawhat') { const brim = new THREE.RingGeometry(rimR * 0.95, rimR * 1.7, 36, 1); parts.push(col(at(brim, [0, rimY, hz], [-Math.PI / 2 + tilt, 0, 0]), c1)); const brimB = new THREE.RingGeometry(rimR * 0.95, rimR * 1.7, 36, 1); parts.push(col(at(brimB, [0, rimY - 0.002, hz], [Math.PI / 2 + tilt, 0, 0]), c1));
+      if (model === 'cap') { const brim = new THREE.CylinderGeometry(rimR * 0.95, rimR * 0.95, 0.01, 24, 1, false, -0.95, 1.9); brim.scale(1, 1, 1.28); parts.push(col(at(brim, [0, rimY + 0.014, hz - 0.018], [tilt + sit.brimTilt, Math.PI, 0]), c2_));
+        parts.push(col(at(new THREE.SphereGeometry(0.014, 8, 6), [0, cy2 + H, hz + Math.sin(tilt) * H * 0.2]), c2_)); }
+      if (model === 'beanie') { const band = new THREE.TorusGeometry(1, 0.02, 8, 32); band.scale(rimR + 0.006, rimR * 1.04 + 0.006, 1); parts.push(col(at(band, [0, rimY + 0.012, hz], [Math.PI / 2 + tilt, 0, 0]), c2_)); parts.push(col(at(new THREE.IcosahedronGeometry(0.035, 1), [0, cy2 + H + 0.025, hz + Math.sin(tilt) * H * 0.2]), c2_)); }
+      if (model === 'strawhat') {
+        const inner = rimR * 0.95, outer = rimR * 1.65, bt = tilt + sit.brimTilt, pivotZ = inner;
+        const placeBrim = (y: number, flipNormal: boolean) => { const g = new THREE.RingGeometry(inner, outer, 36, 1); if (flipNormal) g.rotateX(Math.PI); g.rotateX(-Math.PI / 2); g.translate(0, 0, -pivotZ); g.rotateX(bt); g.translate(0, 0, pivotZ); return at(g, [0, y, hz]); };
+        parts.push(col(placeBrim(rimY, false), c1));
+        parts.push(col(placeBrim(rimY - 0.002, true), c1));
         const band = new THREE.CylinderGeometry(rimR * 0.99, rimR * 1.0, 0.03, 32, 1, true); parts.push(col(at(band, [0, rimY + 0.017, hz], [tilt, 0, 0]), c2_)); }
       return { bone: 'Head', solid: mergeGeometries(parts)! };
     }
-    case 'headphones': { const { R } = hatFit(); const band = new THREE.TorusGeometry(R + 0.012, 0.009, 6, 32, Math.PI); parts.push(col(at(band, [0, C.y - 0.02, C.z + 0.01], [0, 0, 0], [1.02, 1, 1]), c1));
+    case 'headphones': { const { R } = hatFit(); const band = new THREE.TorusGeometry(R + 0.012, 0.009, 6, 32, Math.PI); parts.push(col(at(band, [0, C.y - 0.02, C.z + 0.045], [0, 0, 0], [1.02, 1, 1]), c1));
       for (const sd of [1, -1]) { const x = sd * (Math.abs(fe.earP[0]) + 0.012); parts.push(col(at(new THREE.CylinderGeometry(0.04, 0.04, 0.024, 20), [x, fe.earP[1] + 0.01, fe.earP[2] - 0.01], [0, 0, Math.PI / 2]), c2_)); parts.push(col(at(new THREE.CylinderGeometry(0.03, 0.03, 0.026, 16), [x * 1.04, fe.earP[1] + 0.01, fe.earP[2] - 0.01], [0, 0, Math.PI / 2]), c1)); }
       return { bone: 'Head', solid: mergeGeometries(parts)! }; }
     case 'backpack': if (!f.bag) return null; return { bone: 'Spine2', solid: transferSpine(f.bag, f, t), textured: true };
