@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { getDrawStats } from './drawCounter';
 import { getPerfSnapshot, installPerfDebug, isPerfAvailable, sampleFrame, setPerfEnabled, subscribePerf, perfEnabled, togglePerf } from './perfStats';
 
 export { isPerfAvailable } from './perfStats';
@@ -52,9 +53,9 @@ export function PerfCollector() {
     const now = performance.now();
     const u = lastUnique.current;
     if (now - u.t > 1000) { const c = countUniques(scene); u.t = now; u.geometries = c.geometries; u.materials = c.materials; }
-    sampleFrame(dt, gl.info, u);
+    sampleFrame(dt, gl.info, u, getDrawStats(gl));
     const s = getPerfSnapshot();
-    (window as unknown as { __info: unknown }).__info = { calls: s.calls, triangles: s.triangles, geometries: s.geometries, textures: s.textures, programs: s.programs };
+    (window as unknown as { __info: unknown }).__info = { calls: s.calls, callsMain: s.callsMain, callsShadow: s.callsShadow, triangles: s.triangles, trianglesShadow: s.trianglesShadow, geometries: s.geometries, textures: s.textures, programs: s.programs };
   });
   return null;
 }
@@ -76,7 +77,8 @@ export function PerfHud() {
     <div className="perf-hud" aria-hidden="true">
       <div className="perf-hud-row"><b>{s.fps || '—'}</b> FPS</div>
       <div className="perf-hud-row">ms {s.msAvg.toFixed(1)} <span>max {s.msWorst.toFixed(1)}</span></div>
-      <div className="perf-hud-row">draw {s.calls} · tri {tri}</div>
+      <div className="perf-hud-row">draw {s.calls} <span>= {s.callsMain} + ombre {s.callsShadow}</span></div>
+      <div className="perf-hud-row">tri {tri}</div>
       <div className="perf-hud-row">geo {s.geometries} · tex {s.textures} · prog {s.programs}</div>
       <div className="perf-hud-row muted">mat {s.uniqueMaterials} · F9 / `</div>
     </div>

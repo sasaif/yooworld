@@ -71,7 +71,7 @@ Paramètres d'URL :
 - `?v=1|2|3` : variante de taille et de cadrage (V1 environ 75 px, V2 environ 85 px, **V3 = caméra rapprochée, par défaut**).
 - `?lieu=plage|beach|appart|home|maison` : lieu de départ.
 - `?joystick=1` force le joystick, `?joystick=0` le cache.
-- `?perf=1` : compteur FPS et draw calls (F9 pour le masquer).
+- `?perf=1` : compteur FPS et draw calls réels (total = passe principale + passe d'ombres, affichés séparément ; F9 pour le masquer).
 - `?fresh=1` : partie neuve sans la sauvegarde (utilisé par les tests).
 - `?shot=…` : modes de capture des outils.
 
@@ -94,7 +94,7 @@ Tests e2e (Node + playwright-core + Chrome ; URL en 1er argument, par défaut un
 | `tools/e2e-step2.mjs` | tap-to-move et click-to-move | `iphone15`, `desktop` |
 | `tools/e2e-joystick.mjs` | joystick avec vrais touchers | `iphone15`, `pixel7`, `se`, `ipad` |
 | `tools/e2e-desktop-move.mjs`, `e2e-beach.mjs`, `e2e-fashion.mjs`, `e2e.mjs` | anciens lots : clavier/souris, plage, boutique, base | |
-| `tools/perf-baseline.mjs --check` | refuse une hausse des draw calls de plus de 20 % (`tools/perf-baseline.json`) | |
+| `tools/perf-baseline.mjs --check` | refuse une hausse du total des draw calls (ombres comprises) de plus de 20 % (`tools/perf-baseline.json`), et affiche l'écart au budget | |
 | `tools/seq-capture.mjs` | **transitions image par image en temps virtuel 60 i/s** : mesure les sauts par image et la pénétration dans les meubles, avec `tools/contact_sheet.py` pour les planches | `iphone15`, `desktop` |
 | `tools/chat-shots.mjs` | chat : replié, déplié, longs messages, vérifications de mise en page | iPhone 15 |
 

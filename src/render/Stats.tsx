@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { getDrawStats, installDrawCounter } from './perf/drawCounter';
 /** Exposes renderer counters on window.__info and on-screen avatar metrics on window.__metrics()
  *  (used by tools/shot.mjs and tools/devices.mjs for the perf / before-after tables). */
 export function Stats() {
   const { gl, scene, camera, size } = useThree(); const last = useRef(0);
-  useFrame(() => { const now = performance.now(); if (now - last.current < 500) return; last.current = now; const i = gl.info; (window as unknown as { __info: unknown }).__info = { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, programs: i.programs?.length }; });
+  // exact draw calls (shadow pass included): installed on the game renderer for the whole session
+  useEffect(() => installDrawCounter(gl as unknown as Parameters<typeof installDrawCounter>[0]), [gl]);
+  useFrame(() => { const now = performance.now(); if (now - last.current < 500) return; last.current = now; const i = gl.info; const d = getDrawStats(gl);
+    (window as unknown as { __info: unknown }).__info = { calls: d.calls, callsMain: d.callsMain, callsShadow: d.callsShadow, triangles: d.triangles, trianglesShadow: d.trianglesShadow, geometries: i.memory.geometries, textures: i.memory.textures, programs: i.programs?.length }; });
   useEffect(() => { Object.assign(window as unknown as Record<string, unknown>, { __cam: camera, __gl: gl }); }, [camera, gl]); // debug / e2e handles
   useEffect(() => {
     (window as unknown as { __metrics: unknown }).__metrics = () => {
