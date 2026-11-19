@@ -3,7 +3,7 @@ import type { NetStatus } from './NetworkTransport';
  *  `onlinePlayers` only ever comes from a real server's presence list (there is none yet). */
 export interface NetBadge { label: string; short: string; tone: 'local' | 'connecting' | 'online'; detail: string }
 export function netBadge(status: NetStatus, onlinePlayers = 0): NetBadge {
-  if (status === 'online') return { label: `En ligne · ${onlinePlayers} joueur${onlinePlayers > 1 ? 's' : ''}`, short: 'En ligne', tone: 'online', detail: 'Connecté au serveur YooWorld : les autres joueurs présents voient tes messages.' };
+  if (status === 'online') return { label: `En ligne · ${onlinePlayers} joueur${onlinePlayers > 1 ? 's' : ''}`, short: 'En ligne', tone: 'online', detail: 'Connecté au serveur YoLand : les autres joueurs présents voient tes messages.' };
   if (status === 'connecting') return { label: 'Connexion…', short: 'Connexion…', tone: 'connecting', detail: 'Connexion au serveur en cours. Rien n’est encore partagé.' };
   return {
     label: 'Mode local', short: 'Local', tone: 'local',

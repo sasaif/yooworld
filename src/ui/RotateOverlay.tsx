@@ -30,7 +30,7 @@ export function RotateOverlay() {
     <div className="rotate" role="dialog" aria-label="Tourne ton appareil">
       <div className="rotate-phone"><i /></div>
       <h2>Tourne ton appareil</h2>
-      <p>YooWorld se joue en mode paysage.</p>
+      <p>YoLand se joue en mode paysage.</p>
       {canFullscreen
         ? <button className="btn primary" onClick={() => void enterLandscape()}>Plein écran paysage</button>
         : <p className="rotate-tip">Astuce iPhone : <b>Partager → Sur l’écran d’accueil</b> pour jouer en plein écran.</p>}
