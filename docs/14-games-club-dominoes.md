@@ -138,13 +138,23 @@ Aucun code de sauvegarde / stockage touché.
 
 ## 6. Performances (Chrome headless + SwiftShader : FPS non représentatif)
 
-Mesures `window.__info` dans le club, iPhone 15 paysage (852×393) : voir le rapport de la branche (draw calls ≤ 40, triangles < 100 k).
-Pas mesuré sur un vrai iPhone.
+Mesures `window.__info` (e2e-club, 19/11/2026, iPhone 15 852×393 et iPhone SE 667×375) :
+
+| Situation | Draw calls | Triangles |
+|---|---|---|
+| Club, au repos (Juanita + Juan) | 33 | 48 113 |
+| À table, 2 joueurs (1 bot) | 36 | 60 733 |
+| À table, 4 joueurs (3 bots) | 40 | ≈ 82 000 (81 963 – 82 680) |
+
+Avatar complet = 4 draw calls (corps, contour, cheveux, ombre ronde), ≈ 21 k triangles. Avec 3 bots complets : 47 calls / 112 k
+triangles (mesuré), donc hors budget. Les bots sont des avatars `lite` : pas de coque de contour, pas d'ombre ronde, pas de passe
+d'ombre, pas d'accessoire ni de cheveux à attaches (2 calls, ≈ 11 k triangles chacun) ; l'anneau de sélection est remplacé à table
+par l'anneau de tour (1 mesh). Pas mesuré sur un vrai iPhone.
 
 ## 7. Points ouverts pour le propriétaire
 
-- Règles : 5 dominos par joueur à 3–4 joueurs (variante courante) ; manche bloquée à égalité = nulle ; même règle d'ouverture à
-  chaque manche (pas « le gagnant ouvre »). À confirmer ou changer.
-- Mode par défaut : « 1 manche » (≈ 1–3 min). Le match en 100 points dure plutôt 10–20 min contre des bots.
-- Bots en étiquettes (pas d'avatars) pour rester sous le budget de draw calls et ne jamais ressembler à de vrais joueurs.
-- Belote et Dames : tables posées, « bientôt » ; la Belote classique demande d'écrire ses règles exactes avant le code.
+- Règles approuvées le 19/11/2026 (voir §3). Belote : règles exactes à écrire avant le code ; mises en Or : plus tard.
+- Les bots n'ont pas le contour sombre des avatars joueurs (budget triangles) : différence légère, visible de près.
+- À 4 joueurs, les étiquettes des bots des chaises sud et est peuvent se chevaucher un peu à l'écran.
+- Sur iPhone SE, une ligne de 20+ dominos (2 rangées) recouvre l'étiquette de nom du joueur assis (la tête reste visible).
+- Belote et Dames : tables posées, « bientôt ».
