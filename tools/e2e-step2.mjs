@@ -142,7 +142,9 @@ const KIND = TOUCH ? 'tap' : 'click';
   await closeMenu(); const spots = await floorSpots({ minDist: 1.8, maxDist: 3.5 }); await resetSamples();
   const r = await tapSomeFloor(spots); const t0 = Date.now();
   await p.waitForTimeout(350); const mk = await mv(); if (r) await p.screenshot({ path: `${SHOTS}/${tag}${devName}_marker.png` });
-  const tx = r?.last?.tx ?? r?.spot.x, tz = r?.last?.tz ?? r?.spot.z; const a = r ? await waitArrive(tx, tz) : null; await p.waitForTimeout(700); const m2 = await mv();
+  const tx = r?.last?.tx ?? r?.spot.x, tz = r?.last?.tz ?? r?.spot.z; const a = r ? await waitArrive(tx, tz) : null;
+  // the fade runs in game time: wait for the marker state itself (a fixed 700 ms sleep was flaky at 5 fps headless)
+  await p.waitForTimeout(700); await p.waitForFunction(() => window.__move().marker.phase === 'hidden', null, { timeout: 5000, polling: 40 }).catch(() => {}); const m2 = await mv();
   const ss = await samples(); const vmax = Math.max(...ss.map((s) => s.speed));
   ok(r && (r.last.result === 'moved' || r.last.result === 'snapped') && r.last.kind === (TOUCH ? 'touch' : 'mouse'), `${KIND} on a free floor spot ${r ? r.spot.d.toFixed(1) : '?'} m away starts a walk (${r?.last?.result}, pointer ${r?.last?.kind})`);
   ok(mk.marker.phase === 'active' && mk.marker.alpha > 0.3 && Math.hypot(mk.marker.x - tx, mk.marker.z - tz) < 0.05, 'destination marker visible on the target while walking', mk.marker);
@@ -204,13 +206,25 @@ const KIND = TOUCH ? 'tap' : 'click';
 
 if (TOUCH) {
   // --- joystick interrupts a tap path at any time
-  { const far = await floorSpots({ minDist: 2.2, maxDist: 4 }); const r = await tapSomeFloor(far); await p.waitForFunction(() => window.__move().speed > 0.4, null, { timeout: 8000, polling: 40 }).catch(() => {});
-    const m0 = await mv(); await stickTo(0.9, 90); await p.waitForFunction(() => window.__move().engaged && window.__move().frames > 0, null, { timeout: 3000, polling: 40 }).catch(() => {}); await p.waitForTimeout(300);
-    const m1 = await mv(); await p.waitForTimeout(900); const m2 = await mv(); await up(1);
+  // Waits on real game state, not wall-clock sleeps (QA saw 2/3 headless failures): the stick direction is picked
+  // toward open floor from where the avatar actually is (a fixed "up" pushed it into the back wall: blocked, 0 m), and
+  // the 0.9 s drive window is measured in game time (motion.simTime), so a 3-fps renderer still simulates 0.9 s.
+  { const far = await floorSpots({ minDist: 2.2, maxDist: 4 }); const r = await tapSomeFloor(far);
+    await p.waitForFunction(() => { const m = window.__move(); return m.path > 0 && m.speed > 0.4; }, null, { timeout: 8000, polling: 40 }).catch(() => {});
+    const m0 = await mv();
+    const ang = await p.evaluate(() => { const d = new window.__cam.position.constructor(); window.__cam.getWorldDirection(d); const h = Math.hypot(d.x, d.z), fx = d.x / h, fz = d.z / h, sinEl = Math.max(0.2, Math.abs(d.y) / d.length());
+      const nav = window.__world.nav, [px, pz] = window.__move().pos; const free = (x, z) => nav.free(Math.floor(x / nav.cell), Math.floor(z / nav.cell));
+      const score = (a) => { const x = Math.cos(a * Math.PI / 180), y = -Math.sin(a * Math.PI / 180), up = -y / sinEl; let wx = -fz * x + fx * up, wz = fx * x + fz * up; const l = Math.hypot(wx, wz); wx /= l; wz /= l;
+        let n = 0; for (let s = 0.1; s <= 1.6; s += 0.1) { if (![-0.2, 0, 0.2].every((o) => free(px + wx * s - wz * o, pz + wz * s + wx * o))) break; n++; } return n; };
+      return [90, 270, 0, 180, 45, 135, 225, 315].map((a) => [a, score(a)]).sort((u, v) => v[1] - u[1])[0]; });
+    await stickTo(0.9, ang[0]); await p.waitForFunction(() => window.__move().engaged && window.__move().frames > 0 && window.__move().path === 0, null, { timeout: 3000, polling: 40 }).catch(() => {});
+    const m1 = await mv(); const w0 = Date.now();
+    await p.waitForFunction((t) => window.__move().simTime - t >= 0.9, m1.simTime, { timeout: 10000, polling: 30 }).catch(() => {}); const rest = 900 - (Date.now() - w0); if (rest > 0) await p.waitForTimeout(rest);
+    const m2 = await mv(); await up(1);
     await p.waitForFunction(() => { const m = window.__move(); return !m.stick.active && m.speed < 0.02 && !m.driving; }, null, { timeout: 3000, polling: 40 }).catch(() => {}); const m3 = await mv();
     const drove = Math.hypot(m2.pos[0] - m1.pos[0], m2.pos[1] - m1.pos[1]);
     ok(r && m0.path > 0 && m1.path === 0 && m1.engaged && m1.marker.phase !== 'active' && drove > 0.2 && m3.path === 0 && m3.speed < 0.02,
-      `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick drives (${drove.toFixed(2)} m in 0.9 s), stops on release`, { m0path: m0.path, m1: { path: m1.path, engaged: m1.engaged, mk: m1.marker.phase }, m3: { path: m3.path, speed: +m3.speed.toFixed(3), mode: m3.mode }, m2: { stick: m2.stick, speed: m2.speed, blocked: m2.blocked, pos: m2.pos, p1: m1.pos, frames: [m1.frames, m2.frames], input: m2.input, mode: m2.mode } }); }
+      `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick at ${ang[0]}° toward open floor (${(ang[1] / 10).toFixed(1)} m clear) drives ${drove.toFixed(2)} m in ${(m2.simTime - m1.simTime).toFixed(2)} s game time, stops on release`, { m0path: m0.path, m1: { path: m1.path, engaged: m1.engaged, mk: m1.marker.phase }, m3: { path: m3.path, speed: +m3.speed.toFixed(3), mode: m3.mode }, m2: { stick: m2.stick, speed: m2.speed, blocked: m2.blocked, pos: m2.pos, p1: m1.pos, frames: [m1.frames, m2.frames], input: m2.input, mode: m2.mode } }); }
   // --- furniture menu still opens with tap-to-move ON, and does not walk to the floor behind
   { await closeMenu(); const c0 = await mv(); const f = await tapFurniture(); ok(!!f && f.el && f.floorTaps === 0, `ON: tapping furniture still opens its menu (${f?.it.name ?? 'none found'}), no floor walk triggered`);
     if (f) await p.screenshot({ path: `${SHOTS}/${tag}${devName}_furniture_menu_on.png` }); await closeMenu(); }
