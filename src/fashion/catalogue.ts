@@ -1,4 +1,5 @@
 import type { Body, ItemDef, Rarity, ShopCategory, Slot } from './types';
+import { FACE_V2_ITEMS } from '../avatar/face/items';
 /** Initial YooWorld fashion catalogue (data only). Prices: Gold 80–650, Diamonds 10–60.
  *  Rule of thumb: every category has free basics + several Gold items; Diamonds are reserved for a few
  *  premium/legendary pieces — a player can build an attractive look with Gold only. */
@@ -38,6 +39,7 @@ export const CATALOGUE: I[] = [
   it('eyes_sleepy', 'Yeux rêveurs', 'eyes', 'eyes', { morph: { eyeSleepy: 1 } }, G(160)),
   it('eyes_big', 'Grands yeux', 'eyes', 'eyes', { morph: { eyeBig: 1 } }, G(220), 'rare'),
   it('eyes_cat', 'Yeux de chat', 'eyes', 'eyes', { morph: { eyeCat: 1 } }, D(25), 'epic', { desc: 'Style d’yeux premium' }),
+  ...FACE_V2_ITEMS.filter((i) => i.slot === 'eyes'),
   ...([['eyecol_brown', 'Marron', '#6b3d1f'], ['eyecol_hazel', 'Noisette', '#8a6a2b'], ['eyecol_blue', 'Bleu', '#2f7fd6'], ['eyecol_green', 'Vert', '#2f9a55'],
     ['eyecol_grey', 'Gris', '#7f8a96'], ['eyecol_plum', 'Prune', '#8a1f5a']] as const).map(([id, name, color]) => it(id, name, 'eyes', 'eyeColor', { color }, undefined, 'common', { swatch: true })),
   it('eyecol_violet', 'Améthyste', 'eyes', 'eyeColor', { color: '#8b4dff' }, G(200), 'rare', { swatch: true }),
@@ -60,6 +62,7 @@ export const CATALOGUE: I[] = [
   it('mouth_wide', 'Grand sourire', 'mouth', 'mouth', { morph: { mouthWide: 1 }, lips: { w: 1.3, h: 0.9, bow: 0.3 } }, G(130)),
   it('mouth_full', 'Lèvres pulpeuses', 'mouth', 'mouth', { morph: { mouthFull: 1 }, lips: { w: 1.05, h: 1.45, bow: 0.7 } }, G(150)),
   it('mouth_heart', 'Bouche en cœur', 'mouth', 'mouth', { morph: { mouthHeart: 1 }, lips: { w: 0.9, h: 1.3, bow: 1 } }, D(15), 'epic'),
+  ...FACE_V2_ITEMS.filter((i) => i.slot === 'mouth'),
   // ---------- Cheveux ----------
   it('hair_buns', 'Chignons', 'hair', 'hair', { hair: 'buns' }),
   it('hair_quiff', 'Mèche', 'hair', 'hair', { hair: 'quiff' }),

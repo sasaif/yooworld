@@ -27,6 +27,7 @@ export interface Render {
   /** face decals / makeup */ decal?: 'freckles' | 'mole' | 'blush' | 'glow' | 'star'; makeup?: 'lips' | 'shadow' | 'liner'; gloss?: boolean;
   /** lips drawn on the face texture (shape of the mouth option) */ lips?: { w: number; h: number; bow: number };
   hair?: HairStyle; beard?: BeardStyle; acc?: AccModel;
+  /** face v2 (src/avatar/face): smiling mouth / sparkle eyes painted on the atlas */ face?: { smile?: boolean; sparkle?: boolean };
 }
 export interface ItemDef {
   id: string; name: string; category: ShopCategory; slot: Slot;
