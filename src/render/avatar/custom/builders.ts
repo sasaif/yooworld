@@ -75,14 +75,34 @@ function hairRing(c: THREE.Vector3, axis: THREE.Vector3, R: number, r: number, s
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis.clone().normalize())); g.translate(c.x, c.y, c.z); return g; }
 /** Phase B: high doll bun on the crown + two thin face strands. Sizes scale with the target head (k), positions
  *  are found on the target's own cap (rayR), so it fits Juanita and Juan alike. */
-function bunHigh(t: Prepared, cap: THREE.BufferGeometry, parts: THREE.BufferGeometry[]) {
-  const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424; const up = new THREE.Vector3(0, 1, 0.12).normalize(); const top = C.clone().addScaledVector(up, rayR(cap, C, up));
-  parts.push(hairEgg(top.clone().add(new THREE.Vector3(0, 0.052 * k, 0.014 * k)), new THREE.Vector3(0.105, 0.078, 0.1).multiplyScalar(k), 14, 9));
-  parts.push(hairRing(top.clone().add(new THREE.Vector3(0, 0.004 * k, 0.004 * k)), new THREE.Vector3(0, 1, 0.18), 0.082 * k, 0.02 * k));
+/** Phase B bun variants. 'top' = the doll top bun (kept inside the name-tag clearance: wide and low, slightly forward);
+ *  'crown' = smaller bun showing through the crown ring; 'phones' = flatter top bun in front of the headphone band;
+ *  'nape' = low bun at the nape, below the brim of caps / beanies / straw hats. All merged into the hair mesh. */
+type BunVariant = 'top' | 'crown' | 'phones' | 'nape';
+/** headwear → bun variant (unknown headwear keeps the top bun) */
+const BUN_UNDER: Record<string, BunVariant> = { cap: 'nape', beanie: 'nape', strawhat: 'nape', crown: 'crown', headphones: 'phones' };
+const BUN: Record<BunVariant, { lift: number; r: [number, number, number]; fz: number; dz: number; wr: number }> = {
+  top: { lift: 0, r: [0.12, 0.055, 0.105], fz: -0.04, dz: 0, wr: 0.088 },
+  crown: { lift: 0.01, r: [0.075, 0.06, 0.072], fz: -0.01, dz: 0.05, wr: 0.062 },
+  phones: { lift: -0.01, r: [0.1, 0.055, 0.06], fz: -0.075, dz: 0, wr: 0.078 },
+  nape: { lift: 0, r: [0.075, 0.068, 0.062], fz: 0, dz: 0, wr: 0.06 },
+};
+function bunHigh(t: Prepared, cap: THREE.BufferGeometry, parts: THREE.BufferGeometry[], v: BunVariant = 'top') {
+  const B = BUN[v]; const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424;
+  if (v === 'nape') { // low bun: on the back of the head below the hat rim, pointing back/down
+    const el = -0.32; const d = new THREE.Vector3(0, Math.sin(el), Math.cos(el)); const base = C.clone().addScaledVector(d, rayR(cap, C, d)); const out = d.clone();
+    parts.push(hairEgg(base.clone().addScaledVector(out, 0.045 * k), new THREE.Vector3(B.r[0], B.r[1], B.r[2]).multiplyScalar(k), 12, 8, new THREE.Euler(-el, 0, 0)));
+    parts.push(hairRing(base.clone().addScaledVector(out, 0.006 * k), out, B.wr * k, 0.017 * k));
+  } else {
+    const up = new THREE.Vector3(0, 1, B.dz).normalize(); const top = C.clone().addScaledVector(up, rayR(cap, C, up));
+    parts.push(hairEgg(top.clone().add(new THREE.Vector3(0, B.lift * k, B.fz * k)), new THREE.Vector3(B.r[0], B.r[1], B.r[2]).multiplyScalar(k), 14, 9));
+    parts.push(hairRing(top.clone().add(new THREE.Vector3(0, 0.004 * k, 0.004 * k)), up.clone().add(new THREE.Vector3(0, 0, 0.06)), B.wr * k, 0.02 * k));
+  }
   for (const sd of [1, -1]) {
-    const a0 = sd * 1.0, a1 = sd * 1.22; const d0 = new THREE.Vector3(Math.sin(a0) * Math.cos(0.5), Math.sin(0.5), -Math.cos(a0) * Math.cos(0.5));
-    const s = C.clone().addScaledVector(d0, rayR(cap, C, d0) - 0.004 * k); const yEnd = C.y - 0.1 * k; const e = dirAt(C, a1, 0, t.headRadius(a1, yEnd) + 0.026 * k); e.y = yEnd;
-    const m = s.clone().lerp(e, 0.45); const out = new THREE.Vector3(m.x - C.x, 0, m.z - C.z).normalize(); m.addScaledVector(out, 0.03 * k);
+    const hatted = v === 'nape'; const el0 = hatted ? 0.15 : 0.5; // under a hat the strands start below the rim and hug the head
+    const a0 = sd * 1.0, a1 = sd * 1.22; const d0 = new THREE.Vector3(Math.sin(a0) * Math.cos(el0), Math.sin(el0), -Math.cos(a0) * Math.cos(el0));
+    const s = C.clone().addScaledVector(d0, rayR(cap, C, d0) - 0.004 * k); const yEnd = C.y - 0.1 * k; const e = dirAt(C, a1, 0, t.headRadius(a1, yEnd) + (hatted ? 0.018 : 0.026) * k); e.y = yEnd;
+    const m = s.clone().lerp(e, 0.45); const out = new THREE.Vector3(m.x - C.x, 0, m.z - C.z).normalize(); m.addScaledVector(out, (hatted ? 0.012 : 0.03) * k);
     parts.push(tube(new THREE.CatmullRomCurve3([s, m, e]), (x) => (0.016 - 0.008 * x) * k, 6, 5));
   }
 }
@@ -103,16 +123,17 @@ function braids(t: Prepared, parts: THREE.BufferGeometry[]) {
 
 export interface HairBuild { hair: THREE.BufferGeometry; ties: { pos: THREE.Vector3; r: number; axis: THREE.Vector3 }[]; /** geometry the hats are fitted on */ under: THREE.BufferGeometry }
 const hairCache = new Map<string, HairBuild>();
-export function buildHair(style: HairStyle, hat: boolean, t: Prepared, f: Prepared, m: Prepared): HairBuild {
-  const key = `${style}|${hat}|${t.parts.vertexCount}|${t.parts.features.headTop[1]}`; const hit = hairCache.get(key); if (hit) return hit;
+/** `wear` = headwear model (hat or headphones), only used by bun_high to pick its variant. */
+export function buildHair(style: HairStyle, hat: boolean, t: Prepared, f: Prepared, m: Prepared, wear = ''): HairBuild {
+  const key = `${style}|${hat}|${t.parts.vertexCount}|${t.parts.features.headTop[1]}|${style === 'bun_high' ? wear : ''}`; const hit = hairCache.get(key); if (hit) return hit;
   const C = t.cranium; const fe = t.parts.features; const fCap = transferHead(f.hairCap, f, t); const mCap = transferHead(m.hairCap, m, t);
   const parts: THREE.BufferGeometry[] = []; const ties: HairBuild['ties'] = []; let under = fCap;
   const R = t.headRadius(Math.PI, C.y);
   const buzz = () => scalp(t, 0.0045);
-  switch (hat && ['buns', 'afro', 'mohawk', 'manbun', 'quiff', 'bun_high'].includes(style) ? (style === 'buns' || style === 'bun_high' ? 'bob0' : 'buzz') : style) {
+  switch (hat && ['buns', 'afro', 'mohawk', 'manbun', 'quiff'].includes(style) ? (style === 'buns' ? 'bob0' : 'buzz') : style) {
     case 'buns': parts.push(fCap); if (f.buns) parts.push(transferHead(f.buns, f, t)); break;
     case 'bob0': parts.push(fCap); break;
-    case 'bun_high': parts.push(fCap); bunHigh(t, fCap, parts); break;
+    case 'bun_high': parts.push(fCap); bunHigh(t, fCap, parts, BUN_UNDER[wear] ?? 'top'); break;
     case 'braids': parts.push(fCap); braids(t, parts); break;
     case 'quiff': parts.push(mCap); under = mCap; break;
     case 'buzz': { const g = buzz(); parts.push(g); under = g; break; }
