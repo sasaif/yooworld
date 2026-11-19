@@ -35,9 +35,9 @@ export interface PosePreset {
 const D = Math.PI / 180;
 export const PRESETS: Record<PresetId, PosePreset> = {
   lounger: { kind: 'bed', style: { droop: 0, shinBack: 0, splay: 0.06, footDown: 0, lean: 0 }, approach: 0.3, feet: 'floor', turn: 0.45, sitIn: 0.65, sitOut: 0.65, recline: 1.1, unrecline: 0.95, liePitch: -(Math.PI / 2 - 0.98), lieCurve: { legs: [0, 0.4], pitch: [0.1, 0.9], slide: [0.35, 1] } },
-  stool: { clearance: 0.09, kind: 'stool', style: { droop: 2 * D, shinBack: 5 * D, splay: 0.12, footDown: 12 * D, lean: 3 * D }, approach: 0.28, feet: 'dangle', turn: 0.45, sitIn: 0.7, sitOut: 0.55 },
-  chair: { kind: 'chair', style: { droop: 4 * D, shinBack: -4 * D, splay: 0.08, footDown: 0, lean: 0 }, approach: 0.2, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
-  deskChair: { kind: 'chair', style: { droop: 4 * D, shinBack: -4 * D, splay: 0.1, footDown: 0, lean: 0 }, approach: 0.22, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
+  stool: { clearance: 0.06 /* pelvis lifts 6 cm mid-way: clears the stool's front edge (seq-capture: 0 cm, was 4.9–7.4 cm) */, kind: 'stool', style: { droop: 18 * D, shinBack: 14 * D, splay: 0.12, footDown: 30 * D, lean: 3 * D }, approach: 0.28, feet: 'dangle', turn: 0.45, sitIn: 0.7, sitOut: 0.55 },
+  chair: { kind: 'chair', style: { droop: 18 * D, shinBack: 0, splay: 0.08, footDown: 14 * D, lean: 0 }, approach: 0.2, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
+  deskChair: { kind: 'chair', style: { droop: 18 * D, shinBack: 0, splay: 0.1, footDown: 14 * D, lean: 0 }, approach: 0.22, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
   sofa: { kind: 'sofa', style: { droop: 0, shinBack: -12 * D, splay: 0.1, footDown: 0, lean: -4 * D }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
   armchair: { kind: 'sofa', style: { droop: 0, shinBack: -12 * D, splay: 0.1, footDown: 0, lean: -5 * D }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
   bedEdge: { kind: 'bed', style: { droop: 2 * D, shinBack: -8 * D, splay: 0.08, footDown: 0, lean: 0 }, approach: 0.22, feet: 'floor', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
@@ -58,8 +58,8 @@ export const INTERACTIONS: Record<string, FurnitureInteractions> = {
   loungeSofaCorner: { interactions: ['sit', 'watch'], sit: sofa([-0.32, 0.18], -0.16, 0.276) },
   loungeChair: { interactions: ['sit', 'watch'], sit: sofa([0], 0.17, 0.276, 'armchair') },
   chair: { interactions: ['sit', 'watch'], depth: 0.05, sit: [{ x: 0, hipZ: 0.12, h: 0.288, preset: 'chair' }] },
-  chairDesk: { interactions: ['sit', 'watch', 'use'], sit: [{ x: 0, hipZ: 0.12, h: 0.28, preset: 'deskChair' }] },
-  stoolBar: { interactions: ['sit'], sit: [{ x: 0, hipZ: 0.09, h: 0.522, preset: 'stool' }] },
+  chairDesk: { interactions: ['sit', 'watch', 'use'], sit: [{ x: 0, hipZ: 0.18, h: 0.28, preset: 'deskChair' }] },
+  stoolBar: { interactions: ['sit'], sit: [{ x: 0, hipZ: 0.13, h: 0.522, preset: 'stool' }] },
   bedDouble: {
     interactions: ['sit', 'lie'], depth: 0.42,
     sit: [{ x: -0.25, hipZ: 0.62, h: 0.3, preset: 'bedEdge' }, { x: 0.25, hipZ: 0.62, h: 0.3, preset: 'bedEdge' }],
