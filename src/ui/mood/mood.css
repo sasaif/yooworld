@@ -4,8 +4,9 @@
   background:rgba(255,255,255,.96); box-shadow:0 8px 22px rgba(0,0,0,.28); z-index:110; }
 .dock .mood-menu button { min-width:52px; min-height:52px; padding:4px; border-radius:14px; font-size:24px; }
 .dock .mood-menu button:hover, .dock .mood-menu button:focus-visible { background:#f3e3f7; outline:2px solid #b24bd1; outline-offset:-2px; }
+.dock .mood-menu .mood-emoji { font-size:24px; line-height:1; margin:0; }
 .dock .mood-menu .mood-label { font-size:10px; font-weight:700; margin-top:1px; white-space:nowrap; }
-@media (max-height: 430px) { .dock .mood-menu button { min-width:48px; min-height:48px; font-size:22px; } }
+@media (max-height: 430px) { .dock .mood-menu button { min-width:48px; min-height:50px; } .dock .mood-menu .mood-emoji { font-size:22px; } }
 @media (prefers-reduced-motion: no-preference) { .dock .mood-menu { animation:mood-pop .14s ease-out; } }
 @keyframes mood-pop { from { opacity:0; transform:translate(-50%, 6px); } to { opacity:1; transform:translate(-50%, 0); } }
 /* "!" mark (surprised) popping just under the name tag, over the top of the head: crisp DOM text, readable at the real
