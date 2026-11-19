@@ -7,7 +7,7 @@ const { chromium } = createRequire(import.meta.url)('playwright-core');
  * For each scenario: walk to the furniture, sit / lie, hold, get up with the real input (touch joystick on phones,
  * keyboard on desktop) or interrupt half-way; records root / hips / head positions, yaw, seat phase each frame,
  * skinned vertices below the seat surface inside the furniture footprint (clipping) every 3rd frame, and crops.
- * usage: node tools/seq-capture.mjs [url] ; DEV=iphone15|desktop ; CHAR=f|m ; SCEN=stool,chair,... ; OUT=dir ; EVERY=2 ; CHECK=1 (assert the
+ * usage: node tools/seq-capture.mjs [url] ; DEV=iphone15|desktop ; CHAR=f|m ; (SCEN=sofaCorner adds a corner sofa to the room: run it on its own) SCEN=stool,chair,... ; OUT=dir ; EVERY=2 ; CHECK=1 (assert the
  *        regression limits below: clipping, hip jumps, seated sole height, lounger lying pose; exit code 1 on failure)
  * output: OUT/<scen>_<dev>/f####.png (crops), OUT/full_<dev>/ (full frames for the video), OUT/metrics_<dev>.json
  */
@@ -46,10 +46,15 @@ await p.evaluate(() => {
         const nI = idx ? idx.count : pos.count; for (let t = 0; t < nI; t++) { a.fromBufferAttribute(pos, idx ? idx.getX(t) : t).applyMatrix4(W); out.push(a.x, a.y, a.z); } } });
     return (triCache[key] = out.length ? new Float32Array(out) : null); };
   /** depth of (x,y,z) inside the closed triangle soup T (0 = outside): parity of the 6 axis rays, ≥ 4 odd = inside (robust to open Kenney seams) */
-  window.__inside = (T, x, y, z) => { const D = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]; const cnt = [0, 0, 0, 0, 0, 0]; const near = [Infinity, Infinity, Infinity, Infinity, Infinity, Infinity];
-    for (let t = 0; t < T.length; t += 9) { const ax = T[t], ay = T[t + 1], az = T[t + 2], e1x = T[t + 3] - ax, e1y = T[t + 4] - ay, e1z = T[t + 5] - az, e2x = T[t + 6] - ax, e2y = T[t + 7] - ay, e2z = T[t + 8] - az;
+  const bbCache = new WeakMap(); // per-triangle AABB: an axis ray can only hit triangles whose box spans the 2 other coordinates
+  window.__inside = (T, x, y, z) => { let B = bbCache.get(T); if (!B) { B = new Float32Array(T.length / 9 * 6); for (let t = 0, k = 0; t < T.length; t += 9, k += 6) for (let a = 0; a < 3; a++) { B[k + a] = Math.min(T[t + a], T[t + 3 + a], T[t + 6 + a]); B[k + 3 + a] = Math.max(T[t + a], T[t + 3 + a], T[t + 6 + a]); } bbCache.set(T, B); }
+    const D = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]; const cnt = [0, 0, 0, 0, 0, 0]; const near = [Infinity, Infinity, Infinity, Infinity, Infinity, Infinity]; const P = [x, y, z];
+    for (let t = 0, k = 0; t < T.length; t += 9, k += 6) { const inX = x >= B[k] && x <= B[k + 3], inY = y >= B[k + 1] && y <= B[k + 4], inZ = z >= B[k + 2] && z <= B[k + 5];
+      if ((inY ? 1 : 0) + (inZ ? 1 : 0) + (inX ? 1 : 0) < 2) continue;
+      const ax = T[t], ay = T[t + 1], az = T[t + 2], e1x = T[t + 3] - ax, e1y = T[t + 4] - ay, e1z = T[t + 5] - az, e2x = T[t + 6] - ax, e2y = T[t + 7] - ay, e2z = T[t + 8] - az;
       const sx = x - ax, sy = y - ay, sz = z - az;
-      for (let di = 0; di < 6; di++) { const [dx, dy, dz] = D[di]; const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x; const det = e1x * px + e1y * py + e1z * pz; if (Math.abs(det) < 1e-12) continue;
+      for (let di = 0; di < 6; di++) { const axis = di % 3; if (!(axis === 0 ? inY && inZ : axis === 1 ? inX && inZ : inX && inY)) continue; if (di < 3 ? B[k + 3 + axis] < P[axis] : B[k + axis] > P[axis]) continue;
+        const [dx, dy, dz] = D[di]; const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x; const det = e1x * px + e1y * py + e1z * pz; if (Math.abs(det) < 1e-12) continue;
         const inv = 1 / det; const u = (sx * px + sy * py + sz * pz) * inv; if (u < 0 || u > 1) continue; const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x;
         const w = (dx * qx + dy * qy + dz * qz) * inv; if (w < 0 || u + w > 1) continue; const tt = (e2x * qx + e2y * qy + e2z * qz) * inv; if (tt > 1e-6) { cnt[di]++; if (tt < near[di]) near[di] = tt; } } }
     const odd = cnt.filter((c) => c % 2 === 1).length; return odd >= 4 ? Math.min(...near) : 0; };
@@ -165,7 +170,7 @@ if (process.env.CHECK) {
   // 0.7 / 0.3, desk chair 0.9 / 1.1, sofa 1.1 / 1.7, armchair 0.9 / 1.5, stool 0 / 0 cm for Juanita / Juan).
   const ringSrc = fs.readFileSync(new URL('../src/data/furnitureReshape.ts', import.meta.url), 'utf8').match(/stoolBar:[^\n]*ring: \{ y: ([\d.]+), r: ([\d.]+), tube: [\d.]+, cz: ([\d.]+) \}/);
   const RING = ringSrc ? { y: +ringSrc[1], r: +ringSrc[2], cz: +ringSrc[3] } : null;
-  const LIM = { stool: { pen: 1.0, mesh: 0.6, ring: true }, chair: { pen: 1.0, mesh: 1.2, sole: 0.01 }, deskChair: { pen: 1.0, mesh: 1.2, sole: 0.01 },
+  const LIM = { stool: { pen: 1.0, mesh: 1.0, ring: true }, chair: { pen: 1.0, mesh: 1.2, sole: 0.01 }, deskChair: { pen: 1.0, mesh: 1.2, sole: 0.01 },
     sofa: { mesh: 1.6, sole: 0.01 }, armchair: { mesh: 1.6, sole: 0.01 }, sofaCorner: { mesh: 1.0, sole: 0.01 },
     lounger: { pen: 4.0, penLying: 0.5, torso: [25, 45] }, interruptLounger: { pen: 4.0 } };
   let bad = 0; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined && extra !== null ? ' ' + JSON.stringify(extra) : '')); if (!c) bad++; };

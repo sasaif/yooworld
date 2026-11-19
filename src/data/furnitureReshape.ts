@@ -11,7 +11,7 @@ export interface LegReshape { below: number; drop: number; ring?: { y: number; r
 export const LEG_RESHAPE: Record<string, LegReshape> = {
   chair: { below: 0.228, drop: 0.093 },                 // seat 0.288 → 0.195 m
   chairDesk: { below: 0.228, drop: 0.085 },             // seat 0.280 → 0.195 m (gas column + star base)
-  stoolBar: { below: 0.426, drop: 0.10, ring: { y: 0.26, r: 0.21, tube: 0.012, cz: 0.07 } }, // seat 0.522 → 0.422 m
+  stoolBar: { below: 0.426, drop: 0.10, ring: { y: 0.26, r: 0.17, tube: 0.012, cz: 0.11 } }, // seat 0.522 → 0.422 m
   loungeSofa: { below: 0.174, drop: 0.06 },             // cushion 0.276 → 0.216 m (feet + base)
   loungeSofaCorner: { below: 0.174, drop: 0.06 },
   loungeChair: { below: 0.174, drop: 0.06 },
