@@ -37,7 +37,7 @@ sur ordinateur. **Pas de vrai multijoueur pour l'instant** : tout est local, et 
 
 Chaque branche part de la précédente : `phase-1` → `phase-2` → `main` → `polish-mobile` → `surprise-plage` →
 `feature/avatar-fashion-economy` → `feature/movement-controls` → `feature/perf-foundations` →
-`feature/polish-experience` → `feature/interaction-polish`.
+`feature/polish-experience` → `feature/interaction-polish` → `feature/gameplay-polish`.
 
 | Branche | Contenu |
 |---|---|
@@ -50,7 +50,8 @@ Chaque branche part de la précédente : `phase-1` → `phase-2` → `main` → 
 | `feature/movement-controls` | étape 1 joystick virtuel ; étape 2 tap-to-move mobile (option, désactivé par défaut) et click-to-move sur ordinateur avec repère de destination |
 | `feature/perf-foundations` | compteur FPS (dev ou `?perf=1`, F9), fuite mémoire plage ↔ appart corrigée, ressources partagées, `tools/perf-baseline.mjs` |
 | `feature/polish-experience` | plein écran iPhone sans bande vide, caméra bornée à la pièce, plage de zoom (dézoom = tout l'appart, zoom = avatar), vraie pose assise procédurale, pose allongée, chat compact, badge « Mode local », poussière dans la lumière, checklist pour vrai appareil |
-| `feature/interaction-polish` | **dernière branche.** Transitions fluides debout ↔ assis ↔ allongé ↔ debout, registre d'interactions par meuble (canapé 3 places, lit double à 2 places), chat repliable et longs messages. Voir `docs/13-interaction-polish.md` |
+| `feature/interaction-polish` | Transitions fluides debout ↔ assis ↔ allongé ↔ debout, registre d'interactions par meuble (canapé 3 places, lit double à 2 places), chat repliable et longs messages. Voir `docs/13-interaction-polish.md` |
+| `feature/gameplay-polish` | **passe gameplay (non fusionnée, non déployée).** Marche plus lente `?walk=a|b|c` (défaut b 1,48 m/s) avec accélération/arrêt progressifs, bouton 🏃 course, `?move=classic` = ancien contrôleur ; allure calée sur la foulée mesurée ; double toucher corrigé ; transats de la plage sur le système d'interactions ; **option C** : chaise, chaise de bureau, tabouret (+ repose-pied) et canapés abaissés pour que les pieds touchent le sol ; dock qui ne recouvre plus le bouton 🏃 ; CI GitHub Actions. Voir `docs/13-interaction-polish.md` §5 |
 
 `gh-pages` contient uniquement les builds publiés (voir §4).
 
@@ -68,6 +69,7 @@ Chaque branche part de la précédente : `phase-1` → `phase-2` → `main` → 
 | https://sasaif.github.io/yooworld/interactions/ | `feature/interaction-polish` (**la plus récente**) |
 
 Paramètres d'URL :
+- `?walk=a|b|c` : vitesse de marche (b par défaut) ; `?move=classic` : ancien contrôleur (branche `feature/gameplay-polish`).
 - `?v=1|2|3` : variante de taille et de cadrage (V1 environ 75 px, V2 environ 85 px, **V3 = caméra rapprochée, par défaut**).
 - `?lieu=plage|beach|appart|home|maison` : lieu de départ.
 - `?joystick=1` force le joystick, `?joystick=0` le cache.
@@ -82,7 +84,7 @@ git clone https://github.com/sasaif/yooworld && cd yooworld && git checkout feat
 npm ci
 npm run dev                         # http://localhost:5173
 npx tsc --noEmit -p .               # types
-npx vitest run                      # tests unitaires (212 sur feature/interaction-polish)
+npx vitest run                      # tests unitaires (225 sur feature/gameplay-polish)
 npx vite build --outDir /tmp/exp_local && npx serve -l 5270 /tmp/exp_local   # build local pour les e2e (ou tout serveur statique)
 ```
 
@@ -92,10 +94,12 @@ Tests e2e (Node + playwright-core + Chrome ; URL en 1er argument, par défaut un
 |---|---|---|
 | `tools/e2e-experience.mjs` | plein écran, caméra, zoom, chat, sièges et lit, télé | `iphone15`, `pixel7`, `ipad`, `desktop` |
 | `tools/e2e-step2.mjs` | tap-to-move et click-to-move | `iphone15`, `desktop` |
-| `tools/e2e-joystick.mjs` | joystick avec vrais touchers | `iphone15`, `pixel7`, `se`, `ipad` |
+| `tools/e2e-joystick.mjs` | joystick avec vrais touchers (nouveau modèle par défaut ; ajouter `?move=classic` à l'URL pour l'ancien contrôleur) | `iphone15`, `pixel7`, `se`, `ipad` |
 | `tools/e2e-desktop-move.mjs`, `e2e-beach.mjs`, `e2e-fashion.mjs`, `e2e.mjs` | anciens lots : clavier/souris, plage, boutique, base | |
 | `tools/perf-baseline.mjs --check` | refuse une hausse des draw calls de plus de 20 % (`tools/perf-baseline.json`) | |
-| `tools/seq-capture.mjs` | **transitions image par image en temps virtuel 60 i/s** : mesure les sauts par image et la pénétration dans les meubles, avec `tools/contact_sheet.py` pour les planches | `iphone15`, `desktop` |
+| `tools/seq-capture.mjs` | **transitions image par image en temps virtuel 60 i/s** : sauts par image, peau à l'intérieur du maillage du meuble, hauteur des semelles assis, position des pieds ; `CHECK=1` vérifie les limites, `CHAR=f|m` choisit l'avatar ; `tools/contact_sheet.py` pour les planches | `iphone15`, `desktop` |
+| `tools/e2e-gameplay.mjs` | profils de marche, course, allure vs foulée, glissement des pieds, étiquette vs puces, chat + clavier | iPhone 15 |
+| `tools/e2e-layout.mjs` | dock vs joystick / bouton 🏃 / place du bouton Humeur, de 667 à 932 px | |
 | `tools/chat-shots.mjs` | chat : replié, déplié, longs messages, vérifications de mise en page | iPhone 15 |
 
 Exemple : `DEV=iphone15 node tools/e2e-experience.mjs http://127.0.0.1:5270/`.
@@ -145,12 +149,12 @@ La racine du site (`/yooworld/`) correspond à `main` : ne la remplace pas sans 
 
 ## 7. Limites connues et points ouverts
 
-- **Pieds dans le vide** sur les chaises et le tabouret : les jambes chibi sont trop courtes pour atteindre le sol ou le
-  repose-pied (0,17 m). Solutions possibles, à lui proposer : abaisser les meubles ou allonger un peu les jambes.
+- ~~Pieds dans le vide~~ : réglé sur `feature/gameplay-polish` par l'option C (meubles abaissés, squelette inchangé).
+  Pouf devant le canapé non ajouté (il bloquerait la place où l'avatar s'assoit) : à rediscuter.
+- **Canapé d'angle :** un saut de 7,5 cm sur une image en se tournant (déjà là avant, 8,2 cm).
 - **Couché sur le lit :** le chignon touche le bord de la tête de lit (jusqu'à environ 4 cm) et les mollets flottent de
   quelques cm au-dessus de la couette.
-- **Petits chevauchements** de 2 à 4 cm entre le corps et le fauteuil ou la chaise de bureau.
-- **Transats de Yoo Plage :** encore l'ancienne animation SitDown, sans les nouvelles transitions.
+- **Contact avec l'assise :** au plus 1 à 1,5 cm de peau dans le coussin (mesuré sur le vrai maillage), comme avant.
 - **Vérification sur vrai appareil :** tout a été testé en émulation (Chrome headless). Le clavier iOS a été simulé. Une
   capture de l'utilisateur sur iPhone a confirmé l'assise sur le tabouret et le chat. Checklist : `docs/12-real-device-checklist.md`.
 - **Visages, coiffures et animations des avatars :** améliorations proposées, en attente de son accord.
@@ -173,7 +177,7 @@ La racine du site (`/yooworld/`) correspond à `main` : ne la remplace pas sans 
 | `docs/10-performance-foundations.md` | règles de performance et compteur FPS |
 | `docs/11-experience-audit.md`, `docs/11-progress.md` | audit et avancement du chantier « expérience » |
 | `docs/12-real-device-checklist.md` | checklist pour tester sur un vrai iPhone |
-| `docs/13-interaction-polish.md` | transitions, registre d'interactions, chat repliable (mesures et planches) |
+| `docs/13-interaction-polish.md` | transitions, registre d'interactions, chat repliable ; §5 passe gameplay (déplacement, option C, dock, CI) |
 | `docs/LICENCES.md` | licences des assets |
 | `docs/COMPARE_V.md`, `docs/POLISH_AUDIT.md`, `docs/PLAGE_ACCESS.md` | comparaison V1/V2/V3, audit du polish, accès à la plage |
 
@@ -181,9 +185,9 @@ La racine du site (`/yooworld/`) correspond à `main` : ne la remplace pas sans 
 
 1. Faire passer la checklist de `docs/12-real-device-checklist.md` à l'utilisateur sur l'URL `/interactions/`, puis
    corriger ce qu'il signale.
-2. Décider avec lui comment régler les pieds dans le vide (meubles plus bas ou jambes un peu plus longues).
-3. Passer les transats de la plage sur le registre et les nouvelles transitions.
-4. Améliorer visages, coiffures et animations des avatars, **seulement après son accord**.
-5. Quand il le demandera : vrai multijoueur (serveur, présence, chat en ligne), puis économie côté serveur, avant tout
+2. Faire tester `feature/gameplay-polish` (vitesse de marche, course, meubles abaissés) sur le vrai iPhone, après son accord
+   pour un déploiement de test, puis une intégration contrôlée avec les branches d'Art & Avatars (bouton Humeur).
+3. Améliorer visages, coiffures et animations des avatars, **seulement après son accord**.
+4. Quand il le demandera : vrai multijoueur (serveur, présence, chat en ligne), puis économie côté serveur, avant tout
    paiement réel.
-6. Quand le jeu sera stable : la phase d'optimisation graphique complète, qu'il a reportée.
+5. Quand le jeu sera stable : la phase d'optimisation graphique complète, qu'il a reportée.
