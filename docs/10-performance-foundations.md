@@ -9,7 +9,7 @@ Une passe d’optimisation professionnelle est prévue plus tard, une fois les s
 Un petit moniteur dans le coin haut droit (sous la barre du haut, à l’écart du joystick et du dock, zones sûres respectées) affiche :
 
 * FPS et temps de frame moyen / pire sur ~1,5 s
-* draw calls, triangles, géométries, textures, programmes (`renderer.info`)
+* draw calls **réels de la dernière image : total = passe principale + passe d’ombres**, affichés séparément (`draw 154 = 87 + ombre 67`), puis triangles, géométries, textures, programmes (`renderer.info`)
 * nombre de matériaux uniques dans la scène
 
 **Quand il apparaît**
@@ -18,11 +18,11 @@ Un petit moniteur dans le coin haut droit (sous la barre du haut, à l’écart 
 * Sur un build déployé : ajouter `?perf=1` à l’URL, par ex. `https://sasaif.github.io/yooworld/perf/?perf=1`.
 * Touche **F9** ou **\`** (backtick) pour le masquer / le réafficher (ignorée quand on tape dans un champ). Une fois masqué, le collecteur est démonté : coût nul.
 
-**Pour les tests** : `window.__perf()` renvoie le dernier instantané (`fps`, `msAvg`, `msWorst`, `calls`, `triangles`, `geometries`, `textures`, `programs`, `uniqueGeometries`, `uniqueMaterials`, `visible`, `samples`). `window.__info` (déjà utilisé par les outils) reste alimenté.
+**Pour les tests** : `window.__perf()` renvoie le dernier instantané (`fps`, `msAvg`, `msWorst`, `calls` = total, `callsMain`, `callsShadow`, `triangles` = total, `trianglesShadow`, `geometries`, `textures`, `programs`, `uniqueGeometries`, `uniqueMaterials`, `visible`, `samples`). `window.__info` (déjà utilisé par les outils) reste alimenté, avec les mêmes champs `calls` (total), `callsMain`, `callsShadow`.
 
 En dev, un `console.warn` est émis si le FPS reste sous 25 pendant plusieurs secondes (rappel : en Chrome headless + SwiftShader on est typiquement à 3–8 fps, ce n’est pas représentatif d’un téléphone ou d’un ordinateur réel).
 
-Le script `tools/perf-baseline.mjs` charge l’appartement et la plage en headless (desktop et iPhone 15 paysage) et enregistre `renderer.info`. Avec `--write` il met à jour `tools/perf-baseline.json`. Avec `--check` (défaut) il échoue si les draw calls dépassent la baseline de plus de 20 %.
+Le script `tools/perf-baseline.mjs` charge l’appartement et la plage en headless (desktop et iPhone 15 paysage) et enregistre les compteurs du renderer : draw calls **principal, ombres et total**, triangles (dont ombres), géométries, textures, programmes. Avec `--write` il met à jour `tools/perf-baseline.json`. Avec `--check` (défaut) il échoue si le **total** des draw calls dépasse la baseline de plus de 20 %. Il affiche aussi chaque scène face à son budget souple (appartement 120, plage 40) : `AU-DESSUS DU BUDGET` est écrit en clair, sans faire échouer la garde (la garde sert à repérer une régression, le budget à suivre l’objectif).
 
 ```bash
 # serveur local déjà lancé, ex. vite preview sur le port 5241
@@ -42,7 +42,7 @@ node tools/perf-baseline.mjs http://127.0.0.1:5241/ --check
 
 | Repère | Appartement (actuel) | Yoo Plage (actuel) | Souple, à ne pas dépasser sans raison |
 |---|---|---|---|
-| Draw calls (dernière frame, y compris ombres) | ~82–86 | ~21 | appartement 120, plage 40, nouveau lieu public 60 (à ne dépasser qu’avec une bonne raison) |
+| Draw calls (dernière frame, **total = principal + ombres**, voir ci-dessous) | 150–154 (83–87 + 67) | 31 (21 + 10) | appartement 120, plage 40, nouveau lieu public 60 (à ne dépasser qu’avec une bonne raison) |
 | Triangles | ~54 k | ~68 k | moins de 100 k par lieu en conditions normales |
 | Textures (GPU) | ~12–13 | ~11 | préférer ≤ 1024 px (avatars déjà en 1024 JPEG) ; éviter d’ajouter une 2K « pour plus tard » |
 | Lumières dynamiques avec ombre | 1 soleil | 1 soleil | ne pas multiplier les `castShadow` ; les lampes d’intérieur restent sans ombre |
@@ -69,11 +69,26 @@ Pas de réécriture. Seulement des fuites évidentes, des caches manquants et de
 
 Les draw calls et les triangles **au premier chargement** ne changent pas : la scène était déjà bien batchée (instances de meubles, un seul batch pour le décor de la plage). Le gain se voit sur les **allers-retours entre lieux** : sans ces corrections, géométries et textures GPU augmentaient à chaque voyage.
 
+### Comptage des draw calls : la passe d’ombres était invisible (corrigé le 19 nov. 2026)
+
+`three` r170 remet `renderer.info` à zéro **après** avoir dessiné les cartes d’ombre (`WebGLRenderer.render` : `shadowMap.render(...)`, puis `if (info.autoReset) info.reset()`). Avant cette correction, l’overlay, `window.__perf()`, `window.__info` et `perf-baseline` ne voyaient donc que la passe principale. `src/render/perf/drawCounter.ts` prend la main sur la remise à zéro (`info.autoReset = false`, une remise à zéro au début de chaque `render()`) et mesure la passe d’ombres en enveloppant `shadowMap.render`. Il est installé sur le renderer du jeu pendant toute la session (composant `Stats`).
+
+Vérification : en comptant directement les appels WebGL `draw*` de chaque image (outil QA hors dépôt, Chrome headless SwiftShader), on obtient exactement les mêmes totaux que l’overlay.
+
+| Lieu | Appareil (headless) | Principal | Ombres | **Total** | Budget souple | Triangles total (dont ombres) |
+|---|---|---:|---:|---:|---:|---:|
+| Appartement | Desktop | 87 | 67 | **154** | 120 → **dépassé (+34)** | 84 268 (30 001) |
+| Appartement | iPhone 15 | 83 | 67 | **150** | 120 → **dépassé (+30)** | 84 038 (30 001) |
+| Yoo Plage | Desktop | 21 | 10 | **31** | 40 | 112 282 (44 069) |
+| Yoo Plage | iPhone 15 | 21 | 10 | **31** | 40 | 112 282 (44 069) |
+
+Les chiffres du tableau « Premier chargement » ci-dessous (86/82/21/21) étaient donc la **passe principale seule**. Le budget de 120 reste la référence : l’appartement le dépasse aujourd’hui, à cause des 67 appels de la passe d’ombres (67 objets projettent une ombre). Le repère « moins de 100 k triangles » avait été posé sur la passe principale (54 k / 68 k) ; avec les ombres, la plage atteint 112 k triangles par image.
+
 ## Mesures (18 nov. 2026)
 
 Chrome headless, SwiftShader (`--use-gl=angle --use-angle=swiftshader`). Le FPS (3–8) **n’est pas représentatif** d’un appareil réel — on s’appuie sur les compteurs `renderer.info`. Desktop 1440×900 @1x, iPhone 15 paysage 852×393 @3x. Qualité `high` sur desktop, `low` sur l’émulation iPhone (moins de lampes, d’où 4 draw calls et 2 géométries de moins dans l’appartement).
 
-### Premier chargement (identique avant / après l’audit)
+### Premier chargement (identique avant / après l’audit) — draw calls de la passe principale seulement
 
 | Lieu | Appareil | Draw calls | Triangles | Géométries (GPU) | Textures | Programmes | Matériaux uniques |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -99,6 +114,7 @@ Avant, chaque aller-retour ajoutait une quinzaine de géométries et ~7 textures
 
 | Fichier | Rôle |
 |---|---|
+| `src/render/perf/drawCounter.ts` | comptage exact des draw calls : passe principale, passe d’ombres, total |
 | `src/render/perf/perfStats.ts` | fenêtre FPS, instantané, `window.__perf`, disponibilité, toggle |
 | `src/render/perf/PerfOverlay.tsx` | collecteur R3F (monté seulement si l’overlay est allumé) + HUD HTML |
 | `src/render/dispose.ts` | `useDispose` / `disposeMesh` |
