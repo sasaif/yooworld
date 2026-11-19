@@ -1,21 +1,26 @@
 import { equip } from '../fashion/look';
 import { world } from '../game/world';
 import { GameController } from '../game/GameController';
-import { LocalStorageRepository, MemoryRepository, type KV } from '../persistence/LocalStorageRepository';
+import { LocalStorageRepository } from '../persistence/LocalStorageRepository';
 import { OfflineTransport } from '../net/NetworkTransport';
 import { LocalDevEconomy } from '../economy/LocalDevEconomy';
 import { FashionController } from '../fashion/FashionController';
 import { newTxId } from '../economy/EconomyService';
-/** Composition root: pick implementations here (server repo / real transport / RemoteEconomy later). */
-const q = new URLSearchParams(location.search);
-const fresh = q.has('shot') || q.has('fresh') || q.has('thumbs');
-const memKV = (): KV => { const m = new Map<string, string>(); return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => void m.set(k, v), removeItem: (k) => void m.delete(k) }; };
+import { storage } from '../persistence/storage';
+import { SaveBackups } from '../persistence/backup';
+/** Composition root: pick implementations here (server repo / real transport / RemoteEconomy later).
+ *  All persistence goes through storage.data = this build's save env only (P0.A; ?fresh = in memory). */
+export const backups = new SaveBackups(storage.data, storage.env.id, storage.env.buildId);
 /** DEV economy: local TEST balances only (5 000 Or / 100 Diamants), never real money. */
-export const economy = new LocalDevEconomy(fresh ? memKV() : localStorage);
+export const economy = new LocalDevEconomy(storage.data, 'eco:dev', Date.now, backups);
 export const fashion = new FashionController(economy);
-export const game = new GameController(fresh ? new MemoryRepository() : new LocalStorageRepository(localStorage), new OfflineTransport(),
-  { balance: () => economy.goldBalance(), spend: (amount, memo) => { try { economy.spendGoldSync(amount, memo, newTxId('furniture')); return true; } catch { return false; } } });
-Object.assign(window as unknown as Record<string, unknown>, { game, __world: world, economy, fashion }); // debug / e2e handles
+export const game = new GameController(new LocalStorageRepository(storage.data, '', backups, { env: storage.env.id, buildId: storage.env.buildId }), new OfflineTransport(),
+  { balance: () => economy.goldBalance(), spend: (amount, memo) => { try { economy.spendGoldSync(amount, memo, newTxId('furniture')); return true; } catch { return false; } } },
+  { beforeReset: (reason) => backups.snapshot(reason) });
+/** P0.B: after a clean boot, keep a restore point of this env (deduplicated, ring of 3). */
+let bootSnap = false;
+game.store.subscribe(() => { if (game.s.ready && !game.s.temporary && !bootSnap) { bootSnap = true; if (!economy.problem) backups.snapshot('boot'); } });
+Object.assign(window as unknown as Record<string, unknown>, { game, __world: world, economy, fashion, __saveEnv: storage.env, __backups: backups }); // debug / e2e handles
 
 /** PERF / screenshots only: renders both avatars fully dressed (not saved, ignores ownership). */
 (window as unknown as Record<string, unknown>).__dressAll = () => {

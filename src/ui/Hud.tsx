@@ -2,6 +2,7 @@ import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../core/store';
+import { storage } from '../persistence/storage';
 import { game, fashion } from '../app/services';
 import { Wallet } from './fashion/Studio';
 import { AVATARS } from '../data/avatars';
@@ -38,9 +39,9 @@ export function Hud() {
     </>
   );
 }
-const SEEN_KEY = 'yw.placesSeen';
-const placesNew = () => { try { return localStorage.getItem(SEEN_KEY) !== '1'; } catch { return false; } };
-const markPlacesSeen = () => { try { localStorage.setItem(SEEN_KEY, '1'); } catch { /* */ } };
+const SEEN_KEY = 'placesSeen'; // logical pref names, namespaced per save env by storage.prefs
+const placesNew = () => { try { return storage.prefs.getItem(SEEN_KEY) !== '1'; } catch { return false; } };
+const markPlacesSeen = () => { try { storage.prefs.setItem(SEEN_KEY, '1'); } catch { /* */ } };
 function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const i = setInterval(() => f((n) => n + 1), ms); return () => clearInterval(i); }, [ms]); }
 
 function TopBar() {
@@ -203,15 +204,15 @@ function NetChip() {
     </span>
   );
 }
-const CHAT_COLLAPSED = 'yw.chatCollapsed';
-const readCollapsed = () => { try { return localStorage.getItem(CHAT_COLLAPSED) === '1'; } catch { return false; } };
+const CHAT_COLLAPSED = 'chatCollapsed';
+const readCollapsed = () => { try { return storage.prefs.getItem(CHAT_COLLAPSED) === '1'; } catch { return false; } };
 function ChatSheet() {
   const [msg, setMsg] = useState(''); const [, f] = useState(0);
   // collapsible card: folds to its header (unread counter), state kept across sessions
   const [collapsed, setCollapsed] = useState(readCollapsed); const [unread, setUnread] = useState(0); const [noteOpen, setNoteOpen] = useState(false);
   const col = useRef(collapsed); col.current = collapsed;
   useEffect(() => game.chat.onMessage(() => { f((n) => n + 1); if (col.current) setUnread((n) => n + 1); }), []);
-  const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { localStorage.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
+  const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { storage.prefs.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
   const log = useRef<HTMLDivElement>(null);
   // newest message in view: after each render AND whenever the log box is resized (iOS keyboard opening shrinks the
   // card: the log used to stay scrolled to the oldest lines), unless the player scrolled up to read the history

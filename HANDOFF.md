@@ -111,7 +111,8 @@ Arguments de Chrome headless : `--use-gl=angle --use-angle=swiftshader --enable-
 ### Déployer une branche dans un sous-dossier de GitHub Pages
 
 ```bash
-GH_PAGES=1 GH_PAGES_BASE=/yooworld/<dossier>/ npx vite build --outDir /tmp/xdist
+node tools/e2e-save-isolation.mjs --build   # OBLIGATOIRE avant toute publication : sauvegardes isolées (docs/SAVE_ISOLATION.md)
+GH_PAGES=1 GH_PAGES_BASE=/yooworld/<dossier>/ VITE_YW_ENV=test/<dossier> npx vite build --outDir /tmp/xdist   # env de sauvegarde test/<dossier>
 git fetch origin gh-pages && git worktree add /tmp/ghp origin/gh-pages && cd /tmp/ghp && git checkout -B gh-pages
 rm -rf <dossier> && cp -r /tmp/xdist <dossier> && git add -A <dossier>
 git -c user.name=sasaif -c user.email=5468710+sasaif@users.noreply.github.com commit -m "deploy <dossier>/" && git push origin gh-pages
@@ -120,7 +121,9 @@ gh api repos/sasaif/yooworld/pages/builds/latest --jq '.status+" "+.commit'   # 
 curl -s https://sasaif.github.io/yooworld/<dossier>/ | grep -o 'index-[^"]*js'   # vérifier le nouveau bundle
 ```
 
-Base Vite (`vite.config.ts`) : `GH_PAGES_BASE` sinon `/yooworld/` si `GH_PAGES=1`, sinon `/`.
+Base Vite et env de sauvegarde (`tools/save-env-rules.mjs`) : `GH_PAGES=1` exige `GH_PAGES_BASE` explicite ; `/yooworld/` = `prod`
+(clés historiques `yooworld:*` / `yw.*`), `/yooworld/<dossier>/` = `test/<dossier>` (clés `yooworld:e:test.<dossier>:*`), sinon `dev`.
+Un sous-dossier configuré en `prod` fait échouer le build. Voir `docs/SAVE_ISOLATION.md`.
 La racine du site (`/yooworld/`) correspond à `main` : ne la remplace pas sans l'accord de l'utilisateur.
 
 **Identité des commits (obligatoire) :** `git -c user.name=sasaif -c user.email=5468710+sasaif@users.noreply.github.com commit …`

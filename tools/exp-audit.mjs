@@ -17,7 +17,7 @@ for (const [name, o] of Object.entries(DEV)) {
   for (const sc of scenes) {
     const ctx = await b.newContext({ ...o, deviceScaleFactor: DPR ?? o.deviceScaleFactor }); const p = await ctx.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message));
-    await ctx.addInitScript((sc) => { try { sessionStorage.setItem('yw.portrait', '1'); localStorage.setItem('yw.camView', sc.includes('perso') ? 'avatar' : 'room'); } catch { /* */ } }, sc);
+    await ctx.addInitScript((sc) => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', sc.includes('perso') ? 'avatar' : 'room'); } catch { /* */ } }, sc);
     const sep = url.includes('?') ? '&' : '?';
     await p.goto(url + sep + 'fresh=1' + (sc === 'plage' ? '&lieu=plage' : '&lieu=appart'), { timeout: 120000 });
     await p.waitForFunction(() => window.game?.s.ready && window.__cam, null, { timeout: 180000 });

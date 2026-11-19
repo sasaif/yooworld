@@ -14,7 +14,7 @@ const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args
 const res = {};
 for (const [dn, opts] of Object.entries(DEVICES)) for (const v of vars) for (const view of views) {
   if (only && !only.includes(dn)) continue;
-  const ctx = await b.newContext(opts); await ctx.addInitScript((vw) => { try { localStorage.setItem('yw.camView', vw); localStorage.setItem('yw.placesSeen', '1'); } catch {} }, view);
+  const ctx = await b.newContext(opts); await ctx.addInitScript((vw) => { try { localStorage.setItem('yw:e:dev:camView', vw); localStorage.setItem('yw:e:dev:placesSeen', '1'); } catch {} }, view);
   const p = await ctx.newPage(); const errs = [];
   p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)); });
   await p.goto(`${url}?fresh&v=${v}`, { timeout: 120000 });

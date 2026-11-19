@@ -12,10 +12,10 @@ describe('repository', () => {
     const inv = emptyInventory('p1'); await r.saveInventory(inv); expect(await r.loadInventory('p1')).toEqual(inv);
     expect(await r.loadProfile()).toBeNull();
   });
-  it('survives corrupted data and migrates bare (v0) records', async () => {
+  it('reports corrupted data (P0.B: never treated as "no save") and migrates bare (v0) records', async () => {
     const m = new Map<string, string>(); const r = new MemoryRepository(m);
-    m.set('yooworld:profile', '{not json'); expect(await r.loadProfile()).toBeNull();
-    m.set('yooworld:inv:x', JSON.stringify({ ownerId: 'x', coins: 3, items: {} }));
+    m.set('profile', '{not json'); await expect(r.loadProfile()).rejects.toThrow(/corrupt/); expect(m.get('profile')).toBe('{not json');
+    m.set('inv:x', JSON.stringify({ ownerId: 'x', coins: 3, items: {} }));
     expect((await r.loadInventory('x'))!.version).toBe(1);
   });
   it('works on any KV (server adapter shape)', async () => {

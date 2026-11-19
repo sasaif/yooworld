@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { enterLandscape, needsRotate, readViewport, isPhone } from '../app/screen';
+import { storage } from '../persistence/storage';
+const readSkip = () => { try { return storage.session.getItem('portrait') === '1'; } catch { return false; } };
 
 /** Keeps the viewport info fresh on resize / rotation / mobile toolbar changes. */
 export function useViewport() {
@@ -15,7 +17,7 @@ export function useViewport() {
 
 /** Phones held in portrait get a clean "rotate" screen. Tablets / desktop are never affected. */
 export function RotateOverlay() {
-  const v = useViewport(); const [skip, setSkip] = useState(() => sessionStorage.getItem('yw.portrait') === '1');
+  const v = useViewport(); const [skip, setSkip] = useState(() => readSkip());
   // First touch on a phone: try fullscreen + landscape lock (Android). Silently ignored where unsupported (iOS).
   useEffect(() => {
     if (!isPhone(readViewport())) return;
@@ -32,7 +34,7 @@ export function RotateOverlay() {
       {canFullscreen
         ? <button className="btn primary" onClick={() => void enterLandscape()}>Plein écran paysage</button>
         : <p className="rotate-tip">Astuce iPhone : <b>Partager → Sur l’écran d’accueil</b> pour jouer en plein écran.</p>}
-      <button className="rotate-skip" onClick={() => { sessionStorage.setItem('yw.portrait', '1'); setSkip(true); }}>Continuer en portrait</button>
+      <button className="rotate-skip" onClick={() => { try { storage.session.setItem('portrait', '1'); } catch { /* */ } setSkip(true); }}>Continuer en portrait</button>
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { canPlace, findSpot, footprintSize, itemTransform, moveItem, placeItem, 
 import { syncWorld, freeSeat, seatFacing, resolveApproaches } from './apartment/worldSync';
 import { addItem, buy, emptyInventory, spend, takeItem, type Inventory } from './inventory/Inventory';
 import type { GameRepository, Profile } from '../persistence/types';
+import { MemoryRepository, SaveLoadError, type SaveProblem } from '../persistence/LocalStorageRepository';
+import type { PlacedItem } from './apartment/ApartmentModel';
 import type { NetworkTransport } from '../net/NetworkTransport';
 import { LocalChatService } from './social/social';
 import { goTo, placeChar, say, world } from './world';
@@ -25,7 +27,13 @@ export interface GameState {
   transition: { to: string; at: number } | null;
   /** Yoo Plage ambience: day, sunset, or a slow automatic day→sunset cycle; DJ music on/off */
   mood: 'day' | 'sunset' | 'cycle'; beachMusic: boolean;
+  /** P0.B: records that could not be loaded safely. While non-empty the game is not started and nothing is
+   *  written; the recovery panel (ui/SaveRecovery) asks the player what to do. */
+  saveProblems: SaveProblem[];
+  /** P0.B: running on an in-memory copy (recovery "temporary session"): nothing is persisted. */
+  temporary: boolean;
 }
+export interface ControllerHooks { /** called before an explicit reset overwrites the save (backup snapshot) */ beforeReset?(reason: string): void }
 /** Where characters appear when they arrive in a location (home = just inside the front door). */
 const HOME_SPAWN = { player: new THREE.Vector3(5.25, 0, 0.95), buddy: new THREE.Vector3(5.75, 0, 1.25), yaw: 0.2 };
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur une table ou un meuble', unknown: 'Objet inconnu', funds: 'Pas assez de pièces' };
@@ -33,13 +41,16 @@ const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision:
 /** Game logic façade: owns state, applies pure-model edits, persists through the repository,
  *  and forwards shareable events to the network transport (offline today). UI calls only these methods. */
 export class GameController {
-  readonly store = new Store<GameState>({ ready: false, profile: null, apartment: null, inventory: null, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null, activeChar: 'f', toast: null, location: 'home', transition: null, mood: 'day', beachMusic: false });
+  readonly store = new Store<GameState>({ ready: false, profile: null, apartment: null, inventory: null, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null, activeChar: 'f', toast: null, location: 'home', transition: null, mood: 'day', beachMusic: false, saveProblems: [], temporary: false });
   readonly chat: LocalChatService;
   readonly cat = FURNITURE;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  /** P0.B quarantine: placed furniture whose defId this build does not know. Hidden from the room, but always
+   *  written back with the layout (never dropped), so a build that knows them shows them again. */
+  quarantine: PlacedItem[] = [];
   /** Optional shared Gold wallet (fashion economy). When set, furniture & finishes are paid in Gold from it
    *  instead of the legacy furniture `inventory.coins` counter. */
-  constructor(readonly repo: GameRepository, readonly net: NetworkTransport, readonly wallet?: { balance(): number; spend(amount: number, memo: string): boolean }) {
+  constructor(public repo: GameRepository, readonly net: NetworkTransport, readonly wallet?: { balance(): number; spend(amount: number, memo: string): boolean }, readonly hooks: ControllerHooks = {}) {
     this.chat = new LocalChatService(net);
     this.chat.onMessage((m) => { if (m.local) say(this.store.get().activeChar, m.text); });
   }
@@ -47,26 +58,40 @@ export class GameController {
 
   /** `startAt` (deep link ?lieu= / build default) overrides the saved location when playable. */
   async init(opts: { startAt?: string | null } = {}) {
-    let profile = await this.repo.loadProfile();
+    // P0.B safe load: read everything first; a record that exists but cannot be used stops here, before ANY write
+    // (no starter overwrite, no silent reset). A starter is only created for a record that does not exist.
+    const problems: SaveProblem[] = [];
+    const tryLoad = async <T,>(f: () => Promise<T | null>): Promise<T | null | undefined> => {
+      try { return await f(); } catch (e) { if (e instanceof SaveLoadError) { problems.push(e.problem); return undefined; } throw e; }
+    };
+    let profile = await tryLoad(() => this.repo.loadProfile());
+    let apt = profile ? await tryLoad(() => this.repo.loadApartment(profile!.homeId)) : null;
+    let inv = profile ? await tryLoad(() => this.repo.loadInventory(profile!.id)) : null;
+    if (problems.length) { this.store.set({ saveProblems: problems }); return; }
     if (!profile) { profile = { version: 1, id: 'p_' + Math.random().toString(36).slice(2, 9), name: 'Juanita', appearance: { body: 'f' }, homeId: '', friends: [], createdAt: Date.now() }; profile.homeId = `home_${profile.id}`; await this.repo.saveProfile(profile); }
-    let apt = await this.repo.loadApartment(profile.homeId);
     if (!apt) { apt = { ...defaultApartment(profile.id), id: profile.homeId }; await this.repo.saveApartment(apt); }
-    let inv = await this.repo.loadInventory(profile.id);
     if (!inv) { inv = emptyInventory(profile.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); await this.repo.saveInventory(inv); }
-    // saves are shared by every build on the same origin (/, /polish/, /plage/): drop furniture this build doesn't know
-    if (!Array.isArray(apt.items)) apt = { ...apt, items: [] };
-    else if (apt.items.some((i) => !this.cat[i.defId])) apt = { ...apt, items: apt.items.filter((i) => !!this.cat[i.defId]) };
+    // saves are shared by every build of the same env: furniture this build doesn't know is quarantined (hidden,
+    // kept in the save), never dropped. Inventory counts for unknown defIds stay in the map untouched.
+    this.quarantine = apt.items.filter((i) => !this.cat[i.defId]);
+    if (this.quarantine.length) apt = { ...apt, items: apt.items.filter((i) => !!this.cat[i.defId]) };
     const wanted = opts.startAt ?? profile.location;
     const location = wanted && isPlayable(wanted) ? wanted : 'home';
     if (opts.startAt && location !== profile.location) { profile = { ...profile, location }; await this.repo.saveProfile(profile); }
-    this.store.set({ profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f', location });
+    this.store.set({ profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f', location, saveProblems: [] });
     this.enterWorld(location, location !== 'home');
     this.store.set({ ready: true });
     await this.net.connect(apt.id, profile.id);
   }
+  /** Recovery "temporary session": play on an in-memory starter; the stored (unreadable) save is not touched. */
+  async startTemporary(opts: { startAt?: string | null } = {}) {
+    this.repo = new MemoryRepository(); this.quarantine = []; this.store.set({ saveProblems: [], temporary: true }); await this.init(opts);
+  }
+  /** Layout as it must be stored: what the room shows + the quarantined items. */
+  storedLayout(a: ApartmentLayout): ApartmentLayout { return this.quarantine.length ? { ...a, items: [...a.items, ...this.quarantine] } : a; }
   private persist() {
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => { const { apartment, inventory, profile } = this.s; if (apartment) this.repo.saveApartment(apartment); if (inventory) this.repo.saveInventory(inventory); if (profile) this.repo.saveProfile(profile); }, 250);
+    this.saveTimer = setTimeout(() => { const { apartment, inventory, profile } = this.s; if (apartment) this.repo.saveApartment(this.storedLayout(apartment)); if (inventory) this.repo.saveInventory(inventory); if (profile) this.repo.saveProfile(profile); }, 250);
   }
   private setLayout(apartment: ApartmentLayout, op: 'place' | 'move' | 'remove' | 'toggle', payload: unknown) {
     this.store.set({ apartment }); if (this.s.location === 'home') syncWorld(apartment, this.cat); this.persist();
@@ -166,7 +191,7 @@ export class GameController {
   ownsFinish(kind: 'floor' | 'wall', id: string, price: number) { return price === 0 || !!this.s.inventory?.items[`${kind}:${id}`]; }
   rename(name: string) { const p = { ...this.s.profile!, name: name.trim().slice(0, 16) || 'Moi' }; this.store.set({ profile: p }); world.chars[this.s.activeChar].name = p.name; this.persist(); }
   setBody(body: 'f' | 'm') { const p = { ...this.s.profile!, appearance: { ...this.s.profile!.appearance, body } }; this.store.set({ profile: p, activeChar: body }); this.persist(); }
-  async resetSave() { const p = this.s.profile!; const apt = { ...defaultApartment(p.id), id: p.homeId }; let inv = emptyInventory(p.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); this.store.set({ apartment: apt, inventory: inv, selItem: null, placing: null }); if (this.s.location === 'home') syncWorld(apt, this.cat); this.persist(); }
+  async resetSave() { this.hooks.beforeReset?.('reset apartment+bag'); const p = this.s.profile!; const apt = { ...defaultApartment(p.id), id: p.homeId }; let inv = emptyInventory(p.id); for (const [k, n] of Object.entries(STARTER_INVENTORY)) inv = addItem(inv, k, n); this.store.set({ apartment: apt, inventory: inv, selItem: null, placing: null }); if (this.s.location === 'home') syncWorld(apt, this.cat); this.persist(); }
 
   // ---------- locations ----------
   /** Build the navigation + seat registry of a location and (optionally) put both local avatars at its entrance. */

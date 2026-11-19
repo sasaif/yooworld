@@ -1,4 +1,5 @@
 import { Store } from '../core/store';
+import { storage } from '../persistence/storage';
 
 /**
  * Movement-control settings (persisted on the device, separate from the game save so old saves load unchanged).
@@ -6,11 +7,12 @@ import { Store } from '../core/store';
  * Mouse / pen clicks on the floor always walk there (desktop click-to-move), whatever this setting.
  */
 export interface MoveSettings { touchTapToMove: boolean }
-export const MOVE_SETTINGS_KEY = 'yw.controls.v1';
+/** logical pref name (yw.controls.v1 in prod, yw:e:<env>:controls.v1 elsewhere) */
+export const MOVE_SETTINGS_KEY = 'controls.v1';
 export const DEFAULT_MOVE_SETTINGS: MoveSettings = { touchTapToMove: false };
 
 type KV = Pick<Storage, 'getItem' | 'setItem'>;
-const ls = (): KV | null => { try { return typeof localStorage !== 'undefined' ? localStorage : null; } catch { return null; } };
+const ls = (): KV | null => storage.prefs;
 
 export function loadMoveSettings(kv: KV | null = ls()): MoveSettings {
   try {

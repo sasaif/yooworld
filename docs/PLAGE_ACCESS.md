@@ -10,7 +10,7 @@ iPhone 15 paysage / portrait (UA Safari iOS 17), Pixel 7 paysage / portrait ; ch
 | `/yooworld/plage` (sans /) | 301 → `/plage/` (OK) |
 | Service worker | aucun (pas de cache SW possible) |
 | Manifest | `start_url`/`scope` = `./` relatifs au dossier → `/plage/` a son propre manifest correct |
-| Sauvegarde partagée (même origine `sasaif.github.io` → `localStorage` commun aux 3 versions) | même format, aucun plantage |
+| Sauvegarde partagée (même origine `sasaif.github.io` → `localStorage` commun aux 3 versions) — *historique : depuis `feature/save-isolation`, chaque dossier reconstruit a ses propres clés (docs/SAVE_ISOLATION.md)* | même format, aucun plantage |
 | **Lieu au démarrage** | **toujours l’appartement** : le lien « plage » ouvrait le même appartement que `/polish/` ; la plage n’était accessible que par **Lieux → Yoo Plage** |
 | Portrait téléphone | écran « Tourne ton appareil » par-dessus (il faut tourner ou « Continuer en portrait ») |
 

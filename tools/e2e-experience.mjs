@@ -8,7 +8,7 @@ const devName = process.env.DEV ?? 'iphone15'; const dev = DEVS[devName]; const 
 const SHOTS = process.env.SHOTS ?? 'shots/experience/e2e'; fs.mkdirSync(SHOTS, { recursive: true }); const SEATS_ONLY = !!process.env.SEATS_ONLY;
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await b.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: DPR, isMobile: TOUCH, hasTouch: TOUCH });
-await ctx.addInitScript(() => { try { sessionStorage.setItem('yw.portrait', '1'); localStorage.setItem('yw.camView', 'room'); } catch { /* */ } });
+await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch { /* */ } });
 const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 200)); });
 const results = []; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined ? ' ' + JSON.stringify(extra) : '')); results.push({ ok: !!c, test: m, extra }); if (!c) process.exitCode = 1; };
 const sep = url.includes('?') ? '&' : '?';

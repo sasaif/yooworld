@@ -5,7 +5,7 @@ const url = process.argv[2] ?? 'http://127.0.0.1:5243/'; const OUT = process.arg
 const ONLY = process.env.ONLY?.split(',');
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const ctx = await b.newContext({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-await ctx.addInitScript(() => { try { sessionStorage.setItem('yw.portrait', '1'); localStorage.setItem('yw.camView', 'room'); } catch { /* */ } });
+await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch { /* */ } });
 const p = await ctx.newPage(); p.on('pageerror', (e) => console.log('PAGEERR', e.message));
 await p.goto(url + '?fresh=1&lieu=appart'); await p.waitForFunction(() => window.game?.s.ready && window.__gl, null, { timeout: 180000 }); await p.waitForTimeout(3000);
 await p.evaluate(() => {

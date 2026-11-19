@@ -6,7 +6,7 @@ const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args
 const ctx = await b.newContext({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
 // Movement step 2: touch tap-to-move is OFF by default (joystick only); this script taps the floor, so it turns the
 // "Joystick + toucher pour aller" setting on before every load (survives the localStorage.clear() + reload below).
-await ctx.addInitScript(() => { try { localStorage.setItem('yw.controls.v1', JSON.stringify({ touchTapToMove: true })); } catch { /* */ } });
+await ctx.addInitScript(() => { try { localStorage.setItem('yw:e:dev:controls.v1', JSON.stringify({ touchTapToMove: true })); } catch { /* */ } });
 const p = await ctx.newPage(); const errs = [], bad = [];
 p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 200)); });
 p.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
