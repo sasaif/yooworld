@@ -7,7 +7,8 @@ const { chromium } = createRequire(import.meta.url)('playwright-core');
  * For each scenario: walk to the furniture, sit / lie, hold, get up with the real input (touch joystick on phones,
  * keyboard on desktop) or interrupt half-way; records root / hips / head positions, yaw, seat phase each frame,
  * skinned vertices below the seat surface inside the furniture footprint (clipping) every 3rd frame, and crops.
- * usage: node tools/seq-capture.mjs [url] ; DEV=iphone15|desktop ; SCEN=stool,chair,... ; OUT=dir ; EVERY=2
+ * usage: node tools/seq-capture.mjs [url] ; DEV=iphone15|desktop ; SCEN=stool,chair,... ; OUT=dir ; EVERY=2 ; CHECK=1 (assert the
+ *        regression limits below: clipping, hip jumps, seated sole height, lounger lying pose; exit code 1 on failure)
  * output: OUT/<scen>_<dev>/f####.png (crops), OUT/full_<dev>/ (full frames for the video), OUT/metrics_<dev>.json
  */
 const url = process.argv[2] ?? 'http://127.0.0.1:5270/';
@@ -39,13 +40,14 @@ await p.evaluate(() => {
   window.__sample = (box, pen) => {
     const g = window.game, id = g.s.activeChar, c = window.__world.chars[id], o = window.__avatarObj(id); const v = new V(); let H, Hd;
     o.traverse((m) => { if (m.isBone && m.name === 'Hips' && !H) H = m.getWorldPosition(new V()); if (m.isBone && m.name === 'Head' && !Hd) Hd = m.getWorldPosition(new V()); });
-    let depth = 0, n = 0, penAt = null;
+    let depth = 0, n = 0, penAt = null, sole = Infinity, slab = 0; const SLAB = 0.12; // slab = depth into the top 12 cm (cushion / seat board)
     if (pen && box) { const cs = Math.cos(box.yaw), sn = Math.sin(box.yaw);
       o.traverse((m) => { if (!m.isSkinnedMesh || /outline/.test(m.name)) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const pos = m.geometry.attributes.position;
-        for (let i = 0; i < pos.count; i += 2) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); const dx = v.x - box.x, dz = v.z - box.z; const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
-          if (Math.abs(lx) < box.w / 2 - 0.01 && Math.abs(lz) < box.d / 2 - 0.01 && v.y < box.h - 0.01 && v.y > 0.02) { n++; if (box.h - v.y > depth) { depth = box.h - v.y; penAt = [+lx.toFixed(3), +v.y.toFixed(3), +lz.toFixed(3)]; } } } }); }
+        for (let i = 0; i < pos.count; i += 2) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); if (v.y < sole) sole = v.y; const dx = v.x - box.x, dz = v.z - box.z; const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+          if (Math.abs(lx) < box.w / 2 - 0.01 && Math.abs(lz) < box.d / 2 - 0.01 && v.y < box.h - 0.01 && v.y > 0.02) { n++; if (box.h - v.y < SLAB && box.h - v.y > slab) slab = box.h - v.y; if (box.h - v.y > depth) { depth = box.h - v.y; penAt = [+lx.toFixed(3), +v.y.toFixed(3), +lz.toFixed(3)]; } } } }); }
     const d = window.__move().seat;
-    return { pos: [c.pos.x, c.pos.y, c.pos.z], yaw: c.yaw, hips: H.toArray(), head: Hd.toArray(), mode: c.mode, phase: d?.phase ?? 'none', sp: d?.sp ?? 0, lp: d?.lp ?? 0, w: d?.w ?? 0, pitch: d?.pitch ?? 0, pen: pen ? +depth.toFixed(3) : null, penN: pen ? n : null, penAt };
+    return { pos: [c.pos.x, c.pos.y, c.pos.z], yaw: c.yaw, hips: H.toArray(), head: Hd.toArray(), mode: c.mode, phase: d?.phase ?? 'none', sp: d?.sp ?? 0, lp: d?.lp ?? 0, w: d?.w ?? 0, pitch: d?.pitch ?? 0, pen: pen ? +depth.toFixed(3) : null, penN: pen ? n : null, penAt, slab: pen ? +slab.toFixed(3) : null, sole: pen && Number.isFinite(sole) ? +sole.toFixed(3) : null,
+      torso: +(Math.atan2(Math.hypot(Hd.x - H.x, Hd.z - H.z), Hd.y - H.y) * 180 / Math.PI).toFixed(1) };
   };
 });
 const T = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
@@ -118,8 +120,30 @@ for (const sc of SCEN) {
   for (const s of live) { const q = S[s.f - 1]; if (!q) continue; for (const [k, v] of [['root', dist(s.pos, q.pos)], ['hips', dist(s.hips, q.hips)], ['head', dist(s.head, q.head)], ['yaw', Math.abs(Math.atan2(Math.sin(s.yaw - q.yaw), Math.cos(s.yaw - q.yaw))) * 180 / Math.PI]]) if (v > mx[k]) { mx[k] = v; at[k] = `${s.f}:${q.phase}->${s.phase}`; } }
   const pen = Math.max(0, ...S.filter((s) => s.pen !== null && s.phase !== 'none').map((s) => s.pen));
   const penPhase = S.filter((s) => s.pen > 0.015).map((s) => s.phase); const phases = {}; for (const s of S) { phases[s.phase] = (phases[s.phase] ?? 0) + 1; }
-  const res = { scen: sc, frames: S.length, outAt, maxJumpCm: Object.fromEntries(Object.entries(mx).map(([k, v]) => [k, +v.toFixed(2)])), at, maxPenCm: +(pen * 100).toFixed(1), penPhases: [...new Set(penPhase)], phaseFrames: phases, endMode: S[S.length - 1].mode };
+  const med = (a) => { const q = a.filter((x) => x !== null && Number.isFinite(x)).sort((x, y) => x - y); return q.length ? q[q.length >> 1] : null; };
+  const seated = S.filter((s) => s.phase === 'seated'), lying = S.filter((s) => s.phase === 'lying');
+  const slabPen = Math.max(0, ...S.filter((s) => s.slab !== null && s.slab !== undefined && s.phase !== 'none').map((s) => s.slab));
+  const extra = { seatPenCm: +(slabPen * 100).toFixed(1), soleSeated: med(seated.map((s) => s.sole)), torsoLying: med(lying.map((s) => s.torso)), penLyingCm: lying.length ? +(Math.max(0, ...lying.filter((s) => s.pen !== null).map((s) => s.pen)) * 100).toFixed(1) : null };
+  const res = { scen: sc, ...extra, frames: S.length, outAt, maxJumpCm: Object.fromEntries(Object.entries(mx).map(([k, v]) => [k, +v.toFixed(2)])), at, maxPenCm: +(pen * 100).toFixed(1), penPhases: [...new Set(penPhase)], phaseFrames: phases, endMode: S[S.length - 1].mode };
   all[sc] = { ...res, samples: S }; console.log(JSON.stringify(res));
 }
 fs.writeFileSync(`${OUT}/metrics_${devName}.json`, JSON.stringify(all));
+if (process.env.CHECK) {
+  // regression limits (gameplay polish, Nov 2026). Feet: the chibi legs (hip → sole ≈ 0.30 m) cannot reach the floor / rung
+  // at the current seat heights; the limits lock in the improvement (before: chair 0.16, desk chair 0.16, stool 0.39 m).
+  const LIM = { stool: { pen: 1.0, sole: 0.35 }, chair: { pen: 1.0, sole: 0.13 }, deskChair: { pen: 1.0, sole: 0.12 },
+    lounger: { pen: 4.0, penLying: 0.5, torso: [25, 45] }, interruptLounger: { pen: 4.0 } };
+  let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
+  for (const [sc, r] of Object.entries(all)) { const L = LIM[sc] ?? {};
+    ok(r.endMode === 'walk' || r.endMode === 'idle', `${sc}: gets up and walks off (end mode ${r.endMode})`);
+    ok(r.maxJumpCm.hips <= 6 && r.maxJumpCm.root <= 6, `${sc}: smooth (max per-frame jump hips ${r.maxJumpCm.hips} cm, root ${r.maxJumpCm.root} cm ≤ 6)`);
+    // clipping INTO the seat = skin inside the top 12 cm under the seat surface (a foot stepping under the stool's front edge,
+    // between its legs, is not a clip: the deepest point over the whole footprint volume is logged as maxPenCm)
+    if (L.pen !== undefined) ok(r.seatPenCm <= L.pen, `${sc}: clipping into the seat ${r.seatPenCm} cm ≤ ${L.pen} (whole sit / stand-up; deepest point in the footprint volume ${r.maxPenCm} cm)`);
+    if (L.sole !== undefined) ok(r.soleSeated !== null && r.soleSeated <= L.sole, `${sc}: seated sole height ${r.soleSeated} m ≤ ${L.sole}`);
+    if (L.penLying !== undefined) ok(r.penLyingCm !== null && r.penLyingCm <= L.penLying, `${sc}: lying on the lounger, clipping ${r.penLyingCm} cm ≤ ${L.penLying}`);
+    if (L.torso) ok(r.torsoLying !== null && r.torsoLying >= L.torso[0] && r.torsoLying <= L.torso[1], `${sc}: lying reclined on the backrest (torso ${r.torsoLying}° from vertical, ${L.torso[0]}–${L.torso[1]}°)`);
+  }
+  console.log(`== seq-capture checks: ${bad ? bad + ' failed' : 'all passed'} ==`); if (bad) process.exitCode = 1;
+}
 console.log('errors:', errs.slice(0, 5).join(' | ') || 'none'); await b.close();

@@ -1,0 +1,53 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npx vitest run
+      - name: Build
+        run: npx vite build
+      - name: Chrome
+        run: google-chrome --version
+      - name: Start preview server
+        run: |
+          nohup npx vite preview --port 5230 --strictPort --host 127.0.0.1 > preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:5230/ > /dev/null && exit 0; sleep 1; done; cat preview.log; exit 1
+      # headless e2e on the real game (SwiftShader WebGL, iPhone 15 landscape touch)
+      - name: e2e gameplay (movement profiles, foot sync, name tag vs chip, chat + keyboard)
+        run: SHOTS=ci-shots/gameplay node tools/e2e-gameplay.mjs http://127.0.0.1:5230/
+      - name: e2e seats (clipping, seated soles, lounger pose)
+        run: CHECK=1 SCEN=stool,chair,deskChair,lounger,interruptLounger OUT=ci-shots/seq node tools/seq-capture.mjs http://127.0.0.1:5230/
+      - name: e2e tap-to-move (step 2)
+        run: SHOTS=ci-shots/step2 node tools/e2e-step2.mjs http://127.0.0.1:5230/
+      - name: e2e joystick (former controller, ?move=classic)
+        run: SHOTS=ci-shots/joystick node tools/e2e-joystick.mjs "http://127.0.0.1:5230/?move=classic"
+      - name: e2e experience (iPhone 15)
+        run: SHOTS=ci-shots/experience node tools/e2e-experience.mjs http://127.0.0.1:5230/
+      - name: Perf baseline (draw calls)
+        run: node tools/perf-baseline.mjs http://127.0.0.1:5230/ --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-shots
+          path: |
+            ci-shots/**/*.json
+            ci-shots/**/*.png
+          retention-days: 7

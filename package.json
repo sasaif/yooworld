@@ -7,7 +7,12 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e:gameplay": "node tools/e2e-gameplay.mjs",
+    "e2e:seats": "CHECK=1 node tools/seq-capture.mjs",
+    "e2e:step2": "node tools/e2e-step2.mjs",
+    "e2e:joystick": "node tools/e2e-joystick.mjs",
+    "e2e:experience": "node tools/e2e-experience.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
@@ -21,6 +26,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.170.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "playwright-core": "^1.65.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vitest": "^2.1.9"
