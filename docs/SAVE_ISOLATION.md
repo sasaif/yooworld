@@ -38,6 +38,8 @@ Slug: lowercase, every run of characters outside `[a-z0-9._-]` → `-`, max 41 c
 production from any branch other than `main` or without a git ref (e.g. a CLI `--prod` upload); a preview with
 `VITE_YW_ENV=prod` (e.g. a project env var applied to all environments) or a `VITE_YW_ENV` that differs from its branch;
 a preview without a branch or of `main`; an unknown `VERCEL_ENV`; `GH_PAGES`/`GH_PAGES_BASE` set on a Vercel build.
+Verified on Vercel 2026-11-19: an API deployment of `feature/vercel-env` that Vercel targeted as production failed the build
+with "Vercel production build must come from git branch main" (nothing served). Previews come from git pushes.
 Do **not** add `VITE_YW_ENV` as a Vercel project env var; leave it derived. `vercel.json` pins framework `vite`,
 `npm run build`, output `dist`. Check locally: `VERCEL=1 VERCEL_ENV=preview VERCEL_GIT_COMMIT_REF=uat node tools/check-save-env.mjs`.
 
