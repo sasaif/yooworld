@@ -10,7 +10,7 @@
  *  - lie slot: `x` lateral offset, `footZ` local z of the feet, `h` mattress top; `edge` = index of the sit slot used to
  *    get onto the bed (you first sit on the edge, then lie back) — it is also "the same place" for occupancy.
  */
-export type PresetId = 'stool' | 'chair' | 'deskChair' | 'sofa' | 'armchair' | 'bedEdge' | 'lie';
+export type PresetId = 'stool' | 'chair' | 'deskChair' | 'sofa' | 'armchair' | 'bedEdge' | 'lie' | 'lounger';
 export type SeatKind = 'chair' | 'stool' | 'sofa' | 'bed';
 export type InteractionKind = 'sit' | 'lie' | 'watch' | 'use';
 /** Bone directions of the seated layer (render/avatar/sitPose.ts). */
@@ -25,10 +25,17 @@ export interface PosePreset {
   turn: number; sitIn: number; sitOut: number;
   /** lying only: recline from the bed edge onto the back / sit back up */
   recline?: number; unrecline?: number;
+  /** Backrest pitch from upright (negative = reclined), independent of the flat leg support. */
+  liePitch?: number;
+  /** lying sub-curves as [start, end] fractions of the recline (default = bed: legs 0–0.55, back 0.05–0.85, hips 0.3–1) */
+  lieCurve?: { legs: [number, number]; pitch: [number, number]; slide: [number, number] };
+  /** Extra pelvis clearance during mount/dismount, metres (high stool front edge). */
+  clearance?: number;
 }
 const D = Math.PI / 180;
 export const PRESETS: Record<PresetId, PosePreset> = {
-  stool: { kind: 'stool', style: { droop: 2 * D, shinBack: 5 * D, splay: 0.12, footDown: 12 * D, lean: 3 * D }, approach: 0.28, feet: 'dangle', turn: 0.45, sitIn: 0.7, sitOut: 0.55 },
+  lounger: { kind: 'bed', style: { droop: 0, shinBack: 0, splay: 0.06, footDown: 0, lean: 0 }, approach: 0.3, feet: 'floor', turn: 0.45, sitIn: 0.65, sitOut: 0.65, recline: 1.1, unrecline: 0.95, liePitch: -(Math.PI / 2 - 0.98), lieCurve: { legs: [0, 0.4], pitch: [0.1, 0.9], slide: [0.35, 1] } },
+  stool: { clearance: 0.09, kind: 'stool', style: { droop: 2 * D, shinBack: 5 * D, splay: 0.12, footDown: 12 * D, lean: 3 * D }, approach: 0.28, feet: 'dangle', turn: 0.45, sitIn: 0.7, sitOut: 0.55 },
   chair: { kind: 'chair', style: { droop: 4 * D, shinBack: -4 * D, splay: 0.08, footDown: 0, lean: 0 }, approach: 0.2, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
   deskChair: { kind: 'chair', style: { droop: 4 * D, shinBack: -4 * D, splay: 0.1, footDown: 0, lean: 0 }, approach: 0.22, feet: 'dangle', turn: 0.45, sitIn: 0.55, sitOut: 0.5 },
   sofa: { kind: 'sofa', style: { droop: 0, shinBack: -12 * D, splay: 0.1, footDown: 0, lean: -4 * D }, approach: 0.24, feet: 'floor', turn: 0.45, sitIn: 0.6, sitOut: 0.5 },
@@ -93,3 +100,9 @@ export function validateRegistry(sizes: Record<string, { w: number; d: number; h
   }
   return err;
 }
+
+/** Measured procedural transat, shared by beach seats and regression tests. Local +z points to the sea.
+ * Mounted like the bed: sit on the foot end (entryZ, feet on the sand), then legs up onto the fabric, lie back
+ * against the backrest (0.98 rad above the seat) while the hips scoot back to hipZ. Reclined 34°, the buttocks sit lower than the upright hips bone, so
+ * the hips bone is lieClear above the fabric (in-game vertex probe: seat and backrest contact within 1 cm, Nov 2026). */
+export const LOUNGER_ANCHOR = { h: 0.2275, hipZ: 0.03, entryZ: 0.36, lieClear: 0.133, front: 0.74, backAngle: 0.98 } as const;

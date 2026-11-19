@@ -39,13 +39,13 @@ await p.evaluate(() => {
   window.__sample = (box, pen) => {
     const g = window.game, id = g.s.activeChar, c = window.__world.chars[id], o = window.__avatarObj(id); const v = new V(); let H, Hd;
     o.traverse((m) => { if (m.isBone && m.name === 'Hips' && !H) H = m.getWorldPosition(new V()); if (m.isBone && m.name === 'Head' && !Hd) Hd = m.getWorldPosition(new V()); });
-    let depth = 0, n = 0;
+    let depth = 0, n = 0, penAt = null;
     if (pen && box) { const cs = Math.cos(box.yaw), sn = Math.sin(box.yaw);
       o.traverse((m) => { if (!m.isSkinnedMesh || /outline/.test(m.name)) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const pos = m.geometry.attributes.position;
         for (let i = 0; i < pos.count; i += 2) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); const dx = v.x - box.x, dz = v.z - box.z; const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
-          if (Math.abs(lx) < box.w / 2 - 0.01 && Math.abs(lz) < box.d / 2 - 0.01 && v.y < box.h - 0.01 && v.y > 0.02) { n++; depth = Math.max(depth, box.h - v.y); } } }); }
+          if (Math.abs(lx) < box.w / 2 - 0.01 && Math.abs(lz) < box.d / 2 - 0.01 && v.y < box.h - 0.01 && v.y > 0.02) { n++; if (box.h - v.y > depth) { depth = box.h - v.y; penAt = [+lx.toFixed(3), +v.y.toFixed(3), +lz.toFixed(3)]; } } } }); }
     const d = window.__move().seat;
-    return { pos: [c.pos.x, c.pos.y, c.pos.z], yaw: c.yaw, hips: H.toArray(), head: Hd.toArray(), mode: c.mode, phase: d?.phase ?? 'none', sp: d?.sp ?? 0, lp: d?.lp ?? 0, w: d?.w ?? 0, pitch: d?.pitch ?? 0, pen: pen ? +depth.toFixed(3) : null, penN: pen ? n : null };
+    return { pos: [c.pos.x, c.pos.y, c.pos.z], yaw: c.yaw, hips: H.toArray(), head: Hd.toArray(), mode: c.mode, phase: d?.phase ?? 'none', sp: d?.sp ?? 0, lp: d?.lp ?? 0, w: d?.w ?? 0, pitch: d?.pitch ?? 0, pen: pen ? +depth.toFixed(3) : null, penN: pen ? n : null, penAt };
   };
 });
 const T = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
@@ -54,15 +54,27 @@ async function pushStick(on, ang = -90) { // ang: screen degrees, -90 = down the
   if (dev.touch) { if (on) { await T('touchStart', [{ x: joy.cx, y: joy.cy, id: 1 }]); await T('touchMove', [{ x: joy.cx + Math.cos(ang * Math.PI / 180) * joy.R, y: joy.cy - Math.sin(ang * Math.PI / 180) * joy.R, id: 1 }]); } else await T('touchEnd', []); }
   else { if (on) await p.keyboard.down('ArrowDown'); else await p.keyboard.up('ArrowDown'); }
 }
-const SEATS = { stool: ['stoolBar', 'sit'], chair: ['chair', 'sit'], deskChair: ['chairDesk', 'sit'], sofa: ['loungeSofa', 'sit'], armchair: ['loungeChair', 'sit'], bedEdge: ['bedDouble', 'sit'], lie: ['bedDouble', 'lie'], interruptSit: ['loungeSofa', 'sit'], interruptLie: ['bedDouble', 'lie'] };
+const SEATS = { stool: ['stoolBar', 'sit'], chair: ['chair', 'sit'], deskChair: ['chairDesk', 'sit'], sofa: ['loungeSofa', 'sit'], armchair: ['loungeChair', 'sit'], bedEdge: ['bedDouble', 'sit'], lie: ['bedDouble', 'lie'], interruptSit: ['loungeSofa', 'sit'], interruptLie: ['bedDouble', 'lie'], lounger: ['lounger2', 'lie', 'beach'], interruptLounger: ['lounger2', 'lie', 'beach'] };
 fs.mkdirSync(OUT, { recursive: true }); const fullDir = `${OUT}/full_${devName}`; if (FULL) { fs.rmSync(fullDir, { recursive: true, force: true }); fs.mkdirSync(fullDir, { recursive: true }); }
 await p.evaluate(() => { const g = window.game; const apt = g.s.apartment; if (!apt.items.some((i) => i.defId === 'stoolBar')) g['setLayout']({ ...apt, items: [...apt.items, { uid: 't_stool', defId: 'stoolBar', x: 10, z: 12, rot: 0 }, { uid: 't_desk', defId: 'chairDesk', x: 14, z: 12, rot: 2 }] }, 'place', {}); });
 await p.waitForTimeout(2500);
 await p.evaluate(() => window.__virt());
 let fullN = 0; const all = {};
 for (const sc of SCEN) {
-  const [defId, act] = SEATS[sc]; const dir = `${OUT}/${sc}_${devName}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
-  const info = await p.evaluate(([defId, act]) => {
+  const [defId, act, place] = SEATS[sc]; const dir = `${OUT}/${sc}_${devName}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+  if (place === 'beach' && (await p.evaluate(() => window.game.s.location)) !== 'beach') { await p.evaluate(() => window.game.travel('beach')); for (let i = 0; i < 90; i++) await p.evaluate(() => window.__step(1000 / 60)); }
+  if (place !== 'beach' && (await p.evaluate(() => window.game.s.location)) !== 'home') { await p.evaluate(() => window.game.travel('home')); for (let i = 0; i < 90; i++) await p.evaluate(() => window.__step(1000 / 60)); }
+  const info = place === 'beach' ? await p.evaluate((propId) => {
+    // Yoo Plage transat (registry preset 'lounger'): same flow as the bed, measured against its flat fabric
+    const g = window.game; const W = window.__world; const id = g.s.activeChar; const c = W.chars[id];
+    for (const o of Object.values(W.chars)) if (o.id !== id) { o.sitOn = undefined; o.pendingSeat = undefined; o.path = []; o.mode = 'idle'; }
+    c.sitOn = undefined; c.pendingSeat = undefined; c.path = []; c.mode = 'idle';
+    const seat = W.seats.find((s) => s.id === propId + ':0'); const f = [Math.sin(seat.yaw), Math.cos(seat.yaw)];
+    c.pos.set(seat.front.x + f[0] * 0.9, 0, seat.front.z + f[1] * 0.9); c.yaw = seat.yaw + Math.PI;
+    window.__cam.zoom = window.__z0 * 1.7; window.__cam.updateProjectionMatrix(); window.dispatchEvent(new Event('yw:follow'));
+    const cx = seat.pos.x + f[0] * 0.09, cz = seat.pos.z + f[1] * 0.09; // centre of the fabric (seat.pos = hips at local z 0.03; fabric z -0.19..0.43)
+    return { uid: propId, beach: true, box: { x: cx, z: cz, w: 0.46, d: 0.62, yaw: seat.yaw, h: seat.h }, hip: [seat.hip.x, seat.hip.z] };
+  }, defId) : await p.evaluate(([defId, act]) => {
     const g = window.game; const it = g.s.apartment.items.find((i) => i.defId === defId); if (!it) return null; const W = window.__world; const id = g.s.activeChar; const c = W.chars[id];
     for (const o of Object.values(W.chars)) if (o.id !== id) { o.sitOn = undefined; o.pendingSeat = undefined; o.path = []; o.mode = 'idle'; }
     c.sitOn = undefined; c.pendingSeat = undefined; c.path = []; c.mode = 'idle';
@@ -76,7 +88,7 @@ for (const sc of SCEN) {
   }, [defId, act]);
   if (!info) { console.log('SKIP', sc); continue; }
   for (let i = 0; i < 40; i++) await p.evaluate(() => window.__step(1000 / 60)); // camera settles
-  await p.evaluate(([uid, act]) => window.game.interact(uid, act), [info.uid, act]);
+  await p.evaluate(([uid, act, beach]) => (beach ? window.game.interactProp(uid, 'sit') : window.game.interact(uid, act)), [info.uid, act, !!info.beach]);
   const S = []; let f = 0, stage = 'in', hold = 0, outAt = -1; const DT = 1000 / 60;
   const cw = dev.crop[0], ch = dev.crop[1];
   for (; f < 60 * 14; f++) {
@@ -86,7 +98,7 @@ for (const sc of SCEN) {
     const target = act === 'lie' ? 'lying' : 'seated';
     if (stage === 'in') {
       if (sc === 'interruptSit' && s.phase === 'down' && s.sp >= 0.45) { stage = 'out'; outAt = f; await pushStick(true); }
-      else if (sc === 'interruptLie' && s.phase === 'recline' && s.lp >= 0.5) { stage = 'out'; outAt = f; await pushStick(true); }
+      else if ((sc === 'interruptLie' || sc === 'interruptLounger') && s.phase === 'recline' && s.lp >= 0.5) { stage = 'out'; outAt = f; await pushStick(true); }
       else if (s.phase === target) { hold++; if (hold > 30) { stage = 'out'; outAt = f; await pushStick(true); } }
     } else if (stage === 'out') { if (s.mode === 'walk' || s.mode === 'idle') { stage = 'walkoff'; hold = 0; } }
     else if (stage === 'walkoff') { if (++hold === 24) await pushStick(false); if (hold > 40) break; }

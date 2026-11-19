@@ -4,7 +4,7 @@ import { FURNITURE, type FurnitureDef } from '../data/furniture';
 import { FLOORS, WALLS } from '../data/finishes';
 import { defaultApartment, STARTER_INVENTORY } from '../data/defaultApartment';
 import { canPlace, findSpot, footprintSize, itemTransform, moveItem, placeItem, removeItem, rotateItem, toggleItem, type ApartmentLayout, type PlaceResult, type Rot } from './apartment/ApartmentModel';
-import { syncWorld, freeSeat, seatFacing } from './apartment/worldSync';
+import { syncWorld, freeSeat, seatFacing, resolveApproaches } from './apartment/worldSync';
 import { addItem, buy, emptyInventory, spend, takeItem, type Inventory } from './inventory/Inventory';
 import type { GameRepository, Profile } from '../persistence/types';
 import type { NetworkTransport } from '../net/NetworkTransport';
@@ -172,7 +172,7 @@ export class GameController {
   /** Build the navigation + seat registry of a location and (optionally) put both local avatars at its entrance. */
   private enterWorld(id: string, spawn: boolean) {
     world.location = id;
-    if (id === 'beach') { const b = beachWorld(); world.nav = b.nav; world.seats = b.seats; }
+    if (id === 'beach') { const b = beachWorld(); world.nav = b.nav; world.seats = b.seats; resolveApproaches(world.seats, b.nav); }
     else syncWorld(this.s.apartment!, this.cat);
     if (!spawn) return;
     const sp = id === 'beach' ? BEACH_SPAWN : HOME_SPAWN; const me = this.s.activeChar;
@@ -205,7 +205,7 @@ export class GameController {
     const me = world.chars[this.s.activeChar]; this.store.set({ menuItem: null });
     if (action === 'sit') {
       const seatProp = p.kind === 'towel' ? propById(id.replace('towel', 'lounger')) ?? p : p;
-      const seat = freeSeat(seatProp.id, me.pos, me.id); if (!seat) return this.toast('Plus de place !'); goTo(me.id, seat.front, { seat });
+      const seat = freeSeat(seatProp.id, me.pos, me.id, seatProp.kind === 'lounger' ? 'lie' : 'sit'); if (!seat) return this.toast('Plus de place !'); goTo(me.id, seat.front, { seat });
     }
     if (action === 'music') {
       const on = !this.s.beachMusic; this.store.set({ beachMusic: on });

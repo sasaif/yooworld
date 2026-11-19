@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { NavGrid } from '../nav/NavGrid';
 import type { Seat } from '../world';
+import { LOUNGER_ANCHOR as LA, PRESETS } from '../../data/interactionRegistry';
 
 /**
  * Yoo Plage — pure layout of the public beach location (no three.js rendering, no React; unit-tested).
@@ -116,6 +117,14 @@ export function beachSeats(): Seat[] {
   const out: Seat[] = [];
   for (const p of BEACH_PROPS) {
     if (!p.seat) continue; const f = fwdOf(p.yaw), r = rightOf(p.yaw);
+    if (p.kind === 'lounger') {
+      const at = (x: number, z: number) => new THREE.Vector3(p.x, 0, p.z).addScaledVector(r, x).addScaledVector(f, z);
+      const hip = at(0, LA.hipZ), edgeHip = at(0, LA.entryZ);
+      const front = at(0, LA.front), approach = at(0, LA.entryZ + PRESETS.lounger.approach);
+      out.push({ id: `${p.id}:0`, pos: hip.clone(), yaw: p.yaw, front, approach,
+        hip, h: LA.h, edgeHip, edgeH: LA.h, pose: 'lie', kind: 'bed', preset: 'lounger' });
+      continue;
+    }
     p.seat.slots.forEach((sx, k) => {
       const pos = new THREE.Vector3(p.x, 0, p.z).addScaledVector(r, sx).addScaledVector(f, p.seat!.depth ?? 0);
       // café chairs face their table: step in from the camera side instead of from the front

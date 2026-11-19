@@ -13,15 +13,16 @@ import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
 import { LIE_PITCH, lieRoot, sitRoot } from '../game/interact/anchors';
 import { SitPose } from './avatar/sitPose';
+import { LOUNGER_ANCHOR } from '../data/interactionRegistry';
 import { beginSeat, motionSeat, newSeatMotion, newSeatPose, presetOf, seatPose, smooth, stepSeat, type SeatPhase } from '../game/interact/seatMotion';
 
 useGLTF.preload(ANIM_LIBRARY);
 
 const LOCO_KEYS = ['idle', 'walk', 'run'] as const;
 type LocoKey = typeof LOCO_KEYS[number];
-const camDir = new THREE.Vector3(); const qCur = new THREE.Quaternion(), qLie = new THREE.Quaternion(), qInv = new THREE.Quaternion(); const eLie = new THREE.Euler();
+const camDir = new THREE.Vector3(); const qCur = new THREE.Quaternion(), qLie = new THREE.Quaternion(), qInv = new THREE.Quaternion(); const eLie = new THREE.Euler(); const qLeg = new THREE.Quaternion();
 const _hw = new THREE.Vector3(), _hl = new THREE.Vector3(), _lr = new THREE.Vector3(), _H = new THREE.Vector3();
-const lieBlend = { legs: 0, body: 0, q: qCur, qLie };
+const lieBlend = { legs: 0, body: 0, q: qCur, qLie: qLeg };
 const SIT_IN = 0.5; // s: legacy seats (Yoo Plage loungers, SitDown clip)
 /** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
 export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string }> = {};
@@ -88,8 +89,8 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       loco(M.phase === 'turn' && dt > 0 ? Math.hypot(SP.root.x - px, SP.root.z - pz) / dt : 0, dt);
       if (free) { M.phase = 'none'; SP.sitW = 0; SP.pitch = 0; s.sitOn = undefined; s.mode = s.path.length ? 'walk' : 'idle'; }
       s.pos.copy(SP.root); s.yaw = SP.yaw;
-      if (M.seat?.pose === 'lie' && SP.slide > 0) s.pos.lerp(lieRoot(M.seat, def.scale, _lr), SP.slide);
-      P.pitch = LIE_PITCH * SP.pitch;
+      if (M.seat?.pose === 'lie' && SP.slide > 0) s.pos.lerp(M.seat.preset === 'lounger' ? _lr.copy(M.seat.hip!).setY(0) : lieRoot(M.seat, def.scale, _lr), SP.slide);
+      P.pitch = (M.seat ? presetOf(M.seat).liePitch ?? LIE_PITCH : LIE_PITCH) * SP.pitch;
     } else if (s.mode === 'standing') {
       // legacy seats (Yoo Plage loungers): SitDown clip then StandUp clip
       play('stand', 0.15);
@@ -125,8 +126,9 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         // hips of the calibrated lying pose (feet root at lieRoot, group fully tilted), from this frame's idle pose
         outer.current.updateWorldMatrix(true, false); qCur.copy(outer.current.quaternion);
         sit.hips!.updateWorldMatrix(true, false); _hl.setFromMatrixPosition(sit.hips!.matrixWorld).sub(outer.current.position);
-        qLie.setFromEuler(eLie.set(LIE_PITCH, seat.yaw, 0, 'YXZ')); _hl.applyQuaternion(qInv.copy(qCur).invert()).applyQuaternion(qLie);
-        _hw.copy(lieRoot(seat, def.scale, _lr)).add(_hl);
+        qLie.setFromEuler(eLie.set(presetOf(seat).liePitch ?? LIE_PITCH, seat.yaw, 0, 'YXZ')); qLeg.setFromEuler(eLie.set(LIE_PITCH, seat.yaw, 0, 'YXZ')); _hl.applyQuaternion(qInv.copy(qCur).invert()).applyQuaternion(qLie);
+        if (seat.preset === 'lounger') _hw.copy(seat.hip!).setY(seat.h! + LOUNGER_ANCHOR.lieClear);
+        else _hw.copy(lieRoot(seat, def.scale, _lr)).add(_hl);
         // hips scoot from the bed edge to the lying spot, lifted a little on the way (never dragged through the mattress)
         _H.lerpVectors(SP.hip, _hw, SP.slide); _H.y += 0.03 * Math.sin(Math.PI * SP.slide);
         lieBlend.legs = SP.legs; lieBlend.body = SP.pitch; sit.apply(SP.sitW, _H, seat.yaw, st, lieBlend);
@@ -136,12 +138,13 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         sit.hips!.updateWorldMatrix(true, false); _hw.setFromMatrixPosition(sit.hips!.matrixWorld);
         const e = SP.sitW, ey = smooth(e / 0.5), exz = smooth((e - 0.4) / 0.6);
         _H.set(_hw.x + (SP.hip.x - _hw.x) * exz, _hw.y + (SP.hip.y - _hw.y) * ey, _hw.z + (SP.hip.z - _hw.z) * exz);
+        _H.y += (presetOf(seat).clearance ?? 0) * Math.sin(Math.PI * e);
         sit.apply(e, _H, seat.yaw, st, undefined, 1);
       }
     }
     // lying on the back: the backpack is put aside (it would hold the body up off the mattress): shrinks away as the back
     // comes down instead of popping
-    const bagK = 1 - smooth((-P.pitch / -LIE_PITCH - 0.25) / 0.35);
+    const bagK = 1 - smooth((SP.pitch - 0.25) / 0.35);
     if (bagK !== P.bag) { const bag = built.holder.getObjectByName('acc_backpack'); if (bag) { bag.scale.setScalar(Math.max(0.001, bagK)); bag.visible = bagK > 0.01; } P.bag = bagK; }
     Object.assign(dbg, { phase: M.phase, sp: M.sp, lp: M.lp, w: SP.sitW, pitch: SP.pitch, seat: M.seat && M.phase !== 'none' ? M.seat.id : null });
     // face: blink, smile, grin while dancing, lip flap while a bubble is shown

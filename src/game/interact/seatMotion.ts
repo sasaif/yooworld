@@ -64,7 +64,10 @@ export function approachOf(seat: Seat, out: THREE.Vector3) {
 /** The sitting part of a seat (a lying spot is entered through its bed-edge seat). */
 function sitPart(seat: Seat, hip: THREE.Vector3) { if (seat.pose === 'lie') { hip.copy(seat.edgeHip!); hip.y = seat.edgeH! + 0.078; return hip; } return sitHip(seat, hip); }
 /** Lying sub-curves of lp: legs straighten, torso tips back, hips scoot up the bed. */
-export const lieCurves = (lp: number) => ({ legs: smooth(clamp01(lp / 0.55)), pitch: smooth(clamp01((lp - 0.05) / 0.8)), slide: smooth(clamp01((lp - 0.3) / 0.7)) });
+const BED_CURVE = { legs: [0, 0.55], pitch: [0.05, 0.85], slide: [0.3, 1] } as const;
+const sub = (lp: number, [a, b]: readonly [number, number]) => smooth(clamp01((lp - a) / (b - a)));
+/** Lying sub-curves of lp (per preset: the transat lifts the legs before the hips scoot back). */
+export const lieCurves = (lp: number, p?: PosePreset) => { const c = p?.lieCurve ?? BED_CURVE; return { legs: sub(lp, c.legs), pitch: sub(lp, c.pitch), slide: sub(lp, c.slide) }; };
 
 export interface SeatPose { root: THREE.Vector3; yaw: number; sitW: number; hip: THREE.Vector3; legs: number; pitch: number; slide: number }
 export const newSeatPose = (): SeatPose => ({ root: new THREE.Vector3(), yaw: 0, sitW: 0, hip: new THREE.Vector3(), legs: 0, pitch: 0, slide: 0 });
@@ -83,6 +86,6 @@ export function seatPose(m: SeatMotion, o: SeatPose): SeatPose {
   if (seat.pose === 'lie') { _h.copy(seat.edgeHip!); _b.copy(_h).addScaledVector(_f.set(Math.sin(seat.yaw), 0, Math.cos(seat.yaw)), 0.05).setY(0); }
   else posedRoot(seat, _b);
   o.root.lerpVectors(_a, _b, e); o.yaw = seat.yaw; o.sitW = e;
-  const c = lieCurves(m.lp); o.legs = c.legs; o.pitch = c.pitch; o.slide = c.slide;
+  const c = lieCurves(m.lp, presetOf(seat)); o.legs = c.legs; o.pitch = c.pitch; o.slide = c.slide;
   return o;
 }
