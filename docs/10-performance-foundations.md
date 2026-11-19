@@ -22,11 +22,13 @@ Un petit moniteur dans le coin haut droit (sous la barre du haut, à l’écart 
 
 En dev, un `console.warn` est émis si le FPS reste sous 25 pendant plusieurs secondes (rappel : en Chrome headless + SwiftShader on est typiquement à 3–8 fps, ce n’est pas représentatif d’un téléphone ou d’un ordinateur réel).
 
-Le script `tools/perf-baseline.mjs` charge l’appartement et la plage en headless (desktop et iPhone 15 paysage) et enregistre les compteurs du renderer : draw calls **principal, ombres et total**, triangles (dont ombres), géométries, textures, programmes. Avec `--write` il met à jour `tools/perf-baseline.json`. Avec `--check` (défaut) il échoue si le **total** des draw calls dépasse la baseline de plus de 20 %. Il affiche aussi chaque scène face à son budget souple (appartement 120, plage 40) : `AU-DESSUS DU BUDGET` est écrit en clair, sans faire échouer la garde (la garde sert à repérer une régression, le budget à suivre l’objectif).
+Le script `tools/perf-baseline.mjs` charge l’appartement et la plage en headless (desktop et iPhone 15 paysage) et enregistre les compteurs du renderer : draw calls **principal, ombres et total**, triangles (dont ombres), géométries, textures, programmes, buffers GPU, tas JS et temps de frame. Chaque scène × profil est mesurée `RUNS` fois (3 par défaut) sur `FRAMES` images (30 par défaut), voir « Répétabilité et variance » plus bas. Avec `--write` il met à jour `tools/perf-baseline.json` (médianes des runs + dispersion). Avec `--check` (défaut) il échoue si la **médiane** du total des draw calls dépasse la baseline de plus de 20 %. `--table` imprime le tableau min / médiane / max / écart-type. Il affiche aussi chaque scène face à son budget souple (appartement 120, plage 40) : `AU-DESSUS DU BUDGET` est écrit en clair, sans faire échouer la garde (la garde sert à repérer une régression, le budget à suivre l’objectif).
 
 ```bash
 # serveur local déjà lancé, ex. vite preview sur le port 5241
 node tools/perf-baseline.mjs http://127.0.0.1:5241/ --check
+# tableau de variance (5 runs × 60 images)
+RUNS=5 FRAMES=60 node tools/perf-baseline.mjs http://127.0.0.1:5241/ --table
 ```
 
 ## Règles pour les nouvelles fonctionnalités
@@ -84,6 +86,36 @@ Vérification : en comptant directement les appels WebGL `draw*` de chaque image
 
 Les chiffres du tableau « Premier chargement » ci-dessous (86/82/21/21) étaient donc la **passe principale seule**. Le budget de 120 reste la référence : l’appartement le dépasse aujourd’hui, à cause des 67 appels de la passe d’ombres (67 objets projettent une ombre). Le repère « moins de 100 k triangles » avait été posé sur la passe principale (54 k / 68 k) ; avec les ombres, la plage atteint 112 k triangles par image.
 
+### Répétabilité et variance des mesures (19 nov. 2026)
+
+**Protocole de `perf-baseline`** (un run = un contexte de navigateur neuf) :
+
+1. URL fixe, uniquement les paramètres de la scène (`?lieu=appart|plage&fresh=1&perf=1`) : sauvegarde en mémoire neuve, apparition et caméra par défaut. La position et l’orientation de la caméra sont relevées à chaque run ; l’outil signale toute différence (aucune observée).
+2. Attente d’un état, pas d’un délai : jeu `ready`, puis compilation de tous les shaders de la scène (`renderer.compileAsync`), puis le même nombre de draw calls et de programmes pendant `STABLE` (10) images consécutives.
+3. `FRAMES` images consécutives lues juste après chaque `renderer.render()`. En parallèle, les appels WebGL `draw*` sont comptés directement sur le contexte et séparés selon la cible (écran = passe principale, framebuffer = cartes d’ombre) : contrôle indépendant de `drawCounter.ts`.
+4. Fin du run : buffers WebGL vivants, tas JS après deux GC forcés, temps de frame p50 / p95 / p99.
+
+Par run on garde la médiane des images ; entre les runs on donne min / médiane / max / écart-type (σ, n − 1).
+
+**Résultats : 5 runs × 60 images par scène et par profil.** Chrome headless + SwiftShader (rendu CPU), **pas un appareil réel**. Machine partagée avec d’autres tests (charge moyenne 14–32 sur 8 cœurs pendant la mesure).
+
+| Scène · profil | Draw calls total (principal + ombres) | Triangles (dont ombres) | Buffers GPU | Tas JS (Mo) | Frame p50 (ms) | Frame p95 (ms) | Frame p99 (ms) |
+|---|---|---|---|---|---|---|---|
+| Appartement · desktop | 154 (87 + 67), σ 0 | 84 268 (30 001), σ 0 | 505, σ 0 | 10,90 / 10,93 / 10,94, σ 0,02 | 133 / 166,5 / 200,9, σ 24,1 | 311,9 / 417 / 434,7, σ 49,8 | 391,7 / 567,6 / 603,3, σ 86,1 |
+| Appartement · iPhone 15 | 150 (83 + 67), σ 0 | 84 038 (30 001), σ 0 | 497, σ 0 | 10,88 / 10,94 / 10,94, σ 0,03 | 99,2 / 104,5 / 134,1, σ 14,4 | 203,6 / 257,2 / 430,6, σ 89,8 | 233,8 / 341,6 / 554,9, σ 123,4 |
+| Plage · desktop | 31 (21 + 10), σ 0 | 112 282 (44 069), σ 0 | 205, σ 0 | 10,38 / 10,40 / 10,40, σ 0,01 | 422,4 / 503,6 / 572,1, σ 53,9 | 917,5 / 1 121,3 / 1 484,9, σ 223,7 | 1 069,4 / 1 281,4 / 1 760,3, σ 296,4 |
+| Plage · iPhone 15 | 31 (21 + 10), σ 0 | 112 282 (44 069), σ 0 | 205, σ 0 | 10,42 / 10,44 / 10,44, σ 0,01 | 252,9 / 274,3 / 362, σ 47,0 | 513,8 / 661,3 / 719,5, σ 81,2 | 520,5 / 792,1 / 847,6, σ 132,3 |
+
+Format des cellules à dispersion : min / médiane / max. Compteurs : min = médiane = max.
+
+**Lecture :**
+
+- **Déterministes** (σ = 0 sur 5 runs, identiques d’une image à l’autre) : les draw calls (principal, ombres, total), les triangles et les buffers GPU. Les draws WebGL bruts égalent le total déclaré à chaque run. On peut donc garder ces compteurs comme garde-fous exacts.
+- **Quasi stable** : le tas JS (σ ≤ 0,03 Mo).
+- **Non exploitable comme garde-fou** : les temps de frame (σ jusqu’à 30 % de la médiane, p99 jusqu’à 1,6× entre runs). Ils dépendent de la charge CPU de la machine ; avec 60 images, p99 est presque le maximum. À ne suivre qu’en tendance, jamais en seuil.
+
+Données brutes : `RUNS=5 FRAMES=60 … --table`, JSON dans `OUT`.
+
 ## Mesures (18 nov. 2026)
 
 Chrome headless, SwiftShader (`--use-gl=angle --use-angle=swiftshader`). Le FPS (3–8) **n’est pas représentatif** d’un appareil réel — on s’appuie sur les compteurs `renderer.info`. Desktop 1440×900 @1x, iPhone 15 paysage 852×393 @3x. Qualité `high` sur desktop, `low` sur l’émulation iPhone (moins de lampes, d’où 4 draw calls et 2 géométries de moins dans l’appartement).
@@ -118,5 +150,6 @@ Avant, chaque aller-retour ajoutait une quinzaine de géométries et ~7 textures
 | `src/render/perf/perfStats.ts` | fenêtre FPS, instantané, `window.__perf`, disponibilité, toggle |
 | `src/render/perf/PerfOverlay.tsx` | collecteur R3F (monté seulement si l’overlay est allumé) + HUD HTML |
 | `src/render/dispose.ts` | `useDispose` / `disposeMesh` |
-| `tools/perf-baseline.mjs` + `tools/perf-baseline.json` | garde des draw calls |
+| `tools/perf-baseline.mjs` + `tools/perf-baseline.json` | garde des draw calls (médiane de N runs) et tableau de variance |
+| `tools/e2e-lifecycle.mjs` | e2e cycle de vie du rendu : draws déclarés = draws WebGL, buffers GPU stables en voyage, studio libéré (DOM, contexte WebGL) |
 | `tests/perf.test.ts` | unité : fenêtre, pire frame, toggle |
