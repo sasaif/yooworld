@@ -14,6 +14,7 @@ import { FaceAnimator, morphIndex } from './avatar/face';
 import { LIE_PITCH, lieRoot, sitRoot } from '../game/interact/anchors';
 import { SitPose } from './avatar/sitPose';
 import { LOUNGER_ANCHOR } from '../data/interactionRegistry';
+import { avoidOffset, hudObstacles } from '../ui/tagAvoid';
 import { beginSeat, motionSeat, newSeatMotion, newSeatPose, presetOf, seatPose, smooth, stepSeat, type SeatPhase } from '../game/interact/seatMotion';
 
 useGLTF.preload(ANIM_LIBRARY);
@@ -21,7 +22,7 @@ useGLTF.preload(ANIM_LIBRARY);
 const LOCO_KEYS = ['idle', 'walk', 'run'] as const;
 type LocoKey = typeof LOCO_KEYS[number];
 const camDir = new THREE.Vector3(); const qCur = new THREE.Quaternion(), qLie = new THREE.Quaternion(), qInv = new THREE.Quaternion(); const eLie = new THREE.Euler(); const qLeg = new THREE.Quaternion();
-const _hw = new THREE.Vector3(), _hl = new THREE.Vector3(), _lr = new THREE.Vector3(), _H = new THREE.Vector3();
+const _tp = new THREE.Vector3(); const _hw = new THREE.Vector3(), _hl = new THREE.Vector3(), _lr = new THREE.Vector3(), _H = new THREE.Vector3();
 const lieBlend = { legs: 0, body: 0, q: qCur, qLie: qLeg };
 const SIT_IN = 0.5; // s: legacy seats (Yoo Plage loungers, SitDown clip)
 /** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
@@ -31,7 +32,9 @@ export const seatDebug: Record<string, { phase: SeatPhase; sp: number; lp: numbe
 
 /** `controlled` = this is the player's avatar: the analog stick / keyboard may drive it. */
 export function Character({ c, def, look, selected, onSelect, controlled = false }: { c: CharState; def: AvatarDef; look: Look; selected: boolean; onSelect: () => void; controlled?: boolean }) {
-  const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const bubble = useRef<HTMLDivElement>(null);
+  const outer = useRef<THREE.Group>(null!); const tag = useRef<THREE.Group>(null!); const nameEl = useRef<HTMLDivElement>(null);
+  /** HUD avoidance of the name tag: cached offset of the label box from its anchor point, applied shift (px) */
+  const tagFit = useRef({ at: -1e9, dx0: 0, dy0: 0, dx1: 0, dy1: 0, shift: 0 }); const bubble = useRef<HTMLDivElement>(null);
   const built = useCustomAvatar(def, look);
   built.holder.userData.avatarId = def.id; // read by Stats.__metrics
   const face = useMemo(() => ({ anim: new FaceAnimator(), idx: built.faces.map((m) => morphIndex(m.morphTargetDictionary!)) }), [built]);
@@ -163,6 +166,15 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     const kt = Math.min(1, dt * 6); const up = SP.sitW > 0 ? 1.14 - SP.sitW * (0.26 - (SP.hip.y - s.pos.y) / def.scale) : s.mode === 'sitting' ? 0.95 : 1.14;
     tag.current.position.y += (up + (0.9 - up) * lk - tag.current.position.y) * kt;
     tag.current.position.z += (0.4 * lk - tag.current.position.z) * kt;
+    // keep the label out from under the top-bar chips ('Mode local'…): shift it down on screen, eased
+    const el = nameEl.current; if (el) {
+      const F = tagFit.current, now = performance.now(); tag.current.updateWorldMatrix(true, false);
+      _tp.setFromMatrixPosition(tag.current.matrixWorld).project(state.camera); const ax = (_tp.x + 1) / 2 * state.size.width, ay = (1 - _tp.y) / 2 * state.size.height;
+      if (now - F.at > 500) { F.at = now; const r = el.getBoundingClientRect(); F.dx0 = r.left - ax; F.dx1 = r.right - ax; F.dy0 = r.top - ay - F.shift; F.dy1 = r.bottom - ay - F.shift; }
+      const want = _tp.z < 1 ? avoidOffset({ l: ax + F.dx0, r: ax + F.dx1, t: ay + F.dy0, b: ay + F.dy1 }, hudObstacles(now)) : 0;
+      const next = F.shift + (want - F.shift) * Math.min(1, dt * 14);
+      if (Math.abs(next - F.shift) > 0.3 || (want === 0 && F.shift !== 0 && Math.abs(next) < 0.3)) { F.shift = Math.abs(next) < 0.3 ? 0 : next; el.style.transform = F.shift ? `translateY(${F.shift.toFixed(1)}px)` : ''; }
+    }
     if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
   });
 
@@ -176,7 +188,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div className="tagwrap">
             <div ref={bubble} className="bubble" />
-            <div className="nametag" style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">PNJ</span>}</div>
+            <div ref={nameEl} className="nametag" style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">PNJ</span>}</div>
           </div>
         </Html>
       </group>
