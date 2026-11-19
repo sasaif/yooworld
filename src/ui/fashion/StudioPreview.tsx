@@ -1,14 +1,23 @@
-import { Suspense, useRef, useState } from 'react';
+import { Suspense, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows } from '@react-three/drei';
 import type { Look } from '../../fashion/types';
 import { AvatarFigure, FRAMES, type CamFrame } from './AvatarFigure';
+import { isolateRendererGeometry } from '../../render/isolateGeometry';
 const _look = new THREE.Vector3(), _want = new THREE.Vector3();
 function Rig({ frame, zoom }: { frame: CamFrame; zoom: number }) {
   const { camera } = useThree(); const t = useRef(new THREE.Vector3(0, FRAMES.body.y, 0));
   useFrame((_, dt) => { const f = FRAMES[frame]; const cam = camera as THREE.PerspectiveCamera; const h = f.h / zoom; const d = h / 2 / Math.tan((cam.fov * Math.PI) / 360) * Math.max(1, 1.05 / cam.aspect);
     t.current.lerp(_look.set(0, f.y, 0), Math.min(1, dt * 6)); cam.position.lerp(_want.set(0, t.current.y + d * 0.08, d), Math.min(1, dt * 6)); cam.lookAt(t.current); });
+  return null;
+}
+/** The studio canvas is a second WebGLRenderer, re-created at every visit: it must not keep GPU state on the
+ *  module-cached avatar geometries shared with the game (that kept the whole studio alive after closing).
+ *  Its scene draws renderer-local proxies of those geometries, freed on unmount. See render/isolateGeometry.ts. */
+function IsolateSharedGeometry() {
+  const gl = useThree((s) => s.gl); const scene = useThree((s) => s.scene);
+  useLayoutEffect(() => isolateRendererGeometry(gl, scene), [gl, scene]);
   return null;
 }
 /** Studio 3D preview: the player's own avatar on a podium, live try-on, drag to turn. */
@@ -26,6 +35,7 @@ export function StudioPreview({ look, base, compare, frame, dance }: { look: Loo
         <mesh rotation-x={-Math.PI / 2} position-y={-0.004}><circleGeometry args={[0.42, 48]} /><meshLambertMaterial color="#ffe3f1" /></mesh>
         <mesh rotation-x={-Math.PI / 2} position-y={-0.002}><ringGeometry args={[0.42, 0.45, 48]} /><meshBasicMaterial color="#ff8fc8" /></mesh>
         <ContactShadows position={[0, 0.001, 0]} opacity={0.35} scale={1.4} blur={2.2} far={1} resolution={256} frames={1} />
+        <IsolateSharedGeometry />
         <Rig frame={frame} zoom={zoom} />
       </Canvas>
       <div className="st-zoom"><button onClick={() => setZoom((z) => Math.min(2.2, z * 1.25))} aria-label="Zoom avant">＋</button><button onClick={() => setZoom((z) => Math.max(0.7, z / 1.25))} aria-label="Zoom arrière">－</button><button onClick={() => setYaw((y) => y + Math.PI / 2)} aria-label="Tourner">⟳</button></div>
