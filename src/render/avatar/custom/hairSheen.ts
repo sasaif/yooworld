@@ -1,9 +1,10 @@
 import type * as THREE from 'three';
+import { storage } from '../../../persistence/storage';
 /** Phase B (test build): subtle "doll" sheen on hair — a soft highlight ring around the crown, a faint strand
  *  ripple and a light rim, plus a gentle darkening towards the underside. Pure shader math on the existing hair
  *  material: same atlas texture, same mesh, 0 extra textures, 0 extra draw calls. Every avatar's hair material
  *  shares ONE extra program (same customProgramCacheKey). Fallback = the original look: `?hairsheen=0` in the URL
- *  or localStorage `yw.hairSheen = '0'` (read once at material creation). */
+ *  or the pref `hairSheen = '0'` (storage.prefs) (read once at material creation). */
 export const HAIR_SHEEN_KEY = 'yw-hair-sheen-v2';
 export const HAIR_SHEEN_GLSL = /* glsl */ `
   {
@@ -21,7 +22,7 @@ export const HAIR_SHEEN_GLSL = /* glsl */ `
 export function hairSheenEnabled(): boolean {
   try {
     if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('hairsheen') === '0') return false;
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('yw.hairSheen') === '0') return false;
+    if (storage.prefs.getItem('hairSheen') === '0') return false; // yw.hairSheen in prod, yw:e:<env>:hairSheen elsewhere
   } catch { /* privacy mode etc. → default */ }
   return true;
 }

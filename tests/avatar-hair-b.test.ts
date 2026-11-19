@@ -1,3 +1,4 @@
+import { storage } from '../src/persistence/storage';
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
 import { CATALOGUE, ITEMS } from '../src/fashion/catalogue';
@@ -41,6 +42,6 @@ describe('hair sheen shader', () => {
   it('flag: ?hairsheen=0 or localStorage yw.hairSheen=0 turns it off', () => {
     expect(hairSheenEnabled()).toBe(true);
     vi.stubGlobal('location', { search: '?lieu=appart&hairsheen=0' }); expect(hairSheenEnabled()).toBe(false); vi.unstubAllGlobals();
-    vi.stubGlobal('localStorage', { getItem: (k: string) => (k === 'yw.hairSheen' ? '0' : null) }); expect(hairSheenEnabled()).toBe(false); vi.unstubAllGlobals();
+    storage.prefs.setItem('hairSheen', '0'); expect(hairSheenEnabled()).toBe(false); storage.prefs.removeItem('hairSheen'); // yw:e:dev:hairSheen under vitest
   });
 });
