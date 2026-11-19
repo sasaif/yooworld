@@ -19,6 +19,7 @@ import { useDispose } from '../dispose';
 import { onFloorTap } from '../../app/floorTap';
 import { MergedShadowCaster } from '../shadow/mergedCaster';
 import { installShadowOnly } from '../shadow/shadowOnly';
+import { APARTMENT_ROOT, BeachPrewarm } from '../prewarm/BeachPrewarm';
 
 /** Static scenery (walls + furniture) casts its shadow through ONE merged shadow-only mesh instead of one draw per part. */
 const ShadowCasterCtx = createContext<MergedShadowCaster | null>(null);
@@ -210,7 +211,8 @@ export function ApartmentView() {
   if (!apt) return null;
   const menuIt = menu ? apt.items.find((i) => i.uid === menu) : undefined;
   return (
-    <group>
+    <group name={APARTMENT_ROOT}>
+      <BeachPrewarm />
       <ShadowCasterCtx.Provider value={caster}>
         <ShadowCasterHost caster={caster} />
         <Floor apt={apt} />
