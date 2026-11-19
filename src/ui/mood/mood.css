@@ -8,6 +8,8 @@
 @media (max-height: 430px) { .dock .mood-menu button { min-width:48px; min-height:48px; font-size:22px; } }
 @media (prefers-reduced-motion: no-preference) { .dock .mood-menu { animation:mood-pop .14s ease-out; } }
 @keyframes mood-pop { from { opacity:0; transform:translate(-50%, 6px); } to { opacity:1; transform:translate(-50%, 0); } }
-/* "!" mark above the name tag (surprised): crisp DOM text, readable at the real 93 px avatar size */
-.expr-badge { font:900 18px/1 system-ui, sans-serif; color:#ff7a00; text-shadow:0 0 3px #fff, 0 0 3px #fff, 0 1px 2px rgba(0,0,0,.35); text-align:center;
-  opacity:0; transition:opacity .15s ease-out; pointer-events:none; height:0; transform:translateY(-20px); }
+/* "!" mark (surprised) popping just under the name tag, over the top of the head: crisp DOM text, readable at the real
+   93 px avatar size. `order:1` puts it after the name tag in the .tagwrap column whatever the DOM order; height 0 so the
+   tag/bubble layout never moves. */
+.expr-badge { order:1; align-self:center; height:0; overflow:visible; font:900 19px/1 system-ui, sans-serif; color:#ff7a00;
+  text-shadow:0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff, 0 1px 2px rgba(0,0,0,.35); opacity:0; transition:opacity .15s ease-out; pointer-events:none; }
