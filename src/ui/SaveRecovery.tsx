@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import './saveRecovery.css';
 import { useStore } from '../core/store';
 import { backups, economy, game } from '../app/services';
 import type { SaveProblem } from '../persistence/LocalStorageRepository';

@@ -5,10 +5,10 @@
 //  B: seed distinctive combined-1 keys -> play/buy/save in /yooworld/ -> every combined-1 key byte-identical,
 //     no other env key appears, root keys created.
 //  C: build guard (a subfolder configured as prod must fail) + ?fresh on combined-1 leaves root untouched.
-// usage: node tools/e2e-save-isolation.mjs [--build]   (PORT=5571, OUT=.e2e-iso)
+// usage: node tools/e2e-save-isolation.mjs [--build]   (PORT=5571, OUT=shots/tmp/save-isolation, git-ignored)
 import { createRequire } from 'module'; import fs from 'fs'; import path from 'path'; import http from 'http'; import { execSync, spawnSync } from 'child_process';
 const { chromium } = createRequire(import.meta.url)('playwright-core');
-const PORT = Number(process.env.PORT ?? 5571); const OUT = path.resolve(process.env.OUT ?? '.e2e-iso'); const ROOT_DIR = path.join(OUT, 'yooworld'); const C1_DIR = path.join(ROOT_DIR, 'combined-1');
+const PORT = Number(process.env.PORT ?? 5571); const OUT = path.resolve(process.env.OUT ?? 'shots/tmp/save-isolation'); const ROOT_DIR = path.join(OUT, 'yooworld'); const C1_DIR = path.join(ROOT_DIR, 'combined-1');
 let failed = 0; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined ? ' ' + JSON.stringify(extra) : '')); if (!c) { failed++; process.exitCode = 1; } };
 
 if (process.argv.includes('--build') || !fs.existsSync(path.join(C1_DIR, 'index.html'))) {

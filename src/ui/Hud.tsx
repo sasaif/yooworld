@@ -2,6 +2,7 @@ import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../core/store';
+import { storage } from '../persistence/storage';
 import { game, fashion } from '../app/services';
 import { Wallet } from './fashion/Studio';
 import { AVATARS } from '../data/avatars';
@@ -14,7 +15,6 @@ import { enterLandscape } from '../app/screen';
 import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
-import { storage } from '../persistence/storage';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
