@@ -6,7 +6,7 @@ import { avatarClips, litAvatarMaterials } from '../AvatarModel';
 import { compositePixels } from './composite';
 import { paintDecals } from './decals';
 import { FACE_MORPHS } from './faceMorphs';
-import { resolveLook, hasHat, type RenderSpec } from './spec';
+import { resolveLook, hasHat, HAT_MODELS, type RenderSpec } from './spec';
 import { applyHairSheen } from './hairSheen';
 import { buildAccessory, buildBeard, buildHair, buildJacketExtra, buildLegShell } from './builders';
 import type { Prepared } from './source';
@@ -58,7 +58,7 @@ export function buildCustomAvatar(src: Prepared, fem: Prepared, mal: Prepared, l
     // 3) attachments (rebuild only when their inputs changed)
     const key = JSON.stringify([spec.hair, spec.beard, spec.jacket?.extra, spec.jacket?.color, spec.jacket?.trim, spec.shoes.shaft, spec.shoes.color, spec.acc]);
     if (key === lastKey) return; lastKey = key; clear();
-    const hat = hasHat(spec); const hb = buildHair(spec.hair, hat, src, fem, mal);
+    const hat = hasHat(spec); const wear = spec.acc.find((a) => HAT_MODELS.includes(a.model) || a.model === 'headphones')?.model ?? ''; const hb = buildHair(spec.hair, hat, src, fem, mal, wear);
     add(attach('Head'), new THREE.Mesh(hb.hair, hairMat));
     for (const t of hb.ties) { const g = new THREE.TorusGeometry(t.r, 0.006, 6, 16); const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: spec.hairColor === '#ff4fb0' ? '#ffd23f' : '#ff4f9a' })); m.position.copy(t.pos); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), t.axis); ownGeo.push(g); ownMat.push(m.material as THREE.Material); add(attach('Head'), m); }
     const bg = buildBeard(spec.beard, src);
