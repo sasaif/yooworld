@@ -212,12 +212,15 @@ if (TOUCH) {
   { const far = await floorSpots({ minDist: 2.2, maxDist: 4 }); const r = await tapSomeFloor(far);
     await p.waitForFunction(() => { const m = window.__move(); return m.path > 0 && m.speed > 0.4; }, null, { timeout: 8000, polling: 40 }).catch(() => {});
     const m0 = await mv();
-    const ang = await p.evaluate(() => { const d = new window.__cam.position.constructor(); window.__cam.getWorldDirection(d); const h = Math.hypot(d.x, d.z), fx = d.x / h, fz = d.z / h, sinEl = Math.max(0.2, Math.abs(d.y) / d.length());
+    // the avatar keeps walking until the stick takes over: pick the direction again from where it actually stands then
+    const openAngle = () => p.evaluate(() => { const d = new window.__cam.position.constructor(); window.__cam.getWorldDirection(d); const h = Math.hypot(d.x, d.z), fx = d.x / h, fz = d.z / h, sinEl = Math.max(0.2, Math.abs(d.y) / d.length());
       const nav = window.__world.nav, [px, pz] = window.__move().pos; const free = (x, z) => nav.free(Math.floor(x / nav.cell), Math.floor(z / nav.cell));
       const score = (a) => { const x = Math.cos(a * Math.PI / 180), y = -Math.sin(a * Math.PI / 180), up = -y / sinEl; let wx = -fz * x + fx * up, wz = fx * x + fz * up; const l = Math.hypot(wx, wz); wx /= l; wz /= l;
         let n = 0; for (let s = 0.1; s <= 1.6; s += 0.1) { if (![-0.2, 0, 0.2].every((o) => free(px + wx * s - wz * o, pz + wz * s + wx * o))) break; n++; } return n; };
       return [90, 270, 0, 180, 45, 135, 225, 315].map((a) => [a, score(a)]).sort((u, v) => v[1] - u[1])[0]; });
+    let ang = await openAngle();
     await stickTo(0.9, ang[0]); await p.waitForFunction(() => window.__move().engaged && window.__move().frames > 0 && window.__move().path === 0, null, { timeout: 3000, polling: 40 }).catch(() => {});
+    ang = await openAngle(); await stickTo(0.9, ang[0]);
     const m1 = await mv(); const w0 = Date.now();
     await p.waitForFunction((t) => window.__move().simTime - t >= 0.9, m1.simTime, { timeout: 10000, polling: 30 }).catch(() => {}); const rest = 900 - (Date.now() - w0); if (rest > 0) await p.waitForTimeout(rest);
     const m2 = await mv(); await up(1);
