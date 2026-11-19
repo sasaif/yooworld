@@ -149,8 +149,8 @@ La racine du site (`/yooworld/`) correspond à `main` : ne la remplace pas sans 
 
 ## 7. Limites connues et points ouverts
 
-- ~~Pieds dans le vide~~ : réglé sur `feature/gameplay-polish` par l'option C (meubles abaissés, squelette inchangé).
-  Pouf devant le canapé non ajouté (il bloquerait la place où l'avatar s'assoit) : à rediscuter.
+- ~~Pieds dans le vide~~ : très réduit sur `feature/gameplay-polish` par l'option C (meubles abaissés, squelette inchangé).
+  Pieds encore 1 à 5 cm au-dessus du sol sur chaises et canapé (cuisses limitées à 25°) ; pouf non ajouté (il bloquerait la place où l'avatar s'assoit) : à rediscuter.
 - **Canapé d'angle :** un saut de 7,5 cm sur une image en se tournant (déjà là avant, 8,2 cm).
 - **Couché sur le lit :** le chignon touche le bord de la tête de lit (jusqu'à environ 4 cm) et les mollets flottent de
   quelques cm au-dessus de la couette.
