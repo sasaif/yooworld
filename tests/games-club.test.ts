@@ -8,7 +8,7 @@ import { footprint, CELL } from '../src/game/apartment/ApartmentModel';
 import { computeSeats, syncWorld } from '../src/game/apartment/worldSync';
 import { CLUB, CLUB_SPAWN, CLUB_TABLES, chairsFor, tableOf } from '../src/game/club/clubLayout';
 import { LOCATIONS, isPlayable, remembered } from '../src/data/locations';
-import { startLocation } from '../src/app/startLocation';
+import { deepLinkPlace, startLocation } from '../src/app/startLocation';
 import { APT_COLS, APT_ROWS } from '../src/data/defaultApartment';
 
 async function boot() {
@@ -21,7 +21,8 @@ describe('Yoo Games Club: place', () => {
     const c = LOCATIONS.find((l) => l.id === 'club')!;
     expect(c).toMatchObject({ kind: 'public', status: 'playable', name: 'Yoo Games Club' }); expect(isPlayable('club')).toBe(true);
     expect(remembered('club')).toBe(false); expect(remembered('beach')).toBe(true); expect(remembered('home')).toBe(true);
-    expect(startLocation('?lieu=club', undefined, false)).toBe('club'); expect(startLocation('?lieu=jeux', undefined, false)).toBe('club');
+    // deep link: the boot keeps the saved place (startLocation → null, nothing written), then the app travels to the club
+    expect(startLocation('?lieu=club', undefined, false)).toBeNull(); expect(deepLinkPlace('?lieu=club')).toBe('club'); expect(deepLinkPlace('?lieu=JEUX')).toBe('club'); expect(deepLinkPlace('?lieu=plage')).toBeNull();
   });
   it('same footprint as the apartment (same wall kit, same camera framing)', () => {
     expect([CLUB.cols, CLUB.rows]).toEqual([APT_COLS, APT_ROWS]);
@@ -69,9 +70,11 @@ describe('Yoo Games Club: travel without saving', () => {
     expect(g.travel('home')).toBe(true); expect(world.seats.some((s) => s.id.startsWith('t_dominoes'))).toBe(false);
     vi.useRealTimers();
   });
-  it('deep link ?lieu=club opens the club without saving it as the location', async () => {
-    world.chars.f = makeChar('f', 'Juanita', 3, 2.85); world.chars.m = makeChar('m', 'Juan', 3.7, 2.85);
-    const repo = new MemoryRepository(); const g = new GameController(repo, new OfflineTransport()); await g.init({ startAt: 'club' });
-    expect(g.s.location).toBe('club'); expect((await repo.loadProfile())!.location ?? 'home').not.toBe('club');
+  it('boot then travel to the club (deep link path): the saved profile keeps its remembered place', async () => {
+    vi.useFakeTimers();
+    const { g, repo } = await boot(); const before = (await repo.loadProfile())!.location;
+    g.travel('club'); vi.advanceTimersByTime(1000);
+    expect(g.s.location).toBe('club'); expect((await repo.loadProfile())!.location).toBe(before);
+    vi.useRealTimers();
   });
 });

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from '../../core/store';
-import { club, game } from '../../app/services';
+import { game } from '../../app/services';
+import { club } from '../../app/clubService';
 import { CLUB_TABLES } from '../../game/club/clubLayout';
 import { gameById, LOCAL_BADGE } from '../../minigames/registry';
 import { dominoes, sameTile, type DominoMove, type Tile } from '../../minigames/dominoes/rules';

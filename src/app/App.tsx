@@ -16,7 +16,8 @@ import { useStore } from '../core/store';
 import { Hud } from '../ui/Hud';
 import { Stats } from '../render/Stats';
 import { PerfCollectorGate, PerfLayer } from '../render/perf/PerfOverlay';
-import { club, fashion, game } from './services';
+import { fashion, game } from './services';
+import { club } from './clubService';
 import { ClubView } from '../render/club/ClubView';
 import { ClubOverlay } from '../ui/club/ClubOverlay';
 import { FashionStudio } from '../ui/fashion/Studio';
@@ -29,7 +30,7 @@ import { BEACH, BEACH_CENTER, BEACH_FRAME } from '../game/beach/beachLayout';
 import { TravelFade } from '../ui/TravelFade';
 import { VARIANT } from './variant';
 import { camStore, camViewFollow, camViewZoomMul } from './camView';
-import { startLocation } from './startLocation';
+import { deepLinkPlace, startLocation } from './startLocation';
 import { VirtualJoystick, wantsJoystick } from '../input/joystick/VirtualJoystick';
 import { RunButton } from '../input/joystick/RunButton';
 import { installGlobalInput, setInputEnabled } from '../input/joystick/joystickState';
@@ -73,6 +74,7 @@ export default function App() {
   const atTable = useStore(club.store, (s) => !!s.session);
   const joyHidden = !ready || studio || mode === 'edit' || moving || atTable;
   useEffect(() => { setInputEnabled(!joyHidden); }, [joyHidden]);
+  useEffect(() => { if (ready && !SHOT && deepLinkPlace(location.search) === 'club') game.travel('club'); }, [ready]); // ?lieu=club (not saved)
   useActivityRewards();
   useEffect(() => { game.init({ startAt: SHOT ? null : startAt() }).then(() => {
     const p = game.s.profile!; world.chars[game.s.activeChar].name = p.name;

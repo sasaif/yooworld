@@ -59,7 +59,7 @@ export class GameController {
     else if (apt.items.some((i) => !this.cat[i.defId])) apt = { ...apt, items: apt.items.filter((i) => !!this.cat[i.defId]) };
     const wanted = opts.startAt ?? profile.location;
     const location = wanted && isPlayable(wanted) ? wanted : 'home';
-    if (opts.startAt && location !== profile.location && remembered(location)) { profile = { ...profile, location }; await this.repo.saveProfile(profile); }
+    if (opts.startAt && location !== profile.location) { profile = { ...profile, location }; await this.repo.saveProfile(profile); }
     this.store.set({ profile, apartment: apt, inventory: inv, activeChar: profile.appearance.body === 'm' ? 'm' : 'f', location });
     this.enterWorld(location, location !== 'home');
     this.store.set({ ready: true });

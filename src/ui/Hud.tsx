@@ -1,3 +1,4 @@
+import { club } from '../app/clubService';
 import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
 import { useEffect, useRef, useState } from 'react';
@@ -14,18 +15,17 @@ import { enterLandscape } from '../app/screen';
 import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
-import { club } from '../app/services';
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
 
 export function Hud() {
-  const s = useStore(game.store, (x) => x); const atTable = useStore(club.store, (x) => !!x.session);
+  const s = useStore(game.store, (x) => x);
   if (!s.ready) return <div className="loading">Chargement…</div>;
   return (
     <>
-      {!atTable && <TopBar />}
+      <TopBar />
       {s.toast && Date.now() - s.toast.at < 2500 && <div className="toast" key={s.toast.at}>{s.toast.text}</div>}
-      {atTable ? null : s.mode === 'play' ? <PlayDock /> : <EditDock />}
+      {s.mode === 'play' ? <PlayDock /> : <EditDock />}
       {s.panel === 'catalog' && <CatalogSheet />}
       {s.panel === 'finishes' && <FinishesSheet />}
       {s.panel === 'chat' && <ChatSheet />}
@@ -42,8 +42,9 @@ const markPlacesSeen = () => { try { localStorage.setItem(SEEN_KEY, '1'); } catc
 function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const i = setInterval(() => f((n) => n + 1), ms); return () => clearInterval(i); }, [ms]); }
 
 function TopBar() {
-  useTick(1500);
+  useTick(1500); const atTable = useStore(club.store, (x) => !!x.session); // Games Club table overlay has its own top strip
   const p = useStore(game.store, (s) => s.profile)!; const active = useStore(game.store, (s) => s.activeChar); const panel = useStore(game.store, (s) => s.panel);
+  if (atTable) return null;
   return (
     <div className="hud-top">
       <button className="chip" onClick={() => game.setPanel('profile')}>
@@ -96,9 +97,11 @@ function LocationChip() {
 }
 const MOOD = { day: ['☀️', 'Jour'], sunset: ['🌅', 'Coucher'], cycle: ['🔄', 'Auto'] } as const;
 function PlayDock() {
+  const atTable = useStore(club.store, (x) => !!x.session);
   const panel = useStore(game.store, (s) => s.panel); const active = useStore(game.store, (s) => s.activeChar);
   const loc = useStore(game.store, (s) => s.location); const mood = useStore(game.store, (s) => s.mood);
   const emote = !!world.chars[active]?.emote;
+  if (atTable) return null; // seated at a Games Club table: the table overlay owns the bottom of the screen
   return (
     <nav className="dock">
       <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Lieux : Mon appart, Yoo Plage">🗺️<span>Lieux</span></button>
