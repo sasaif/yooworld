@@ -252,7 +252,7 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
   // dance then push the stick
   await place(st.x, st.z, 0); await p.evaluate(() => window.game.toggleEmote()); await p.waitForTimeout(800);
   const dancing = (await mv()).mode === 'emote'; await stickTo(1, 45); await p.waitForTimeout(500); const md = await mv(); const em = await p.evaluate(() => window.__world.chars[window.game.s.activeChar].emote); await up(1); await p.waitForTimeout(400);
-  ok(dancing && md.mode === 'walk' && !em, 'dancing + joystick → stops dancing and walks');
+  ok(dancing && md.mode === 'walk' && !em, 'dancing + joystick → stops dancing and walks', { dancing, mode: md.mode, emote: em, speed: +md.speed.toFixed(3), blocked: md.blocked, pos: md.pos });
   const buddy = await p.evaluate(() => { const g = window.game.s.activeChar === 'f' ? 'm' : 'f'; return window.__world.chars[g].mode; }); ok(!!buddy, `companion avatar untouched (${buddy})`);
 }
 

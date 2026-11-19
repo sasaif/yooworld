@@ -20,7 +20,7 @@ const errs = [];
 const DT = 1000 / 60, SCALE = 1.14, STRIDE = { walk: 0.377 * SCALE, run: 1.9 * SCALE }; // measured clip stride speeds (animBlend.STRIDE × avatar scale)
 const PROFILES = { a: 1.615, b: 1.482, c: 1.33 };
 
-async function open(q = '') {
+async function open(q = '', virtual = true) {
   const ctx = await b.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: dev.dpr, isMobile: true, hasTouch: true });
   await ctx.addInitScript(() => {
     try { sessionStorage.setItem('yw.portrait', '1'); } catch { /* */ }
@@ -28,7 +28,7 @@ async function open(q = '') {
     performance.now = () => (virt ? vt : rp());
     window.requestAnimationFrame = (cb) => { if (!virt) return rr(cb); cbs.push(cb); return 1e6 + cbs.length; };
     const rc = window.cancelAnimationFrame.bind(window); window.cancelAnimationFrame = (id) => { if (id < 1e6) rc(id); };
-    window.__virt = () => { vt = rp(); virt = true; };
+    window.__virt = () => { vt = rp(); virt = true; window.__virtOn = true; };
     window.__step = (ms) => { vt += ms; const c = cbs; cbs = []; c.forEach((f) => f(vt)); };
   });
   const p = await ctx.newPage(); p.on('pageerror', (e) => errs.push(e.message));
@@ -39,12 +39,15 @@ async function open(q = '') {
     window.__scr = (x, y, z) => { const v = new V(x, y, z).project(window.__cam); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
     window.__avatarObj = (id) => { let r = null; scene().traverse((o) => { if (o.userData.avatarId === id) r = o; }); return r; };
     window.__bones = (id) => { const o = window.__avatarObj(id); const out = {}; o.traverse((m) => { if (m.isBone && !out[m.name]) out[m.name] = m.getWorldPosition(new V()).toArray(); }); return out; };
-    window.__steps = (n) => { for (let i = 0; i < n; i++) window.__step(1000 / 60); };
+    window.__steps = (n) => { if (!window.__virtOn) return; for (let i = 0; i < n; i++) window.__step(1000 / 60); };
   });
-  await p.evaluate(() => window.__virt());
+  if (virtual) await p.evaluate(() => window.__virt());
   const cdp = await ctx.newCDPSession(p);
   return { p, ctx, cdp };
 }
+/** screenshot through CDP (page.screenshot waits for a real animation frame, which never comes with rAF virtualised on
+ *  some headless hosts, e.g. GitHub runners); best effort: a failed capture never fails a test */
+async function shot(cdp, path) { try { const r = await cdp.send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(path, Buffer.from(r.data, 'base64')); } catch (e) { console.log(`   (screenshot ${path} skipped: ${e.message.slice(0, 80)})`); } }
 const touch = (cdp, type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts });
 async function tapEl(p, cdp, sel) { const r = await p.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; }, sel); if (!r) return false;
   await touch(cdp, 'touchStart', [{ x: r[0], y: r[1], id: 7 }]); await p.evaluate(() => window.__steps(3)); await touch(cdp, 'touchEnd', []); await p.evaluate(() => window.__steps(3)); return true; }
@@ -73,7 +76,7 @@ async function moveRun(name, q, runMode, defl = 1) {
   const nDrive = Math.round(DRIVE * 60); for (let f = 0; f < nDrive; f++) { await p.evaluate(() => window.__step(1000 / 60)); S.push({ ...(await sample()), f, on: true }); }
   await touch(cdp, 'touchEnd', []);
   for (let f = 0; f < 60; f++) { await p.evaluate(() => window.__step(1000 / 60)); S.push({ ...(await sample()), f: nDrive + f, on: false }); }
-  await p.screenshot({ path: `${SHOTS}/move_${name}.png` }); await ctx.close();
+  await shot(cdp, `${SHOTS}/move_${name}.png`); await ctx.close();
   if (process.env.DUMP) fs.writeFileSync(`${SHOTS}/move_${name}_samples.json`, JSON.stringify(S));
   // ---- metrics
   const drive = S.filter((s) => s.on), rel = S.filter((s) => !s.on), T = drive[0].max;
@@ -116,8 +119,9 @@ if (ONLY.includes('move')) {
 
 // ---------------------------------------------------------------- 2. name tag vs 'Mode local' chip
 if (ONLY.includes('tag')) {
-  const { p, ctx } = await open('');
-  await p.evaluate(() => window.__steps(30));
+  // real-time frames here (with virtualised rAF the drei <Html> tag layer sometimes stayed at its first position in
+  // headless Chrome); Juan is pinned every frame and the test waits for the tag state itself
+  const { p, ctx, cdp } = await open('', false);
   const chip = await p.evaluate(() => { const e = [...document.querySelectorAll('.hud-top .chip')].find((x) => /Mode local/.test(x.textContent)); const r = e?.getBoundingClientRect(); return r && { l: r.left, t: r.top, r: r.right, b: r.bottom }; });
   ok(!!chip, `'Mode local' chip shown (${chip ? [chip.l, chip.t, chip.r, chip.b].map(Math.round).join(',') : 'none'})`);
   // Juan's tag offset from his feet on screen, then put him where the raw tag lands on the chip
@@ -128,18 +132,22 @@ if (ONLY.includes('tag')) {
     const ndc = new V(sx / innerWidth * 2 - 1, 1 - sy / innerHeight * 2, -1).unproject(window.__cam), dir = new V(); window.__cam.getWorldDirection(dir);
     const k = -ndc.y / dir.y; const x = ndc.x + dir.x * k, z = ndc.z + dir.z * k; j.path = []; j.mode = 'idle'; j.pos.set(x, 0, z); window.__juan = [x, z];
     return { x, z, dx, dy }; }, chip);
-  for (let i = 0; i < 70; i++) await p.evaluate(() => { const j = Object.values(window.__world.chars).find((c) => c.name === 'Juan'); j.pos.set(window.__juan[0], 0, window.__juan[1]); j.path = []; window.__step(1000 / 60); });
+  await p.evaluate(() => { const pin = () => { const j = Object.values(window.__world.chars).find((c) => c.name === 'Juan'); j.pos.set(window.__juan[0], 0, window.__juan[1]); j.path = []; requestAnimationFrame(pin); }; pin(); });
+  // the tag first follows Juan (projected under the chip), then the avoidance (re-measured every 500 ms, eased) moves it
+  await p.waitForFunction((chip) => { const el = [...document.querySelectorAll('.nametag')].find((e) => /^Juan(PNJ)?$/.test(e.textContent)); const r = el.getBoundingClientRect();
+    return r.left > chip.l - 40 && r.top >= chip.b - 0.5; }, chip, { timeout: 15000, polling: 100 }).catch(() => {});
+  await p.waitForTimeout(800);
   const m = await p.evaluate((chip) => { const el = [...document.querySelectorAll('.nametag')].find((e) => /^Juan(PNJ)?$/.test(e.textContent)); const rc = el.getBoundingClientRect();
     const ty = Number((el.style.transform.match(/translateY\(([-\d.]+)px\)/) ?? [0, 0])[1]); const ov = (t) => Math.max(0, Math.min(rc.right, chip.r) - Math.max(rc.left, chip.l)) * Math.max(0, Math.min(rc.bottom + t, chip.b) - Math.max(rc.top + t, chip.t));
-    return { rect: [rc.left, rc.top, rc.right, rc.bottom].map(Math.round), ty, overlap: ov(0), rawOverlap: ov(-ty), visible: rc.bottom > 0 && rc.top < innerHeight }; }, chip);
-  await p.screenshot({ path: `${SHOTS}/tag_vs_chip.png` });
+    const j = Object.values(window.__world.chars).find((c) => c.name === 'Juan'); return { juan: [j.pos.x, j.pos.z].map((x) => +x.toFixed(2)), want: window.__juan.map((x) => +x.toFixed(2)), wrap: el.parentElement?.parentElement?.style.transform?.slice(0, 60), rect: [rc.left, rc.top, rc.right, rc.bottom].map(Math.round), ty, overlap: ov(0), rawOverlap: ov(-ty), visible: rc.bottom > 0 && rc.top < innerHeight }; }, chip);
+  await shot(cdp, `${SHOTS}/tag_vs_chip.png`);
   ok(m.rawOverlap > 50 && m.ty > 0 && m.overlap === 0 && m.visible, `Juan's tag would cover the 'Mode local' chip (${Math.round(m.rawOverlap)} px²) → moved ${m.ty.toFixed(1)} px down, overlap now ${m.overlap} px², still on screen`, m);
   await ctx.close();
 }
 
 // ---------------------------------------------------------------- 3. chat with the iOS keyboard
 if (ONLY.includes('chat')) {
-  const { p, ctx } = await open('');
+  const { p, ctx, cdp } = await open('');
   await p.evaluate(() => { window.game.setPanel('chat'); for (const t of ['Salut Juan', 'On va à la plage ?', 'Dernier message 42']) window.game.sendChat(t); window.__steps(30); });
   await p.waitForTimeout(200);
   const R = (s) => p.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { l: b.left, t: b.top, r: b.right, b: b.bottom } : null; }, s);
@@ -157,7 +165,7 @@ if (ONLY.includes('chat')) {
       return { kb: document.documentElement.classList.contains('kb-open'), input: q('.chat-sheet input'), send: q('.chat-sheet .chatbar .btn'), x: q('.chat-sheet .x'), lastText: log?.lastElementChild?.textContent ?? '',
         lastVis: !!last && !!lr && lr.height > 0 && last.top >= lr.top - 1 && last.bottom <= lr.bottom + 1 && last.top >= top && last.bottom <= top + h, focus: document.activeElement?.tagName }; }, [h, top]);
     const inV = (r) => !!r && r.t >= top - 0.5 && r.b <= top + h + 0.5;
-    await p.screenshot({ path: `${SHOTS}/chat_kb_${h}_${top}.png` });
+    await shot(cdp, `${SHOTS}/chat_kb_${h}_${top}.png`);
     ok(m.kb && inV(m.input) && inV(m.send) && m.focus === 'INPUT', `keyboard up, visible ${h} px${top ? ` panned ${top} px` : ''}: input + Envoyer fully visible, focus kept`, { input: m.input, send: m.send });
     if (h >= 90) ok(m.lastVis && /Dernier message 42/.test(m.lastText), `keyboard up, visible ${h} px${top ? ` panned ${top} px` : ''}: newest message visible`);
     if (h >= 125) ok(inV(m.x), `keyboard up, visible ${h} px${top ? ` panned ${top} px` : ''}: header with ✕ visible`);
