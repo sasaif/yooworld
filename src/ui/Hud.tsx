@@ -263,7 +263,7 @@ function PlacesSheet() {
       <div className="grid">{LOCATIONS.map((l) => { const here = l.id === loc;
         return <button key={l.id} className={'card' + (here ? ' here' : '')} disabled={l.status !== 'playable'} onClick={() => (here ? game.setPanel(null) : game.travelWithFade(l.id))}>
           <span className="big">{l.icon}</span><b>{l.name}</b><small>{l.status !== 'playable' ? 'Bientôt' : here ? 'Tu y es' : <span className="places-card-go">Y aller →</span>}</small></button>; })}</div>
-      <p className="muted">Lieux publics hors ligne : seuls tes deux avatars locaux y sont (pas de faux joueurs).</p>
+      <p className="muted">Lieux publics hors ligne. Les personnages avec le badge PNJ sont des habitant·e·s locaux (pas des joueurs en ligne).</p>
     </div>
   );
 }

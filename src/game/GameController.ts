@@ -14,6 +14,7 @@ import { LocalChatService } from './social/social';
 import { goTo, placeChar, say, world } from './world';
 import { BEACH_SPAWN, DANCE_SPOTS, beachWorld, propById } from './beach/beachLayout';
 import { isPlayable, locationById, remembered } from '../data/locations';
+import { isPlayerChar, syncAmbientNpcs } from './npc/ambientNpcs';
 import { CLUB, CLUB_SPAWN } from './club/clubLayout';
 
 export type Panel = null | 'catalog' | 'finishes' | 'chat' | 'profile' | 'places' | 'emotes' | 'settings';
@@ -203,7 +204,11 @@ export class GameController {
     else syncWorld(this.s.apartment!, this.cat);
     if (!spawn) return;
     const sp = id === 'beach' ? BEACH_SPAWN : id === 'club' ? CLUB_SPAWN : HOME_SPAWN; const me = this.s.activeChar;
-    for (const c of Object.values(world.chars)) placeChar(c.id, c.id === me ? sp.player : sp.buddy, sp.yaw);
+    for (const c of Object.values(world.chars)) {
+      if (!isPlayerChar(c.id)) continue; // ambient NPCs are respawned for the new scene, never teleported to the buddy pad
+      placeChar(c.id, c.id === me ? sp.player : sp.buddy, sp.yaw);
+    }
+    syncAmbientNpcs(id);
   }
   /** Instant switch to another playable location (the companion avatar comes along). Returns false if not possible. */
   travel(id: string) {

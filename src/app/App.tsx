@@ -4,6 +4,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
 import { ApartmentView } from '../render/apartment/ApartmentView';
 import { Character } from '../render/Character';
+import { AmbientNpcs } from '../render/npc/AmbientNpcs';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Q } from '../render/quality';
@@ -101,6 +102,7 @@ export default function App() {
           {ready && Object.values(AVATARS).map((a) => (
             <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT && !atTable} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
           ))}
+          {ready && <AmbientNpcs />}
         </Suspense>
         <Stats />
         <PerfCollectorGate />
