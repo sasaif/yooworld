@@ -1,6 +1,8 @@
 {
-  "recordedAt": "2026-11-19T09:51:48.299Z",
-  "note": "Headless SwiftShader FPS is not representative. calls = total draw calls per frame (main + shadow pass). Guard: total draw calls +20 %. Budgets (docs/10): apartment 120, beach 40, reported only.",
+  "recordedAt": "2026-11-19T12:29:20.561Z",
+  "note": "Headless SwiftShader FPS is not representative. calls = total draw calls per frame (main + shadow pass), median of RUNS fresh runs x FRAMES frames. Guard: median total draw calls +20 %. Budgets (docs/10): apartment 120, beach 40, reported only.",
+  "runs": 5,
+  "framesPerRun": 60,
   "budgets": {
     "apartment": 120,
     "beach": 40
@@ -17,7 +19,27 @@
         "textures": 13,
         "programs": 22,
         "uniqueGeometries": 88,
-        "uniqueMaterials": 47
+        "uniqueMaterials": 47,
+        "spread": {
+          "calls": {
+            "min": 154,
+            "median": 154,
+            "max": 154,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 84268,
+            "median": 84268,
+            "max": 84268,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 505,
+            "median": 505,
+            "max": 505,
+            "stddev": 0
+          }
+        }
       },
       "iphone15": {
         "calls": 150,
@@ -29,7 +51,27 @@
         "textures": 12,
         "programs": 22,
         "uniqueGeometries": 88,
-        "uniqueMaterials": 47
+        "uniqueMaterials": 47,
+        "spread": {
+          "calls": {
+            "min": 150,
+            "median": 150,
+            "max": 150,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 84038,
+            "median": 84038,
+            "max": 84038,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 497,
+            "median": 497,
+            "max": 497,
+            "stddev": 0
+          }
+        }
       }
     },
     "beach": {
@@ -43,7 +85,27 @@
         "textures": 11,
         "programs": 16,
         "uniqueGeometries": 46,
-        "uniqueMaterials": 48
+        "uniqueMaterials": 48,
+        "spread": {
+          "calls": {
+            "min": 31,
+            "median": 31,
+            "max": 31,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 112282,
+            "median": 112282,
+            "max": 112282,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 205,
+            "median": 205,
+            "max": 205,
+            "stddev": 0
+          }
+        }
       },
       "iphone15": {
         "calls": 31,
@@ -55,7 +117,27 @@
         "textures": 11,
         "programs": 16,
         "uniqueGeometries": 46,
-        "uniqueMaterials": 48
+        "uniqueMaterials": 48,
+        "spread": {
+          "calls": {
+            "min": 31,
+            "median": 31,
+            "max": 31,
+            "stddev": 0
+          },
+          "triangles": {
+            "min": 112282,
+            "median": 112282,
+            "max": 112282,
+            "stddev": 0
+          },
+          "buffers": {
+            "min": 205,
+            "median": 205,
+            "max": 205,
+            "stddev": 0
+          }
+        }
       }
     }
   }
