@@ -1,3 +1,4 @@
+import { club } from '../app/clubService';
 import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
 import { useEffect, useRef, useState } from 'react';
@@ -45,8 +46,9 @@ const markPlacesSeen = () => { try { storage.prefs.setItem(SEEN_KEY, '1'); } cat
 function useTick(ms = 1000) { const [, f] = useState(0); useEffect(() => { const i = setInterval(() => f((n) => n + 1), ms); return () => clearInterval(i); }, [ms]); }
 
 function TopBar() {
-  useTick(1500);
+  useTick(1500); const atTable = useStore(club.store, (x) => !!x.session); // Games Club table overlay has its own top strip
   const p = useStore(game.store, (s) => s.profile)!; const active = useStore(game.store, (s) => s.activeChar); const panel = useStore(game.store, (s) => s.panel);
+  if (atTable) return null;
   return (
     <div className="hud-top">
       <button className="chip" onClick={() => game.setPanel('profile')}>
@@ -99,16 +101,19 @@ function LocationChip() {
 }
 const MOOD = { day: ['☀️', 'Jour'], sunset: ['🌅', 'Coucher'], cycle: ['🔄', 'Auto'] } as const;
 function PlayDock() {
+  const atTable = useStore(club.store, (x) => !!x.session);
   const panel = useStore(game.store, (s) => s.panel); const active = useStore(game.store, (s) => s.activeChar);
   const loc = useStore(game.store, (s) => s.location); const mood = useStore(game.store, (s) => s.mood);
   const emote = !!world.chars[active]?.emote;
+  if (atTable) return null; // seated at a Games Club table: the table overlay owns the bottom of the screen
   return (
     <nav className="dock">
       <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Lieux : Mon appart, Yoo Plage">🗺️<span>Lieux</span></button>
       {loc === 'home' ? <>
         <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
         <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>
-      </> : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
+      </> : loc === 'club' ? <button onClick={() => club.openSetup()} data-club="games" aria-label="Jeux : dominos contre des bots">🎲<span>Jeux</span></button>
+      : <button onClick={() => game.cycleMood()} title="Ambiance : jour, coucher de soleil ou cycle automatique">{MOOD[mood][0]}<span>{MOOD[mood][1]}</span></button>}
       <button onClick={() => fashion.open(active as Body)} className="style-btn" aria-label="Style : avatar et boutique mode">👗<span>Style</span></button>
       <button onClick={() => game.toggleEmote()} className={emote ? 'on' : ''}>🎉<span>Danse</span></button>
       <MoodMenu charId={active} />

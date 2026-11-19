@@ -14,7 +14,7 @@ export function useCustomAvatar(def: AvatarDef, look: Look, key = 'game'): Custo
   setAtlasMask(mask);
   const built = useMemo(() => {
     const fem = prepareSource(fG, fP, mask), mal = prepareSource(mG, mP, mask);
-    return buildCustomAvatar(def.id === 'm' ? mal : fem, fem, mal, lib, def);
+    return buildCustomAvatar(def.id === 'm' || def.url === AVATARS.m.url ? mal : fem, fem, mal, lib, def); // extra avatars (club bots) reuse a body by url
   }, [fG, mG, lib, fP, mP, mask, def, key]); // eslint-disable-line react-hooks/exhaustive-deps
   useMemo(() => built.applyLook(look), [built, look]);
   useEffect(() => () => built.dispose(), [built]);

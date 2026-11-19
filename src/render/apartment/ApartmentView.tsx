@@ -71,7 +71,7 @@ function FurnitureBatch({ defId, items, apt }: { defId: string; items: PlacedIte
   ))}</>;
 }
 
-function Walls({ apt }: { apt: ApartmentLayout }) {
+export function Walls({ apt }: { apt: ApartmentLayout }) {
   const gl = useGLTF([...BACK_WALL, ...LEFT_WALL].map(URL)) as unknown as { scene: THREE.Group }[];
   const fin = wallById(apt.wall);
   const built = useMemo(() => {
@@ -100,7 +100,7 @@ function Walls({ apt }: { apt: ApartmentLayout }) {
   ))}</>;
 }
 
-function Floor({ apt }: { apt: ApartmentLayout }) {
+export function Floor({ apt }: { apt: ApartmentLayout }) {
   const W = apt.cols * CELL, D = apt.rows * CELL; const fin = floorById(apt.floor);
   const tex = useMemo(() => { const t = floorTexture(fin); t.repeat.set(W / 2.4, D / 2.4); t.needsUpdate = true; return t; }, [fin, W, D]);
   const placing = useStore(game.store, (s) => !!s.placing);

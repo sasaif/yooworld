@@ -17,6 +17,9 @@ import { Hud } from '../ui/Hud';
 import { Stats } from '../render/Stats';
 import { PerfCollectorGate, PerfLayer } from '../render/perf/PerfOverlay';
 import { fashion, game } from './services';
+import { club } from './clubService';
+import { ClubView } from '../render/club/ClubView';
+import { ClubOverlay } from '../ui/club/ClubOverlay';
 import { FashionStudio } from '../ui/fashion/Studio';
 import { ThumbStage, THUMBS } from '../ui/fashion/ThumbStage';
 import { useActivityRewards } from '../fashion/useActivityRewards';
@@ -28,7 +31,7 @@ import { BEACH, BEACH_CENTER, BEACH_FRAME } from '../game/beach/beachLayout';
 import { TravelFade } from '../ui/TravelFade';
 import { VARIANT } from './variant';
 import { camStore, camViewFollow, camViewZoomMul } from './camView';
-import { startLocation } from './startLocation';
+import { deepLinkPlace, startLocation } from './startLocation';
 import { VirtualJoystick, wantsJoystick } from '../input/joystick/VirtualJoystick';
 import { RunButton } from '../input/joystick/RunButton';
 import { installGlobalInput, setInputEnabled } from '../input/joystick/joystickState';
@@ -70,8 +73,10 @@ export default function App() {
   const view = useStore(camStore, (s) => s.view);
   const looks = useStore(fashion.store, (s) => s.looks); const studio = useStore(fashion.store, (s) => !!s.studio);
   const mode = useStore(game.store, (s) => s.mode); const panel = useStore(game.store, (s) => s.panel); const moving = useStore(game.store, (s) => !!s.transition);
-  const joyHidden = !ready || studio || mode === 'edit' || moving;
+  const atTable = useStore(club.store, (s) => !!s.session);
+  const joyHidden = !ready || studio || mode === 'edit' || moving || atTable;
   useEffect(() => { setInputEnabled(!joyHidden); }, [joyHidden]);
+  useEffect(() => { if (ready && !SHOT && deepLinkPlace(location.search) === 'club') game.travel('club'); }, [ready]); // ?lieu=club (not saved)
   useActivityRewards();
   const onStarted = () => {
     if (!game.s.ready) return; // P0.B: unreadable save -> <SaveRecovery> waits for an explicit choice
@@ -84,16 +89,17 @@ export default function App() {
   if (THUMBS) return <ThumbStage />;
   const cam = SHOT ? SHOT_CAM[SHOT] : { target: beach ? BEACH_CENTER : CENTER, zoom: small ? 70 : 122 };
   return (
-    <div className={'stage' + (beach ? ' beach' : '')}>
+    <div className={'stage' + (beach ? ' beach' : '') + (loc === 'club' ? ' club' : '')}>
       <Canvas frameloop={studio ? 'never' : 'always'} shadows="soft" dpr={SHOT ? (small ? 2 : 1) : Q.dpr} gl={{ alpha: true, preserveDrawingBuffer: !!SHOT, antialias: Q.antialias, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
         onPointerMissed={() => game.store.set({ menuItem: null })}>
         <OrthographicCamera makeDefault near={0.1} far={100} />
         {beach ? <BeachAmbience /> : <Lighting center={[CENTER.x, 0, CENTER.z]} />}
         <Suspense fallback={null}>
-          {ready && !beach && <ApartmentView />}
+          {ready && !beach && loc !== 'club' && <ApartmentView />}
+          {ready && loc === 'club' && <ClubView />}
           {ready && beach && <BeachView />}
           {ready && Object.values(AVATARS).map((a) => (
-            <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
+            <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT && !atTable} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
           ))}
         </Suspense>
         <Stats />
@@ -105,6 +111,7 @@ export default function App() {
       {(!SHOT || SHOT.startsWith('ui')) && <Hud />}
       {JOY && <VirtualJoystick hidden={joyHidden} panelOpen={!!panel} />}
       {!SHOT && <RunButton hidden={joyHidden || !!panel} showButton={JOY} />}
+      {!SHOT && <ClubOverlay />}
       <TravelFade />
       {studio && <FashionStudio />}
       {!SHOT && <RotateOverlay />}

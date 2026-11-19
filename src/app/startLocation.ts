@@ -11,3 +11,9 @@ export function startLocation(search: string, buildDefault: string | undefined, 
   if (buildDefault && ALIAS[buildDefault] && !defaultUsedThisSession) return ALIAS[buildDefault];
   return null;
 }
+/** Deep link to a place that is never remembered as the current location (?lieu=club|jeux → Yoo Games Club): the game
+ *  boots normally (saved place, nothing written) and then travels there. Pure + unit-tested. */
+export function deepLinkPlace(search: string): string | null {
+  const q = new URLSearchParams(search).get('lieu')?.toLowerCase().trim();
+  return q === 'club' || q === 'jeux' ? 'club' : null;
+}
