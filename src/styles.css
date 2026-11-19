@@ -231,3 +231,15 @@ html, body { position:fixed; inset:0; } /* no rubber-band scrolling / address-ba
 .chat-sheet.collapsed h3 { margin:0; }
 .chat-scope { cursor:pointer; overflow-wrap:anywhere; } .chat-scope .more { color:#8a4b00; font-weight:800; }
 .chatlog > div { min-width:0; } .chatlog bdi { unicode-bidi:isolate; }
+
+/* ---------- dock vs joystick / Run button (bottom-left) ----------
+   The dock is centred while it fits between symmetric insets that clear the joystick (+ Run button); on narrow screens
+   (iPhone SE 667x375: dock 328 px, Run ends at 206 px) the auto margins hit 0 and the dock simply starts after Run, never
+   under it. Landscape <= 740 px also reserves 58 px on the right for YW Art & Avatars' Mood button, which sits just right
+   of the dock there (src/ui/mood/mood.css on feature/avatar-face: left:calc(100% + 6px), 52 px wide). Layout only. */
+:root { --dock-l:max(8px, var(--sal)); --dock-r-extra:0px; }
+body:has(.joy:not(.joy-hidden)) { --dock-l:calc(max(18px, calc(var(--sal) + 6px)) + 132px + 8px); }
+body:has(.run-btn:not(.joy-hidden)) { --dock-l:calc(max(18px, calc(var(--sal) + 6px)) + 132px + 8px + 48px + 8px); }
+@media (orientation: landscape) and (max-width: 740px) { :root { --dock-r-extra:58px; } }
+body:has(.joy:not(.joy-hidden)) .dock { transform:none; left:var(--dock-l); right:var(--dock-l); margin-inline:auto; width:max-content;
+  max-width:calc(100% - var(--dock-l) - max(8px, var(--sar)) - var(--dock-r-extra)); }
