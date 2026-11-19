@@ -89,35 +89,34 @@ describe('controller: speeds reached per test case (60 fps)', () => {
 });
 
 describe('animation: mode decides the clips, speed decides weights and rates', () => {
-  const sW = STRIDE.walk * SC, sR = STRIDE.run * SC;
-  const walkCapTS = GAIT.walkMaxSpeed / sW; // planted Walk-clip rate at 1.2 m/s, ≈ 2.79
-  const runModeTS = 2.8 / sR; // ≈ 1.29
+  const sR = STRIDE.run * SC;
+  const vW = LOCO.walk * SC; // pre-handoff 119643c natural walk (0.85 × scale)
+  const walkTS12 = 1.2 / vW; // ≈ 1.238, BLEND.maxWalkTS 1.6
   it('walk mode: the run clip weight is 0 at EVERY speed (0 → 3.5 m/s)', () => {
     for (let v = 0; v <= 3.5; v += 0.01) { const b = modeBlend(v, SC, 'walk'); expect(b.run).toBe(0); expect(b.idle + b.walk).toBeCloseTo(1, 9); }
   });
-  it('walk mode at 1.2 m/s: Walk clip only, rate = speed / walk stride ≈ 2.79× (feet planted, first comparison-video slow walk)', () => {
+  it('walk mode at 1.2 m/s: Walk clip only, pre-handoff rate = speed / (LOCO.walk × scale) ≈ 1.24×', () => {
     const b = modeBlend(1.2, SC, 'walk');
     expect(b.walk).toBeGreaterThan(0.99); expect(b.run).toBe(0);
-    expect(b.walkTS * sW).toBeCloseTo(1.2, 6);
-    expect(b.walkTS).toBeCloseTo(walkCapTS, 6);
-    expect(b.walkTS).toBeCloseTo(2.792, 2);
+    expect(b.walkTS).toBeCloseTo(walkTS12, 6);
+    expect(b.walkTS).toBeCloseTo(1.238, 2);
+    expect(b.walkTS).toBeLessThanOrEqual(1.6);
   });
-  it('walk mode during the post-dead-zone ramp: Walk clip, rate follows speed / stride (still planted)', () => {
+  it('walk mode during the post-dead-zone ramp: Walk clip, rate follows speed / (LOCO.walk × scale)', () => {
     for (const v of [0.3, 0.5, 0.8]) {
       const b = modeBlend(v, SC, 'walk');
       expect(b.walk).toBeGreaterThan(0.99); expect(b.run).toBe(0);
-      expect(b.walkTS * sW).toBeCloseTo(v, 6);
+      expect(b.walkTS).toBeCloseTo(v / vW, 6);
     }
   });
-  it('walk mode during a 2.8 → 1.2 ease-down: run weight stays 0, walkTS is capped at the 1.2 m/s planted rate (never a faster walk playback)', () => {
+  it('walk mode during a 2.8 → 1.2 ease-down: run weight stays 0, walkTS is capped at the pre-handoff 1.6 (never a faster walk playback)', () => {
     const b28 = modeBlend(2.8, SC, 'walk');
-    expect(b28.run).toBe(0); expect(b28.walkTS).toBeCloseTo(walkCapTS, 6);
-    expect(b28.walkTS * sW).toBeCloseTo(1.2, 6);
+    expect(b28.run).toBe(0); expect(b28.walkTS).toBeCloseTo(1.6, 6);
     expect(modeBlend(2.8, SC, 'run').runTS * sR).toBeCloseTo(2.8, 6);
     for (let v = 1.2; v <= 3.5; v += 0.01) {
       const b = modeBlend(v, SC, 'walk');
       expect(b.run).toBe(0);
-      expect(b.walkTS).toBeCloseTo(walkCapTS, 6);
+      expect(b.walkTS).toBeLessThanOrEqual(1.6 + 1e-12);
     }
   });
   it('run mode at full push (2.8 m/s): run clip only, rate = speed / run stride (no slide)', () => {
@@ -132,6 +131,6 @@ describe('animation: mode decides the clips, speed decides weights and rates', (
     expect(modeBlend(1.2, SC, 'walk').run).toBe(0); expect(modeBlend(1.482, SC, 'walk').run).toBe(0);
   });
   it('classic blend (?move=classic) unchanged', () => {
-    const vW = LOCO.walk * SC, vR = LOCO.run * SC; expect(locoBlend(1.9, vW, vR).run).toBeGreaterThan(0.9); expect(locoBlend(0.5, vW, vR).walkTS).toBeCloseTo(0.5 / vW, 9);
+    const vW2 = LOCO.walk * SC, vR = LOCO.run * SC; expect(locoBlend(1.9, vW2, vR).run).toBeGreaterThan(0.9); expect(locoBlend(0.5, vW2, vR).walkTS).toBeCloseTo(0.5 / vW2, 9);
   });
 });
