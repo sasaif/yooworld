@@ -98,10 +98,12 @@ Le design ne change pas.
 ## 5. Branche `feature/gameplay-polish` (passe gameplay)
 
 ### Déplacement
-- Profils de marche `?walk=a|b|c` : a 1,615 m/s, **b 1,482 m/s (défaut)**, c 1,33 m/s ; course 1,9 m/s avec le bouton 🏃
+- **Marche / course séparées (19 nov. 2026, branche `feature/walk-run-separation`)** : voir §6. Les profils `?walk=a|b|c`
+  ci-dessous sont remplacés.
+- (historique) Profils de marche `?walk=a|b|c` : a 1,615 m/s, b 1,482 m/s (défaut), c 1,33 m/s ; course 1,9 m/s avec le bouton 🏃
   (ou la touche R). `?move=classic` garde exactement l'ancien contrôleur (accélération 14 / freinage 32 1/s, 1,9 m/s).
 - Vitesse lissée au 2e ordre (filtre critique, `walkProfile.ts` `SMOOTH` : départ ω = 10, arrêt ω = 18) : 50 % de la
-  vitesse en 0,17 s, 95 % en 0,47 s ; à l'arrêt, l'avatar glisse 2·v/ω (≈ 16 cm à 1,48 m/s) et s'arrête en ≈ 0,3 s.
+  vitesse en 0,17 s, 95 % en 0,47 s ; à l'arrêt, l'avatar glisse 2·v/ω et s'arrête en ≈ 0,3 s.
 - Allure : la marche et la course jouent à vitesse / foulée **mesurée** du clip (`animBlend.ts` `STRIDE` marche 0,377,
   course 1,9 × échelle 1,14). Avant, la foulée de marche était surestimée d'environ 2,2× (les pieds glissaient de 54 %).
 - Double toucher au sol : il ne marchait jamais (la mise à jour du dernier toucher était dans un commentaire) ; corrigé et testé.
@@ -166,3 +168,44 @@ sous les deux pieds ; peau dans le meuble ≤ 1,0 (tabouret), 1,2 (chaises), 1,6
   donc il n'est pas dans le lot `CHECK` de la CI.
 - Le contact « peau dans l'assise » de ~1 cm sur les chaises est celui d'un coussin qui s'enfonce (avant : 0,3 à 1,1 cm).
 - Juan allongé sur le transat de la plage : 1,0 cm dans la toile (limite 0,5, fixée pour Juanita) ; pas encore dans la CI.
+
+## 6. Branche `feature/walk-run-separation` (marche / course séparées)
+
+Bug signalé sur `combined-1` : course désactivée, l'avatar se mettait parfois à courir joystick poussé à fond.
+
+**Cause.** L'animation était choisie par la seule vitesse réelle (`animBlend.gaitBlend`) : le clip de marche ne pouvait
+pas dépasser 1,9× (≈ 0,82 m/s), donc au-delà le clip de **course** prenait le relais, même bouton 🏃 éteint. À fond
+(1,48 m/s) le poids du clip de course était 1 (l'ancien `e2e-joystick` vérifiait même « max = run »). En plus, couper la
+course en mouvement faisait chuter la vitesse d'un coup (plafond de vitesse du filtre = nouvelle vitesse max, en une image).
+
+**Nouvelle logique** (`walkProfile.ts`, `animBlend.modeBlend`, `playerMotion.ts`) :
+- Deux entrées indépendantes : la **zone morte** (10 %) et une courte rampe jusqu'à 25 % de course du stick, puis
+  l'intensité ne change plus la vitesse ; **le mode** (marche / course) vient uniquement du bouton 🏃 (ou R au clavier).
+  Marche par défaut, jamais mémorisé. Il n'y a plus de marche rapide ni de marche intermédiaire.
+- Vitesse de marche retenue : **1,2 m/s**, celle de la « marche lente » de la première vidéo de comparaison
+  (`041d39a`, `movement-reports/video/slow_walk.mp4`) — clip Walk à ≈ 2,79×, pieds posés. Sur l'ancien profil b
+  de l'UAT (`59f577c`, fond 1,482 m/s), 1,2 m/s correspondait à un appui d'environ 73 % ; on ne reprend pas
+  1,482 m/s, pour ne pas accélérer quand on pousse plus fort.
+- Cibles (réglables, `?speeds=marche,course` pour tester sur iPhone) :
+
+| Joystick | Course désactivée | Course activée |
+|---|---|---|
+| ≤ 10 % | arrêt (zone morte) | arrêt |
+| 10–25 % | rampe douce vers 1,2 m/s | rampe douce vers 2,8 m/s |
+| ≥ 25 % (y compris à fond) | **une seule marche, 1,2 m/s** | **course 2,8 m/s** |
+
+- Animation : en mode marche, uniquement le clip **Walk** (poids du clip Run = 0, quelle que soit l'intensité du
+  stick) à vitesse / foulée mesurée de marche, plafonné au rythme planté de 1,2 m/s (≈ 2,79×, ≈ 4,47 pas/s) —
+  le « slow walk » de la première vidéo de comparaison. Ce plafond s'applique aussi pendant le ralentissement
+  de 0,3 s (2,8 → 1,2), pour qu'une lecture plus rapide du clip Walk (l'ancien 4,2× à 1,8 m/s) ne joue jamais
+  bouton course éteint. En mode course : clip Walk aux basses vitesses (rampe) puis fondu vers Run ; à 2,8 m/s
+  = 1,29× (plafond 1,4).
+- Course → marche en mouvement : la vitesse redescend en douceur de 2,8 à 1,2 m/s (≈ 0,3 s, filtre critique ω = 18).
+  Le poids du clip Run s'estompe et le clip Walk reprend au rythme planté de 1,2 m/s (≈ 2,79×). Le plafond
+  anti-dépassement du filtre ne coupe plus la vitesse d'un coup.
+- Tap-to-move / clic : la course ne vient plus du double toucher, seulement du bouton 🏃 (`?move=classic` garde l'ancien
+  comportement). Vitesses du trajet inchangées (0,85 / 1,9 m/s).
+- Clavier : Maj (intensité 0,5) donne déjà la marche à 1,2 m/s, comme un stick poussé à fond ; R = bouton 🏃.
+
+Tests : `tests/walk-profile.test.ts` (courbe, vitesses, mode, transitions) ; `tools/e2e-walk-run.mjs` (vrais touchers,
+temps virtuel 60 i/s, iPhone 15 852×393 et SE 667×375 ; `VIDEO=dossier` enregistre la vidéo de comparaison).

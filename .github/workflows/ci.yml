@@ -54,6 +54,10 @@ jobs:
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 8
         run: SHOTS=ci-shots/joystick-new node tools/e2e-joystick.mjs http://127.0.0.1:5230/
+      - name: e2e walk / run separation (iPhone 15 + SE landscape)
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 15
+        run: OUT=ci-shots/walk-run node tools/e2e-walk-run.mjs http://127.0.0.1:5230/
       - name: e2e joystick (former controller, ?move=classic)
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 8

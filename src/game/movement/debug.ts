@@ -7,6 +7,8 @@ import { floorTapLog } from '../../app/floorTap';
 import { moveSettings, lastPointerKind } from '../../input/moveSettings';
 import { FURNITURE } from '../../data/furniture';
 import { itemTransform } from '../apartment/ApartmentModel';
+import { speedFactor } from './speedCurve';
+import { playerGaitMode } from './playerMotion';
 /** window.__move(): movement snapshot for e2e tests / tuning (read-only; no gameplay effect). */
 export function installMoveDebug() {
   if (typeof window === 'undefined') return;
@@ -15,6 +17,8 @@ export function installMoveDebug() {
     const g = (window as unknown as { game?: { s: { apartment: { items: { uid: string; defId: string; parent?: string }[] } | null } } }).game;
     return (g?.s.apartment?.items ?? []).filter((it) => !it.parent).map((it) => { const d = FURNITURE[it.defId]; const t = itemTransform(it as never, FURNITURE); return { uid: it.uid, defId: it.defId, name: d?.name, interaction: d?.interaction ?? null, x: t.x, y: (d?.size.h ?? 0.5) * 0.6, z: t.z, w: d?.size.w, d: d?.size.d }; });
   };
+  /** e2e: target speed (m/s) of the stick at displacement d in the current mode */
+  (window as unknown as Record<string, unknown>).__stickSpeed = (d: number) => speedFactor(d, motion.cfg.anchors) * motion.cfg.maxSpeed;
   (window as unknown as Record<string, unknown>).__move = () => {
     const st = motion.st; const id = (window as unknown as { game?: { s: { activeChar: string } } }).game?.s.activeChar ?? 'f'; const c = world.chars[id];
     return {
@@ -25,7 +29,7 @@ export function installMoveDebug() {
       marker: { phase: marker.phase, x: marker.x, z: marker.z, alpha: marker.alpha, seq: marker.seq }, tap: { ...floorTapLog }, settings: moveSettings.get(), pointerKind: lastPointerKind(),
       seat: seatDebug[id] ? { ...seatDebug[id] } : null,
       profile: { ...motion.profile }, run: motion.run, smooth: motion.cfg.smooth ?? null, acc: [st.ax ?? 0, st.az ?? 0],
-      pathStats: { ...motion.pathStats }, pathPts: c ? c.path.map((p) => [p.x, p.z]) : [], running: c?.running,
+      gait: playerGaitMode(), speeds: { ...motion.profile.speeds }, pathStats: { ...motion.pathStats }, pathPts: c ? c.path.map((p) => [p.x, p.z]) : [], running: c?.running,
     };
   };
 }

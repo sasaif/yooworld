@@ -77,7 +77,9 @@ export function stepMoveWorld(st: MoveState, dir: { x: number; z: number } | nul
     dx = tx * dt + x0 * g1 + cx * g2; dz = tz * dt + z0 * g1 + cz * g2;
     vx = tx + (x0 + cx * dt) * e; vz = tz + (z0 + cz * dt) * e;
     ax = (ax0 - cx * w * dt) * e; az = (az0 - cz * w * dt) * e;
-    const vm = Math.hypot(vx, vz), cap = cfg.maxSpeed * 1.001; if (vm > cap) { vx *= cap / vm; vz *= cap / vm; }
+    // overshoot guard: never above the top speed, or above the current speed when slowing down from a higher top speed
+    // (Run switched off while moving: ease from 2.8 down to the walk speed instead of snapping to it in one frame)
+    const vm = Math.hypot(vx, vz), cap = Math.max(cfg.maxSpeed, cur) * 1.001; if (vm > cap) { vx *= cap / vm; vz *= cap / vm; }
   } else {
     const rate = braking ? cfg.decel : cfg.accel;
     // v(t) = t + (v0 - t)e^{-kt}  →  exact displacement over dt

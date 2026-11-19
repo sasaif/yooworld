@@ -6,8 +6,8 @@ import { ANIM_LIBRARY, type AvatarDef, type ClipKey } from '../data/avatars';
 import type { Look } from '../fashion/types';
 import { useCustomAvatar } from './avatar/custom/useCustomAvatar';
 import { LOCO, stepMoverSub } from '../game/character/locomotion';
-import { gaitBlend, locoBlend } from '../game/movement/animBlend';
-import { driveCharacter, motion } from '../game/movement/playerMotion';
+import { locoBlend, modeBlend } from '../game/movement/animBlend';
+import { driveCharacter, motion, playerGaitMode } from '../game/movement/playerMotion';
 import { world } from '../game/world';
 import type { CharState } from '../game/world';
 import { FaceAnimator, morphIndex } from './avatar/face';
@@ -27,7 +27,7 @@ const _tp = new THREE.Vector3(); const _hw = new THREE.Vector3(), _hl = new THRE
 const lieBlend = { legs: 0, body: 0, q: qCur, qLie: qLeg };
 const SIT_IN = 0.5; // s: legacy seats (Yoo Plage loungers, SitDown clip)
 /** Debug / e2e: last locomotion blend of each avatar (weights + playback rates). */
-export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string }> = {};
+export const animDebug: Record<string, { speed: number; idle: number; walk: number; run: number; walkTS: number; runTS: number; clip: string; mode: string }> = {};
 /** Debug / e2e: seat transition state of each avatar (phase, progress, layer weight, lie tilt 0..1). */
 export const seatDebug: Record<string, { phase: SeatPhase; sp: number; lp: number; w: number; pitch: number; seat: string | null }> = {};
 
@@ -66,14 +66,16 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       cur.current = 'loco';
     }
     const vW = LOCO.walk * def.scale, vR = LOCO.run * def.scale; // stride grows with the avatar scale
-    // ?move=classic: former blend; default: clip rates from the measured stride speeds
-    const b = motion.profile.classic ? locoBlend(speed, vW, vR) : gaitBlend(speed, def.scale); const k = 1 - Math.exp(-dt * 10); const w = lw.current;
+    // ?move=classic: former blend; default: the MODE (Run toggle for the player, the path's run flag for others) decides
+    // whether the run clip may play at all, the actual speed sets the weights and the clip rates (measured stride speeds)
+    const mode = controlled ? playerGaitMode() : c.running ? 'run' : 'walk';
+    const b = motion.profile.classic ? locoBlend(speed, vW, vR) : modeBlend(speed, def.scale, mode); const k = 1 - Math.exp(-dt * 10); const w = lw.current;
     w.idle += (b.idle - w.idle) * k; w.walk += (b.walk - w.walk) * k; w.run += (b.run - w.run) * k;
     const A = built.actions;
     A.idle.setEffectiveWeight(w.idle); A.walk.setEffectiveWeight(w.walk); A.run.setEffectiveWeight(w.run);
     // playback rate = actual speed / the clip's natural speed (never faster than the body moves)
     A.walk.timeScale = b.walkTS; A.run.timeScale = b.runTS;
-    animDebug[c.id] = { speed, idle: w.idle, walk: w.walk, run: w.run, walkTS: b.walkTS, runTS: b.runTS, clip: 'loco' };
+    animDebug[c.id] = { speed, idle: w.idle, walk: w.walk, run: w.run, walkTS: b.walkTS, runTS: b.runTS, clip: 'loco', mode: motion.profile.classic ? 'classic' : mode };
   };
   useEffect(() => { built.actions.idle.play(); cur.current = 'idle'; return () => { built.mixer.stopAllAction(); }; }, [built]);
 

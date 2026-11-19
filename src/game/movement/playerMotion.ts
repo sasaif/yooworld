@@ -21,7 +21,8 @@ const profile = readMoveProfile();
 export const motion = {
   /** `?walk=a|b|c` / `?move=classic` (walkProfile.ts) */
   profile,
-  /** run mode of the stick / keyboard (🏃 button, R key); classic profile: the stick reaches run speed anyway */
+  /** movement MODE: true only while the explicit 🏃 Run toggle (button / R key) is on. Never set from the joystick
+   *  intensity, never persisted (every session starts walking). Classic profile: no toggle (former controller). */
   run: false,
   cfg: stickConfig(profile, false) as MoveConfig,
   radius: 0.08,
@@ -49,6 +50,8 @@ const dirV = { x: 0, y: 0, z: 0 };
 const runListeners = new Set<() => void>();
 /** Switch the stick between walk and run (keeps the current velocity: the filter eases into the new top speed). */
 export function setRun(on: boolean) { if (motion.profile.classic || motion.run === on) return; motion.run = on; motion.cfg = stickConfig(motion.profile, on); runListeners.forEach((l) => l()); }
+/** Gait mode of the player's avatar for the animation: the Run toggle alone (stick, keyboard and tap / click paths). */
+export function playerGaitMode(): 'walk' | 'run' { return motion.run ? 'run' : 'walk'; }
 export function onRunChange(l: () => void) { runListeners.add(l); return () => { runListeners.delete(l); }; }
 /** Tap / click-to-move keeps its own walk / run speeds (PATH_CFG) and the 1st-order integrator it was tuned with. */
 let pathCfgFor: MoveConfig | null = null, pathCfgV: MoveConfig = MOVE_DEFAULTS;
@@ -68,7 +71,10 @@ function followTapPath(c: CharState, dt: number, nav: NavGrid | null): boolean {
   if (!motion.driving || Math.hypot(st.x - c.pos.x, st.z - c.pos.z) > 0.05) { st = motion.st = { ...st, x: c.pos.x, z: c.pos.z, yaw: c.yaw, vx: motion.driving ? st.vx : 0, vz: motion.driving ? st.vz : 0, ax: 0, az: 0 }; }
   if (motion.followPath !== c.path) { motion.followPath = c.path; motion.follow = newFollow(c.pos.x, c.pos.z); }
   const goal = c.path[c.path.length - 1];
-  const r = followPath(st, c.path, c.running, dt, pathConfig(), pathCollider(nav), motion.follow);
+  // walk / run separation: a tap / click path runs only while the Run toggle is on (a double tap no longer runs by itself);
+  // ?move=classic keeps the former double-tap run
+  const running = motion.profile.classic ? c.running : motion.run;
+  const r = followPath(st, c.path, running, dt, pathConfig(), pathCollider(nav), motion.follow);
   motion.st = r.st; motion.frames++; motion.simTime += Math.min(Math.max(dt, 0), motion.cfg.maxDt); motion.pathStats.frames++;
   c.pos.x = r.st.x; c.pos.z = r.st.z; c.yaw = r.st.yaw; c.speed = r.st.speed;
   if (r.arrived) {
