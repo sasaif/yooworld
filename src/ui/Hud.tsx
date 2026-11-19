@@ -209,7 +209,12 @@ function ChatSheet() {
   useEffect(() => game.chat.onMessage(() => { f((n) => n + 1); if (col.current) setUnread((n) => n + 1); }), []);
   const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { localStorage.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
   const log = useRef<HTMLDivElement>(null);
-  useEffect(() => { const el = log.current; if (el) el.scrollTop = el.scrollHeight; }); // newest message in view
+  // newest message in view: after each render AND whenever the log box is resized (iOS keyboard opening shrinks the
+  // card: the log used to stay scrolled to the oldest lines), unless the player scrolled up to read the history
+  const pinned = useRef(true);
+  useEffect(() => { const el = log.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; });
+  useEffect(() => { const el = log.current; if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => { if (pinned.current) el.scrollTop = el.scrollHeight; }); ro.observe(el); return () => ro.disconnect(); }, [collapsed]);
   const local = netBadge(game.net.status).tone === 'local'; const note = chatScopeNote(game.net.status);
   return (
     <div className={'sheet chat-sheet' + (collapsed ? ' collapsed' : '')}>
@@ -217,7 +222,7 @@ function ChatSheet() {
         <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? 'Mode local · hors ligne' : netBadge(game.net.status).short}</span><button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
       {!collapsed && <>
         <p className={'chat-scope' + (noteOpen ? ' open' : '')} onClick={() => setNoteOpen(!noteOpen)}>{local && !noteOpen ? 'Visible seulement sur cet appareil.' : note}{local && <span className="more">{noteOpen ? ' ▴' : ' ⓘ'}</span>}</p>
-        <div className="chatlog" ref={log}>{game.chat.history().slice(-40).map((m, i) => <div key={i} dir="auto"><b>{world.chars[m.from]?.name ?? m.from}</b> <bdi>{m.text}</bdi></div>)}</div>
+        <div className="chatlog" ref={log} onScroll={(e) => { const el = e.currentTarget; pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8; }}>{game.chat.history().slice(-40).map((m, i) => <div key={i} dir="auto"><b>{world.chars[m.from]?.name ?? m.from}</b> <bdi>{m.text}</bdi></div>)}</div>
         <form className="chatbar" onSubmit={(e) => { e.preventDefault(); if (msg.trim()) game.sendChat(msg); setMsg(''); }}>
           <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Dire quelque chose…" maxLength={200} dir="auto" />
           <button className="btn primary" type="submit">Envoyer</button>

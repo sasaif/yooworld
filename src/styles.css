@@ -205,6 +205,15 @@ html, body { position:fixed; inset:0; } /* no rubber-band scrolling / address-ba
   /* keyboard open (iPhone landscape: little room left): sit right above the keyboard, keep only the log + input */
   .kb-open .sheet.chat-sheet { bottom:calc(var(--kb-off, 0px) + 4px); max-height:calc(var(--vv-h, 100dvh) - 8px); }
   .kb-open .sheet.chat-sheet .chat-scope, .kb-open .sheet.chat-sheet .quick { display:none; }
+  /* every px counts above an iPhone keyboard in landscape (visible height ≈ 110–170 px): compact header, the log takes
+     what is left (≥ 1 line, newest message pinned), input + Envoyer always fully visible */
+  .kb-open .sheet.chat-sheet { padding:6px 8px; }
+  .kb-open .sheet.chat-sheet h3 { font-size:13px; margin:0 0 2px; min-height:26px; }
+  .kb-open .sheet.chat-sheet .chat-fold { min-height:26px; }
+  .kb-open .sheet.chat-sheet .x { min-height:26px; min-width:32px; padding:0; }
+  .kb-open .sheet.chat-sheet .chatlog { min-height:20px; max-height:none; margin-bottom:4px; flex:1 1 auto; }
+  .kb-tight .sheet.chat-sheet h3 { display:none; }
+  .kb-min .sheet.chat-sheet .chatlog { display:none; }
   .net-pop { font-size:11px; }
 }
 

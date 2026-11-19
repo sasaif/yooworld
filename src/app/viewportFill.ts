@@ -26,6 +26,9 @@ export function keyboardInset(win: Pick<Window, 'innerHeight'> & { visualViewpor
   const off = Math.max(0, Math.round(win.innerHeight - (vv.offsetTop ?? 0) - vv.height));
   return off > 80 ? { open: true, off, vh: Math.round(vv.height) } : { open: false, off: 0, vh: win.innerHeight };
 }
+/** Chat card layout while the keyboard is up, from the visible height (px): 'normal' = header + recent messages + input,
+ *  'tight' (< 125 px) = recent message line + input (header hidden until the keyboard closes), 'min' (< 90 px) = input only. */
+export function keyboardLayout(open: boolean, vh: number): 'none' | 'normal' | 'tight' | 'min' { return !open ? 'none' : vh < 90 ? 'min' : vh < 125 ? 'tight' : 'normal'; }
 const typingNow = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); };
 
 export function installViewportFill() {
@@ -34,7 +37,7 @@ export function installViewportFill() {
   const apply = () => {
     raf = 0; const { w, h } = appViewport(window);
     const kb = keyboardInset(window, typingNow());
-    root.classList.toggle('kb-open', kb.open); root.style.setProperty('--kb-off', kb.off + 'px'); root.style.setProperty('--vv-h', kb.vh + 'px');
+    root.classList.toggle('kb-open', kb.open); const lay = keyboardLayout(kb.open, kb.vh); root.classList.toggle('kb-tight', lay === 'tight' || lay === 'min'); root.classList.toggle('kb-min', lay === 'min'); root.style.setProperty('--kb-off', kb.off + 'px'); root.style.setProperty('--vv-h', kb.vh + 'px');
     // while the keyboard is up, the stage keeps its full height (the card moves above the keyboard instead) and Safari's
     // own scroll to the focused field is left alone
     root.style.setProperty('--app-h', (kb.open ? window.innerHeight : h) + 'px'); root.style.setProperty('--app-w', w + 'px');
