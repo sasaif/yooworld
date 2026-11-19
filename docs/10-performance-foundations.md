@@ -44,7 +44,7 @@ RUNS=5 FRAMES=60 node tools/perf-baseline.mjs http://127.0.0.1:5241/ --table
 
 | Repère | Appartement (actuel) | Yoo Plage (actuel) | Souple, à ne pas dépasser sans raison |
 |---|---|---|---|
-| Draw calls (dernière frame, **total = principal + ombres**, voir ci-dessous) | 150–154 (83–87 + 67) | 31 (21 + 10) | appartement 120, plage 40, nouveau lieu public 60 (à ne dépasser qu’avec une bonne raison) |
+| Draw calls (dernière frame, **total = principal + ombres**, voir ci-dessous) | 90–94 (83–87 + 7) | 31 (21 + 10) | appartement **< 120 (budget dur, `perf-baseline --check`)**, plage 40, nouveau lieu public 60 (à ne dépasser qu’avec une bonne raison) |
 | Triangles | ~54 k | ~68 k | moins de 100 k par lieu en conditions normales |
 | Textures (GPU) | ~12–13 | ~11 | préférer ≤ 1024 px (avatars déjà en 1024 JPEG) ; éviter d’ajouter une 2K « pour plus tard » |
 | Lumières dynamiques avec ombre | 1 soleil | 1 soleil | ne pas multiplier les `castShadow` ; les lampes d’intérieur restent sans ombre |
@@ -84,7 +84,19 @@ Vérification : en comptant directement les appels WebGL `draw*` de chaque image
 | Yoo Plage | Desktop | 21 | 10 | **31** | 40 | 112 282 (44 069) |
 | Yoo Plage | iPhone 15 | 21 | 10 | **31** | 40 | 112 282 (44 069) |
 
+**Mise à jour (branche `feature/qa-drawcalls`) : l’appartement passe à 94 (87 + 7) sur desktop et 90 (83 + 7) sur iPhone 15**, voir « Passe d’ombres et premiers voyages » plus bas.
+
 Les chiffres du tableau « Premier chargement » ci-dessous (86/82/21/21) étaient donc la **passe principale seule**. Le budget de 120 reste la référence : l’appartement le dépasse aujourd’hui, à cause des 67 appels de la passe d’ombres (67 objets projettent une ombre). Le repère « moins de 100 k triangles » avait été posé sur la passe principale (54 k / 68 k) ; avec les ombres, la plage atteint 112 k triangles par image.
+
+### Passe d’ombres et premiers voyages (19 nov. 2026, `feature/qa-drawcalls`)
+
+Sans changement visuel ni de gameplay :
+
+1. **Ombres de l’appartement : 67 → 7 appels.** Murs et meubles projetaient leur ombre un appel par partie (une par `InstancedMesh` / matériau). Ils s’affichent toujours pareil dans la passe principale (mêmes matériaux, instances, clics), mais avec `castShadow = false`. Leur géométrie (chaque instance, en coordonnées monde) est fusionnée dans **un seul maillage « ombre seulement »** par côté de matériau (`src/render/shadow/`). Ce maillage est caché, et rendu visible seulement pendant `shadowMap.render` (three r170 construit la liste de la passe principale avant les cartes d’ombre). La carte d’ombre reçoit les mêmes triangles (30 001) et se reconstruit seulement quand un meuble ou un fini change. Restent 7 appels d’ombre : ce maillage, le cadre de la déco et les 5 parties des deux avatars.
+2. **Triangles de la plage : 19 008 → 16 320 dans le batch des props** (passe principale + ombres). On a retiré des faces jamais visibles : la moitié basse des dunes, sous le sable opaque ; les bouchons internes des troncs de palmier ; et le ballon de plage passe de 72 à 36 segments.
+3. **Premiers voyages.** Le premier aller appart → plage liait 13 programmes de shaders d’un coup, et le retour en reliait 8. Dans le profil headless, ~90 % de la longue tâche venait de là. Désormais, une fois par session, 2,5 s après l’arrivée dans l’appartement et sur temps libre, la plage est montée 3 images dans une scène jamais rendue (événements coupés). Ses programmes sont alors compilés, avec les lumières et le brouillard de la plage, les avatars sous ces lumières et les variantes d’ombre, sur des matériaux gardés en vie. Ils sont ensuite « finis » (premier usage) un par tranche de temps libre (`src/render/prewarm/`). Résultat : 0 programme lié pendant les voyages (avant : 13 / 8 / 5 / 8). `?prewarm=0` désactive ce préchauffage.
+
+Garde : `perf-baseline --check` échoue maintenant si le total de l’appartement n’est pas **strictement sous 120**.
 
 ### Répétabilité et variance des mesures (19 nov. 2026)
 
