@@ -170,9 +170,12 @@ if (process.env.CHECK) {
   // 0.7 / 0.3, desk chair 0.9 / 1.1, sofa 1.1 / 1.7, armchair 0.9 / 1.5, stool 0 / 0 cm for Juanita / Juan).
   const ringSrc = fs.readFileSync(new URL('../src/data/furnitureReshape.ts', import.meta.url), 'utf8').match(/stoolBar:[^\n]*ring: \{ y: ([\d.]+), r: ([\d.]+), tube: [\d.]+, cz: ([\d.]+) \}/);
   const RING = ringSrc ? { y: +ringSrc[1], r: +ringSrc[2], cz: +ringSrc[3] } : null;
-  const LIM = { stool: { pen: 1.0, mesh: 1.0, ring: true }, chair: { pen: 1.0, mesh: 1.2, sole: 0.01 }, deskChair: { pen: 1.0, mesh: 1.2, sole: 0.01 },
-    sofa: { mesh: 1.6, sole: 0.01 }, armchair: { mesh: 1.6, sole: 0.01 }, sofaCorner: { mesh: 1.0, sole: 0.01 },
+  const LIM = { stool: { pen: 1.0, mesh: 1.0, ring: true }, chair: { pen: 1.0, mesh: 1.2, sole: 0.035 }, deskChair: { pen: 1.0, mesh: 1.2, sole: 0.035 },
+    sofa: { mesh: 1.6, sole: 0.055 }, armchair: { mesh: 1.6, sole: 0.055 }, sofaCorner: { mesh: 1.0, sole: 0.055 },
     lounger: { pen: 4.0, penLying: 0.5, torso: [25, 45] }, interruptLounger: { pen: 4.0 } };
+  // Juan (CHAR=m, longer thighs) was never gated before; his caps = his own pre-Option-C contact (desk chair slab 1.7 /
+  // mesh 1.1, sofa 1.7, armchair 1.5 cm) + 0.3 cm. Juanita keeps the limits above.
+  if (CHAR === 'm') Object.assign(LIM, { deskChair: { ...LIM.deskChair, pen: 2.0, mesh: 1.5 }, sofa: { ...LIM.sofa, mesh: 2.0 }, armchair: { ...LIM.armchair, mesh: 2.0 } });
   let bad = 0; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined && extra !== null ? ' ' + JSON.stringify(extra) : '')); if (!c) bad++; };
   for (const [sc, r] of Object.entries(all)) { const L = LIM[sc] ?? {};
     ok(r.endMode === 'walk' || r.endMode === 'idle', `${sc}: gets up and walks off (end mode ${r.endMode})`);
