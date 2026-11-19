@@ -27,6 +27,9 @@ export class LocalGameHost<S, M, V> {
   private readonly clock: HostClock;
   private readonly botRng: () => number;
   private stopped = false;
+  private paused = false;
+  /** bot seat whose move is scheduled (UI: "réfléchit…"), null otherwise */
+  thinking: SeatIndex | null = null;
   result: GameResult | null = null;
   constructor(readonly rules: GameRules<S, M, V>, readonly room: GameRoom, readonly opts: LocalHostOptions<M, V>) {
     this.clock = opts.clock ?? realClock;
@@ -47,12 +50,20 @@ export class LocalGameHost<S, M, V> {
   }
   private play(seat: SeatIndex, move: M): SubmitResult<S, M> {
     if (this.stopped) return { ok: false, error: 'game_over', engine: this.engine };
+    if (this.paused) return { ok: false, error: 'not_your_turn', engine: this.engine };
     const r = submitMove(this.rules, this.engine, seat, move, { now: this.clock.now() });
     if (r.ok) this.commit(r.engine);
     return r;
   }
   /** Between rounds: deal the next one (UI button). */
-  advance() { const r = advanceEngine(this.rules, this.engine, this.clock.now()); if (r.ok) this.commit(r.engine); return r; }
+  advance() { if (this.stopped || this.paused) return { ok: false as const, error: 'game_over' as const, engine: this.engine }; const r = advanceEngine(this.rules, this.engine, this.clock.now()); if (r.ok) this.commit(r.engine); return r; }
+  /** Freeze the bots (e.g. while a "leave the table?" dialog is open). Human moves are refused while paused. */
+  pause() { if (this.stopped || this.paused) return; this.paused = true; this.clearTimer(); this.emit(); }
+  resume() { if (!this.paused) return; this.paused = false; if (!this.stopped) { this.schedule(); this.emit(); } }
+  get isPaused() { return this.paused; }
+  get isStopped() { return this.stopped; }
+  /** true while a bot / timeout timer is armed (tests: a stopped host must leave none behind) */
+  get hasTimer() { return this.timer !== null; }
   /** Stop the table (leave / abandon). */
   stop(endedBy: GameResult['endedBy'] = 'abandon') {
     if (this.stopped) return; this.stopped = true; this.clearTimer();
@@ -64,14 +75,15 @@ export class LocalGameHost<S, M, V> {
     if (this.rules.isOver(e.state) && !this.result) this.result = this.makeResult('normal');
     this.schedule(); this.emit();
   }
-  private clearTimer() { if (this.timer !== null) { this.clock.clearTimeout(this.timer); this.timer = null; } }
+  private clearTimer() { if (this.timer !== null) { this.clock.clearTimeout(this.timer); this.timer = null; } this.thinking = null; }
   private schedule() {
-    this.clearTimer(); if (this.stopped || this.rules.isOver(this.engine.state)) return;
+    this.clearTimer(); if (this.stopped || this.paused || this.rules.isOver(this.engine.state)) return;
     const seat = this.rules.currentSeat(this.engine.state); if (seat === null) return;
     const bot = this.opts.bots[seat];
     if (bot) {
+      this.thinking = seat;
       this.timer = this.clock.setTimeout(() => {
-        this.timer = null; if (this.stopped) return;
+        this.timer = null; this.thinking = null; if (this.stopped || this.paused) return;
         const legal = this.rules.legalMoves(this.engine.state, seat);
         const move = bot.pick(this.rules.viewFor(this.engine.state, seat), legal, this.botRng);
         const r = this.play(seat, move);
