@@ -77,7 +77,7 @@ function hairRing(c: THREE.Vector3, axis: THREE.Vector3, R: number, r: number, s
  *  are found on the target's own cap (rayR), so it fits Juanita and Juan alike. */
 function bunHigh(t: Prepared, cap: THREE.BufferGeometry, parts: THREE.BufferGeometry[]) {
   const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424; const up = new THREE.Vector3(0, 1, 0.12).normalize(); const top = C.clone().addScaledVector(up, rayR(cap, C, up));
-  parts.push(hairEgg(top.clone().add(new THREE.Vector3(0, 0.062 * k, 0.012 * k)), new THREE.Vector3(0.105, 0.088, 0.1).multiplyScalar(k), 14, 9));
+  parts.push(hairEgg(top.clone().add(new THREE.Vector3(0, 0.052 * k, 0.014 * k)), new THREE.Vector3(0.105, 0.078, 0.1).multiplyScalar(k), 14, 9));
   parts.push(hairRing(top.clone().add(new THREE.Vector3(0, 0.004 * k, 0.004 * k)), new THREE.Vector3(0, 1, 0.18), 0.082 * k, 0.02 * k));
   for (const sd of [1, -1]) {
     const a0 = sd * 1.0, a1 = sd * 1.22; const d0 = new THREE.Vector3(Math.sin(a0) * Math.cos(0.5), Math.sin(0.5), -Math.cos(a0) * Math.cos(0.5));
