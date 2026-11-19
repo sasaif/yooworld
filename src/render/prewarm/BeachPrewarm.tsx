@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { createPortal, useThree } from '@react-three/fiber';
 import { BeachAmbience, BeachView } from '../beach/BeachView';
-import { collectRenderables, warmPrograms } from './programs';
+import { collectRenderables, finishPrograms, warmPrograms } from './programs';
 
 /** Name of the apartment scene root (ApartmentView): everything else in the main scene comes along to the beach. */
 export const APARTMENT_ROOT = 'location:apartment';
@@ -10,9 +10,9 @@ const ENABLED = new URLSearchParams(location.search).get('prewarm') !== '0'; // 
 let warmed = false;
 /** true once the beach programs are warm (tests / probes) */
 export const beachPrewarmed = () => warmed;
-const idle = (fn: () => void) => {
+const idle = (fn: () => void, timeout = 4000) => {
   const w = window as unknown as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-  if (w.requestIdleCallback) { const id = w.requestIdleCallback(fn, { timeout: 4000 }); return () => w.cancelIdleCallback!(id); }
+  if (w.requestIdleCallback) { const id = w.requestIdleCallback(fn, { timeout }); return () => w.cancelIdleCallback!(id); }
   const id = setTimeout(fn, 200); return () => clearTimeout(id);
 };
 
@@ -46,11 +46,18 @@ function WarmWhenMounted({ hidden, onDone }: { hidden: THREE.Scene; onDone: () =
       const { gl, camera } = get(); const main = root?.getState().scene;
       if (!main) { onDone(); return; }
       const apt = main.getObjectByName(APARTMENT_ROOT);
+      type Info = { info: { programs?: unknown[] | null } };
+      const before = new Set((gl as unknown as Info).info.programs ?? []);
       Promise.all([
         warmPrograms(gl, camera, collectRenderables(hidden), hidden, { clone: true, shadows: true }), // beach scenery
         warmPrograms(gl, camera, collectRenderables(main, (o) => o === apt), hidden, { clone: false, shadows: true }), // avatars & co under the beach lights
         apt ? warmPrograms(gl, camera, collectRenderables(apt), main, { clone: true }) : Promise.resolve(0), // apartment, for the way back
-      ]).catch(() => 0).then(() => { if (!cancelled) onDone(); });
+      ]).catch(() => 0).then(() => {
+        const fresh = ((gl as unknown as Info).info.programs ?? []).filter((p) => !before.has(p)) as Parameters<typeof finishPrograms>[0];
+        if (!cancelled) onDone(); // unmount the hidden beach now; the programs are kept by the retained materials
+        // then finish them one per idle slice (independent of this component)
+        finishPrograms(fresh, (fn) => { idle(fn, 400); }).then((n) => { (window as unknown as { __beachPrewarm?: unknown }).__beachPrewarm = { programs: n }; });
+      });
     };
     raf = requestAnimationFrame(step);
     return () => { cancelled = true; cancelAnimationFrame(raf); };

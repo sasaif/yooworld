@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { cloneForProgram, collectRenderables, releaseWarmPrograms, retainedCount, standIn, warmPrograms } from '../src/render/prewarm/programs';
+import { cloneForProgram, collectRenderables, finishPrograms, releaseWarmPrograms, retainedCount, standIn, warmPrograms } from '../src/render/prewarm/programs';
 
 afterEach(() => releaseWarmPrograms());
 
@@ -80,5 +80,14 @@ describe('program warm-up (first-trip hitch)', () => {
     const m = new THREE.MeshLambertMaterial(); const off = new THREE.MeshBasicMaterial({ visible: false });
     await warmPrograms(gl, new THREE.OrthographicCamera(), [new THREE.Mesh(new THREE.BoxGeometry(), m), new THREE.Mesh(new THREE.BoxGeometry(), off)], lights, { clone: false });
     expect(calls.length).toBe(1); expect(calls[0].mats).toEqual([m]); expect(retainedCount()).toBe(0);
+  });
+
+  it('finishes programs one per slice (three first-use: link check + uniform / attribute lookup)', async () => {
+    const order: string[] = []; const slices: (() => void)[] = [];
+    const prog = (id: string) => ({ getUniforms: () => order.push(id + ':u'), getAttributes: () => order.push(id + ':a') });
+    const broken = { getUniforms: () => { throw new Error('link failed'); }, getAttributes: () => 0 };
+    const done = finishPrograms([prog('a'), broken, prog('b')], (fn) => { slices.push(fn); });
+    for (let i = 0; i < 3; i++) { await Promise.resolve(); expect(slices.length).toBe(i + 1); slices[i](); await Promise.resolve(); }
+    expect(await done).toBe(2); expect(order).toEqual(['a:u', 'a:a', 'b:u', 'b:a']);
   });
 });

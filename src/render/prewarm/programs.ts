@@ -94,3 +94,17 @@ export async function warmPrograms(gl: Compiler, camera: THREE.Camera, objects: 
   main.clear(); depth.clear(); // stand-ins dropped: only the materials (and so the programs) are kept
   return n;
 }
+
+type ProgramLike = { getUniforms(): unknown; getAttributes(): unknown };
+/**
+ * Browsers without KHR_parallel_shader_compile (and ANGLE in general) may only finish compiling when the program is
+ * first queried; three does that query on first use (link check, uniform / attribute lookup). Do it here, one program
+ * per idle slice, so the location's first frame does not pay for it. Resolves when all are done.
+ */
+export async function finishPrograms(programs: ProgramLike[], slice: (fn: () => void) => void): Promise<number> {
+  let n = 0;
+  for (const p of programs) {
+    await new Promise<void>((res) => slice(() => { try { p.getUniforms(); p.getAttributes(); n++; } catch { /* a broken program reports on real use */ } res(); }));
+  }
+  return n;
+}
