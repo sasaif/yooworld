@@ -7,13 +7,14 @@ const { chromium } = createRequire(import.meta.url)('playwright-core');
  * For each scenario: walk to the furniture, sit / lie, hold, get up with the real input (touch joystick on phones,
  * keyboard on desktop) or interrupt half-way; records root / hips / head positions, yaw, seat phase each frame,
  * skinned vertices below the seat surface inside the furniture footprint (clipping) every 3rd frame, and crops.
- * usage: node tools/seq-capture.mjs [url] ; DEV=iphone15|desktop ; SCEN=stool,chair,... ; OUT=dir ; EVERY=2 ; CHECK=1 (assert the
+ * usage: node tools/seq-capture.mjs [url] ; DEV=iphone15|desktop ; CHAR=f|m ; SCEN=stool,chair,... ; OUT=dir ; EVERY=2 ; CHECK=1 (assert the
  *        regression limits below: clipping, hip jumps, seated sole height, lounger lying pose; exit code 1 on failure)
  * output: OUT/<scen>_<dev>/f####.png (crops), OUT/full_<dev>/ (full frames for the video), OUT/metrics_<dev>.json
  */
 const url = process.argv[2] ?? 'http://127.0.0.1:5270/';
 const DEVS = { iphone15: { w: 852, h: 393, dpr: 2, touch: true, crop: [300, 270] }, desktop: { w: 1440, h: 900, dpr: 1, touch: false, crop: [440, 380] } };
-const devName = process.env.DEV ?? 'iphone15'; const dev = DEVS[devName];
+const devName = process.env.DEV ?? 'iphone15'; const dev = DEVS[devName]; const CHAR = process.env.CHAR; // CHAR=f|m: avatar used (default: the profile's)
+const tag = devName + (CHAR ? '_' + CHAR : '');
 const OUT = process.env.OUT ?? '/tmp/seq'; const EVERY = Number(process.env.EVERY ?? 2); const FULL = !!process.env.FULL;
 const SCEN = (process.env.SCEN ?? 'stool,chair,deskChair,sofa,armchair,bedEdge,lie,interruptSit,interruptLie').split(',');
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -36,6 +37,22 @@ await p.evaluate(() => {
   window.__scr = (x, y, z) => { const v = new V(x, y, z).project(window.__cam); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
   window.__avatarObj = (id) => { let r = null; scene().traverse((o) => { if (o.userData.avatarId === id) r = o; }); return r; };
   window.__z0 = window.__cam.zoom;
+  /** world-space triangles of the furniture item whose instance sits at the box centre (cached per box) */
+  const triCache = {};
+  window.__furnTris = (box) => { const key = box.x.toFixed(3) + ',' + box.z.toFixed(3); if (key in triCache) return triCache[key];
+    const out = []; const M = new window.__cam.matrixWorld.constructor(), W = new window.__cam.matrixWorld.constructor(), P = new V(), a = new V();
+    scene().traverse((m) => { if (!m.isInstancedMesh || !m.visible) return; const pos = m.geometry.attributes.position, idx = m.geometry.index;
+      for (let k = 0; k < m.count; k++) { m.getMatrixAt(k, M); W.multiplyMatrices(m.matrixWorld, M); P.setFromMatrixPosition(W); if (Math.hypot(P.x - box.x, P.z - box.z) > 0.03) continue;
+        const nI = idx ? idx.count : pos.count; for (let t = 0; t < nI; t++) { a.fromBufferAttribute(pos, idx ? idx.getX(t) : t).applyMatrix4(W); out.push(a.x, a.y, a.z); } } });
+    return (triCache[key] = out.length ? new Float32Array(out) : null); };
+  /** depth of (x,y,z) inside the closed triangle soup T (0 = outside): parity of the 6 axis rays, ≥ 4 odd = inside (robust to open Kenney seams) */
+  window.__inside = (T, x, y, z) => { const D = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [-1, 0, 0], [0, -1, 0], [0, 0, -1]]; const cnt = [0, 0, 0, 0, 0, 0]; const near = [Infinity, Infinity, Infinity, Infinity, Infinity, Infinity];
+    for (let t = 0; t < T.length; t += 9) { const ax = T[t], ay = T[t + 1], az = T[t + 2], e1x = T[t + 3] - ax, e1y = T[t + 4] - ay, e1z = T[t + 5] - az, e2x = T[t + 6] - ax, e2y = T[t + 7] - ay, e2z = T[t + 8] - az;
+      const sx = x - ax, sy = y - ay, sz = z - az;
+      for (let di = 0; di < 6; di++) { const [dx, dy, dz] = D[di]; const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x; const det = e1x * px + e1y * py + e1z * pz; if (Math.abs(det) < 1e-12) continue;
+        const inv = 1 / det; const u = (sx * px + sy * py + sz * pz) * inv; if (u < 0 || u > 1) continue; const qx = sy * e1z - sz * e1y, qy = sz * e1x - sx * e1z, qz = sx * e1y - sy * e1x;
+        const w = (dx * qx + dy * qy + dz * qz) * inv; if (w < 0 || u + w > 1) continue; const tt = (e2x * qx + e2y * qy + e2z * qz) * inv; if (tt > 1e-6) { cnt[di]++; if (tt < near[di]) near[di] = tt; } } }
+    const odd = cnt.filter((c) => c % 2 === 1).length; return odd >= 4 ? Math.min(...near) : 0; };
   /** one sample: root, yaw, hips/head bones, seat phase; `pen` = deepest skinned vertex below the surface inside the footprint */
   window.__sample = (box, pen) => {
     const g = window.game, id = g.s.activeChar, c = window.__world.chars[id], o = window.__avatarObj(id); const v = new V(); let H, Hd;
@@ -45,8 +62,18 @@ await p.evaluate(() => {
       o.traverse((m) => { if (!m.isSkinnedMesh || /outline/.test(m.name)) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const pos = m.geometry.attributes.position;
         for (let i = 0; i < pos.count; i += 2) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); if (v.y < sole) sole = v.y; const dx = v.x - box.x, dz = v.z - box.z; const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
           if (Math.abs(lx) < box.w / 2 - 0.01 && Math.abs(lz) < box.d / 2 - 0.01 && v.y < box.h - 0.01 && v.y > 0.02) { n++; if (box.h - v.y < SLAB && box.h - v.y > slab) slab = box.h - v.y; if (box.h - v.y > depth) { depth = box.h - v.y; penAt = [+lx.toFixed(3), +v.y.toFixed(3), +lz.toFixed(3)]; } } } }); }
+    // real mesh clipping: skinned vertices INSIDE the furniture's own triangles (ray parity on 3 axes, majority vote), depth =
+    // nearest surface along the 6 axis rays. Unlike the footprint box this ignores the open space between a stool's legs.
+    let mDepth = 0, mN = 0, mAt = null; const FB = {};
+    o.traverse((m) => { if (m.isBone && /^(Left|Right)(Foot|ToeBase)$/.test(m.name) && !FB[m.name]) FB[m.name] = m.getWorldPosition(new V()); });
+    if (pen && box) { const T = window.__furnTris(box); if (T) { const cs = Math.cos(box.yaw), sn = Math.sin(box.yaw);
+      o.traverse((m) => { if (!m.isSkinnedMesh || /outline/.test(m.name)) return; for (let q = m; q; q = q.parent) if (!q.visible) return; const pos = m.geometry.attributes.position;
+        for (let i = 0; i < pos.count; i += 2) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); const dx = v.x - box.x, dz = v.z - box.z; const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+          if (Math.abs(lx) > box.w / 2 + 0.05 || Math.abs(lz) > box.d / 2 + 0.05 || v.y > box.h + 0.35) continue;
+          const r = window.__inside(T, v.x, v.y, v.z); if (r > 0.002) { mN++; if (r > mDepth) { mDepth = r; mAt = [+lx.toFixed(3), +v.y.toFixed(3), +lz.toFixed(3)]; } } } }); } }
+    const toBox = (q) => { if (!box || !q) return null; const cs = Math.cos(box.yaw), sn = Math.sin(box.yaw), dx = q.x - box.x, dz = q.z - box.z; return [+(dx * cs - dz * sn).toFixed(3), +q.y.toFixed(3), +(dx * sn + dz * cs).toFixed(3)]; };
     const d = window.__move().seat;
-    return { pos: [c.pos.x, c.pos.y, c.pos.z], yaw: c.yaw, hips: H.toArray(), head: Hd.toArray(), mode: c.mode, phase: d?.phase ?? 'none', sp: d?.sp ?? 0, lp: d?.lp ?? 0, w: d?.w ?? 0, pitch: d?.pitch ?? 0, pen: pen ? +depth.toFixed(3) : null, penN: pen ? n : null, penAt, slab: pen ? +slab.toFixed(3) : null, sole: pen && Number.isFinite(sole) ? +sole.toFixed(3) : null,
+    return { meshPen: pen && box ? +mDepth.toFixed(3) : null, meshPenN: pen && box ? mN : null, meshAt: mAt, feet: { lf: toBox(FB.LeftFoot), lt: toBox(FB.LeftToeBase), rf: toBox(FB.RightFoot), rt: toBox(FB.RightToeBase) }, pos: [c.pos.x, c.pos.y, c.pos.z], yaw: c.yaw, hips: H.toArray(), head: Hd.toArray(), mode: c.mode, phase: d?.phase ?? 'none', sp: d?.sp ?? 0, lp: d?.lp ?? 0, w: d?.w ?? 0, pitch: d?.pitch ?? 0, pen: pen ? +depth.toFixed(3) : null, penN: pen ? n : null, penAt, slab: pen ? +slab.toFixed(3) : null, sole: pen && Number.isFinite(sole) ? +sole.toFixed(3) : null,
       torso: +(Math.atan2(Math.hypot(Hd.x - H.x, Hd.z - H.z), Hd.y - H.y) * 180 / Math.PI).toFixed(1) };
   };
 });
@@ -56,14 +83,16 @@ async function pushStick(on, ang = -90) { // ang: screen degrees, -90 = down the
   if (dev.touch) { if (on) { await T('touchStart', [{ x: joy.cx, y: joy.cy, id: 1 }]); await T('touchMove', [{ x: joy.cx + Math.cos(ang * Math.PI / 180) * joy.R, y: joy.cy - Math.sin(ang * Math.PI / 180) * joy.R, id: 1 }]); } else await T('touchEnd', []); }
   else { if (on) await p.keyboard.down('ArrowDown'); else await p.keyboard.up('ArrowDown'); }
 }
-const SEATS = { stool: ['stoolBar', 'sit'], chair: ['chair', 'sit'], deskChair: ['chairDesk', 'sit'], sofa: ['loungeSofa', 'sit'], armchair: ['loungeChair', 'sit'], bedEdge: ['bedDouble', 'sit'], lie: ['bedDouble', 'lie'], interruptSit: ['loungeSofa', 'sit'], interruptLie: ['bedDouble', 'lie'], lounger: ['lounger2', 'lie', 'beach'], interruptLounger: ['lounger2', 'lie', 'beach'] };
+const SEATS = { stool: ['stoolBar', 'sit'], chair: ['chair', 'sit'], deskChair: ['chairDesk', 'sit'], sofa: ['loungeSofa', 'sit'], sofaCorner: ['loungeSofaCorner', 'sit'], armchair: ['loungeChair', 'sit'], bedEdge: ['bedDouble', 'sit'], lie: ['bedDouble', 'lie'], interruptSit: ['loungeSofa', 'sit'], interruptLie: ['bedDouble', 'lie'], lounger: ['lounger2', 'lie', 'beach'], interruptLounger: ['lounger2', 'lie', 'beach'] };
 fs.mkdirSync(OUT, { recursive: true }); const fullDir = `${OUT}/full_${devName}`; if (FULL) { fs.rmSync(fullDir, { recursive: true, force: true }); fs.mkdirSync(fullDir, { recursive: true }); }
 await p.evaluate(() => { const g = window.game; const apt = g.s.apartment; if (!apt.items.some((i) => i.defId === 'stoolBar')) g['setLayout']({ ...apt, items: [...apt.items, { uid: 't_stool', defId: 'stoolBar', x: 10, z: 12, rot: 0 }, { uid: 't_desk', defId: 'chairDesk', x: 14, z: 12, rot: 2 }] }, 'place', {}); });
+if (SCEN.includes('sofaCorner')) await p.evaluate(() => { const g = window.game; const apt = g.s.apartment; if (!apt.items.some((i) => i.defId === 'loungeSofaCorner')) g['setLayout']({ ...apt, items: [...apt.items, { uid: 't_corner', defId: 'loungeSofaCorner', x: 6, z: 12, rot: 0 }] }, 'place', {}); });
 await p.waitForTimeout(2500);
+if (CHAR) { await p.evaluate((c) => window.game.setActive(c), CHAR); await p.waitForTimeout(500); }
 await p.evaluate(() => window.__virt());
 let fullN = 0; const all = {};
 for (const sc of SCEN) {
-  const [defId, act, place] = SEATS[sc]; const dir = `${OUT}/${sc}_${devName}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
+  const [defId, act, place] = SEATS[sc]; const dir = `${OUT}/${sc}_${tag}`; fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
   if (place === 'beach' && (await p.evaluate(() => window.game.s.location)) !== 'beach') { await p.evaluate(() => window.game.travel('beach')); for (let i = 0; i < 90; i++) await p.evaluate(() => window.__step(1000 / 60)); }
   if (place !== 'beach' && (await p.evaluate(() => window.game.s.location)) !== 'home') { await p.evaluate(() => window.game.travel('home')); for (let i = 0; i < 90; i++) await p.evaluate(() => window.__step(1000 / 60)); }
   const info = place === 'beach' ? await p.evaluate((propId) => {
@@ -123,23 +152,33 @@ for (const sc of SCEN) {
   const med = (a) => { const q = a.filter((x) => x !== null && Number.isFinite(x)).sort((x, y) => x - y); return q.length ? q[q.length >> 1] : null; };
   const seated = S.filter((s) => s.phase === 'seated'), lying = S.filter((s) => s.phase === 'lying');
   const slabPen = Math.max(0, ...S.filter((s) => s.slab !== null && s.slab !== undefined && s.phase !== 'none').map((s) => s.slab));
-  const extra = { seatPenCm: +(slabPen * 100).toFixed(1), soleSeated: med(seated.map((s) => s.sole)), torsoLying: med(lying.map((s) => s.torso)), penLyingCm: lying.length ? +(Math.max(0, ...lying.filter((s) => s.pen !== null).map((s) => s.pen)) * 100).toFixed(1) : null };
+  const meshPen = Math.max(0, ...S.filter((s) => s.meshPen !== null && s.meshPen !== undefined && s.phase !== 'none').map((s) => s.meshPen));
+  const extra = { meshPenCm: +(meshPen * 100).toFixed(1), meshPenAt: S.reduce((b, s) => (s.meshPen > (b?.meshPen ?? 0) ? s : b), null)?.meshAt ?? null, feetSeated: seated.length ? seated[seated.length >> 1].feet : null, seatPenCm: +(slabPen * 100).toFixed(1), soleSeated: med(seated.map((s) => s.sole)), torsoLying: med(lying.map((s) => s.torso)), penLyingCm: lying.length ? +(Math.max(0, ...lying.filter((s) => s.pen !== null).map((s) => s.pen)) * 100).toFixed(1) : null };
   const res = { scen: sc, ...extra, frames: S.length, outAt, maxJumpCm: Object.fromEntries(Object.entries(mx).map(([k, v]) => [k, +v.toFixed(2)])), at, maxPenCm: +(pen * 100).toFixed(1), penPhases: [...new Set(penPhase)], phaseFrames: phases, endMode: S[S.length - 1].mode };
   all[sc] = { ...res, samples: S }; console.log(JSON.stringify(res));
 }
-fs.writeFileSync(`${OUT}/metrics_${devName}.json`, JSON.stringify(all));
+fs.writeFileSync(`${OUT}/metrics_${tag}.json`, JSON.stringify(all));
 if (process.env.CHECK) {
-  // regression limits (gameplay polish, Nov 2026). Feet: the chibi legs (hip → sole ≈ 0.30 m) cannot reach the floor / rung
-  // at the current seat heights; the limits lock in the improvement (before: chair 0.16, desk chair 0.16, stool 0.39 m).
-  const LIM = { stool: { pen: 1.0, sole: 0.35 }, chair: { pen: 1.0, sole: 0.13 }, deskChair: { pen: 1.0, sole: 0.12 },
+  // regression limits (gameplay polish). Option C (round 2): seats lowered so the feet reach the floor / the bar stool's
+  // foot ring (data/furnitureReshape.ts). sole = median lowest skinned vertex while seated (floor = 0); meshPen = deepest
+  // skinned vertex INSIDE the furniture mesh over the whole sit / stand-up (soft cushion contact, before Option C: chair
+  // 0.7 / 0.3, desk chair 0.9 / 1.1, sofa 1.1 / 1.7, armchair 0.9 / 1.5, stool 0 / 0 cm for Juanita / Juan).
+  const ringSrc = fs.readFileSync(new URL('../src/data/furnitureReshape.ts', import.meta.url), 'utf8').match(/stoolBar:[^\n]*ring: \{ y: ([\d.]+), r: ([\d.]+), tube: [\d.]+, cz: ([\d.]+) \}/);
+  const RING = ringSrc ? { y: +ringSrc[1], r: +ringSrc[2], cz: +ringSrc[3] } : null;
+  const LIM = { stool: { pen: 1.0, mesh: 0.6, ring: true }, chair: { pen: 1.0, mesh: 1.2, sole: 0.01 }, deskChair: { pen: 1.0, mesh: 1.2, sole: 0.01 },
+    sofa: { mesh: 1.6, sole: 0.01 }, armchair: { mesh: 1.6, sole: 0.01 }, sofaCorner: { mesh: 1.0, sole: 0.01 },
     lounger: { pen: 4.0, penLying: 0.5, torso: [25, 45] }, interruptLounger: { pen: 4.0 } };
-  let bad = 0; const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) bad++; };
+  let bad = 0; const ok = (c, m, extra) => { console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined && extra !== null ? ' ' + JSON.stringify(extra) : '')); if (!c) bad++; };
   for (const [sc, r] of Object.entries(all)) { const L = LIM[sc] ?? {};
     ok(r.endMode === 'walk' || r.endMode === 'idle', `${sc}: gets up and walks off (end mode ${r.endMode})`);
     ok(r.maxJumpCm.hips <= 6 && r.maxJumpCm.root <= 6, `${sc}: smooth (max per-frame jump hips ${r.maxJumpCm.hips} cm, root ${r.maxJumpCm.root} cm ≤ 6)`);
     // clipping INTO the seat = skin inside the top 12 cm under the seat surface (a foot stepping under the stool's front edge,
     // between its legs, is not a clip: the deepest point over the whole footprint volume is logged as maxPenCm)
     if (L.pen !== undefined) ok(r.seatPenCm <= L.pen, `${sc}: clipping into the seat ${r.seatPenCm} cm ≤ ${L.pen} (whole sit / stand-up; deepest point in the footprint volume ${r.maxPenCm} cm)`);
+    if (L.mesh !== undefined) ok(r.meshPenCm <= L.mesh, `${sc}: skin inside the furniture mesh ${r.meshPenCm} cm ≤ ${L.mesh}`, r.meshPenAt);
+    if (L.ring) { ok(!!RING && r.soleSeated !== null && Math.abs(r.soleSeated - RING.y) <= 0.012, `${sc}: seated soles on the foot ring (sole ${r.soleSeated} m, ring top ${RING?.y} ± 0.012)`);
+      const f = r.feetSeated; const under = (a, t) => { const rz = RING.cz + Math.sqrt(Math.max(0, RING.r ** 2 - ((a[0] + t[0]) / 2) ** 2)); return rz >= Math.min(a[2], t[2]) - 0.01 && rz <= Math.max(a[2], t[2]) + 0.01; };
+      ok(!!f && !!RING && under(f.lf, f.lt) && under(f.rf, f.rt), `${sc}: the ring passes under both feet (between ankle and toes)`, f); }
     if (L.sole !== undefined) ok(r.soleSeated !== null && r.soleSeated <= L.sole, `${sc}: seated sole height ${r.soleSeated} m ≤ ${L.sole}`);
     if (L.penLying !== undefined) ok(r.penLyingCm !== null && r.penLyingCm <= L.penLying, `${sc}: lying on the lounger, clipping ${r.penLyingCm} cm ≤ ${L.penLying}`);
     if (L.torso) ok(r.torsoLying !== null && r.torsoLying >= L.torso[0] && r.torsoLying <= L.torso[1], `${sc}: lying reclined on the backrest (torso ${r.torsoLying}° from vertical, ${L.torso[0]}–${L.torso[1]}°)`);
