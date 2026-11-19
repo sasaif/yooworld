@@ -74,6 +74,8 @@ export const CATALOGUE: I[] = [
   it('hair_long', 'Longs lâchés', 'hair', 'hair', { hair: 'long' }, G(600), 'rare'),
   it('hair_afro', 'Afro', 'hair', 'hair', { hair: 'afro' }, D(35), 'epic', { desc: 'Coiffure spéciale' }),
   it('hair_mohawk', 'Crête', 'hair', 'hair', { hair: 'mohawk' }, D(30), 'epic'),
+  it('hair_braids', 'Tresses', 'hair', 'hair', { hair: 'braids' }, G(480), 'rare'),
+  it('hair_bun_high', 'Chignon poupée', 'hair', 'hair', { hair: 'bun_high' }, G(420)),
   ...([['haircol_brown', 'Brun', '#4a2c22'], ['haircol_chestnut', 'Châtain', '#7a4a2a'], ['haircol_black', 'Noir', '#1e1618'], ['haircol_blond', 'Blond', '#e3bd6a'],
     ['haircol_red', 'Roux', '#b5482a'], ['haircol_pink', 'Rose bonbon', '#ff4fb0']] as const).map(([id, name, color]) => it(id, name, 'hair', 'hairColor', { color }, undefined, 'common', { swatch: true })),
   it('haircol_blue', 'Bleu électrique', 'hair', 'hairColor', { color: '#2f6bff' }, G(250), 'rare', { swatch: true }),

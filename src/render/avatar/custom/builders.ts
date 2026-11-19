@@ -65,6 +65,41 @@ const strip = (g: THREE.BufferGeometry) => { const o = g.index ? g.toNonIndexed(
 function rayR(g: THREE.BufferGeometry, C: THREE.Vector3, d: THREE.Vector3) { const p = g.getAttribute('position'); let best = 0.15; const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).sub(C); const l = v.length(); if (l > 1e-4 && v.dot(d) / l > 0.978) best = Math.max(best, l); } return best; }
 const dirAt = (C: THREE.Vector3, az: number, el: number, r: number) => new THREE.Vector3(C.x + Math.sin(az) * Math.cos(el) * r, C.y + Math.sin(el) * r, C.z - Math.cos(az) * Math.cos(el) * r);
+/** Hair-textured ellipsoid (low poly; braid lobes, high bun). */
+function hairEgg(c: THREE.Vector3, r: THREE.Vector3, w = 10, h = 7, rot?: THREE.Euler) { const g = new THREE.SphereGeometry(1, w, h); const p = g.getAttribute('position'); const uv = g.getAttribute('uv');
+  for (let i = 0; i < p.count; i++) { const hh = hairUV(uv.getX(i), 1 - uv.getY(i)); uv.setXY(i, hh[0], hh[1]); }
+  g.scale(r.x, r.y, r.z); if (rot) g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(rot)); g.translate(c.x, c.y, c.z); return g; }
+/** Hair-textured torus (bun wrap, braid ties) merged into the hair mesh: no extra draw call. */
+function hairRing(c: THREE.Vector3, axis: THREE.Vector3, R: number, r: number, seg = 16, rad = 6) { const g = new THREE.TorusGeometry(R, r, rad, seg); const uv = g.getAttribute('uv');
+  for (let i = 0; i < uv.count; i++) { const hh = hairUV(uv.getX(i), 0.15 + 0.7 * uv.getY(i)); uv.setXY(i, hh[0], hh[1]); }
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis.clone().normalize())); g.translate(c.x, c.y, c.z); return g; }
+/** Phase B: high doll bun on the crown + two thin face strands. Sizes scale with the target head (k), positions
+ *  are found on the target's own cap (rayR), so it fits Juanita and Juan alike. */
+function bunHigh(t: Prepared, cap: THREE.BufferGeometry, parts: THREE.BufferGeometry[]) {
+  const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424; const up = new THREE.Vector3(0, 1, 0.12).normalize(); const top = C.clone().addScaledVector(up, rayR(cap, C, up));
+  parts.push(hairEgg(top.clone().add(new THREE.Vector3(0, 0.062 * k, 0.012 * k)), new THREE.Vector3(0.105, 0.088, 0.1).multiplyScalar(k), 14, 9));
+  parts.push(hairRing(top.clone().add(new THREE.Vector3(0, 0.004 * k, 0.004 * k)), new THREE.Vector3(0, 1, 0.18), 0.082 * k, 0.02 * k));
+  for (const sd of [1, -1]) {
+    const a0 = sd * 1.0, a1 = sd * 1.22; const d0 = new THREE.Vector3(Math.sin(a0) * Math.cos(0.5), Math.sin(0.5), -Math.cos(a0) * Math.cos(0.5));
+    const s = C.clone().addScaledVector(d0, rayR(cap, C, d0) - 0.004 * k); const yEnd = C.y - 0.1 * k; const e = dirAt(C, a1, 0, t.headRadius(a1, yEnd) + 0.026 * k); e.y = yEnd;
+    const m = s.clone().lerp(e, 0.45); const out = new THREE.Vector3(m.x - C.x, 0, m.z - C.z).normalize(); m.addScaledVector(out, 0.03 * k);
+    parts.push(tube(new THREE.CatmullRomCurve3([s, m, e]), (x) => (0.016 - 0.008 * x) * k, 6, 5));
+  }
+}
+/** Phase B: two braids from behind the ears falling forward over the shoulders (7 lobes + a tie each). */
+function braids(t: Prepared, parts: THREE.BufferGeometry[]) {
+  const C = t.cranium; const k = t.headRadius(Math.PI, C.y) / 0.2424;
+  for (const sd of [1, -1]) {
+    const a0 = sd * 2.09; const y0 = C.y + 0.036 * k; const s = dirAt(C, a0, 0, t.headRadius(a0, y0) - 0.004 * k); s.y = y0;
+    const e = new THREE.Vector3(C.x + sd * 0.17 * k, C.y - 0.234 * k, C.z - 0.054 * k);
+    const cur = new THREE.CatmullRomCurve3([s, s.clone().lerp(e, 0.5).add(new THREE.Vector3(sd * 0.022 * k, 0, 0.02 * k)), e]);
+    parts.push(tube(new THREE.CatmullRomCurve3([s.clone().add(new THREE.Vector3(-sd * 0.02 * k, 0.03 * k, -0.01 * k)), s]), () => 0.024 * k, 4, 6));
+    for (let i = 0; i < 7; i++) { const u = i / 6; const p = cur.getPointAt(u * 0.94);
+      parts.push(hairEgg(p, new THREE.Vector3(0.028 - 0.006 * u, 0.026, 0.024).multiplyScalar(k), 8, 5, new THREE.Euler(0, 0, sd * (i % 2 ? 0.55 : -0.55)))); }
+    const end = cur.getPointAt(1); parts.push(hairRing(end, cur.getTangentAt(1), 0.016 * k, 0.006 * k, 12, 5));
+    parts.push(tube(new THREE.CatmullRomCurve3([end, end.clone().add(new THREE.Vector3(0, -0.035 * k, -0.006 * k))]), (x) => (0.016 - 0.01 * x) * k, 4, 6));
+  }
+}
 
 export interface HairBuild { hair: THREE.BufferGeometry; ties: { pos: THREE.Vector3; r: number; axis: THREE.Vector3 }[]; /** geometry the hats are fitted on */ under: THREE.BufferGeometry }
 const hairCache = new Map<string, HairBuild>();
@@ -74,9 +109,11 @@ export function buildHair(style: HairStyle, hat: boolean, t: Prepared, f: Prepar
   const parts: THREE.BufferGeometry[] = []; const ties: HairBuild['ties'] = []; let under = fCap;
   const R = t.headRadius(Math.PI, C.y);
   const buzz = () => scalp(t, 0.0045);
-  switch (hat && ['buns', 'afro', 'mohawk', 'manbun', 'quiff'].includes(style) ? (style === 'buns' ? 'bob0' : 'buzz') : style) {
+  switch (hat && ['buns', 'afro', 'mohawk', 'manbun', 'quiff', 'bun_high'].includes(style) ? (style === 'buns' || style === 'bun_high' ? 'bob0' : 'buzz') : style) {
     case 'buns': parts.push(fCap); if (f.buns) parts.push(transferHead(f.buns, f, t)); break;
     case 'bob0': parts.push(fCap); break;
+    case 'bun_high': parts.push(fCap); bunHigh(t, fCap, parts); break;
+    case 'braids': parts.push(fCap); braids(t, parts); break;
     case 'quiff': parts.push(mCap); under = mCap; break;
     case 'buzz': { const g = buzz(); parts.push(g); under = g; break; }
     case 'bob': parts.push(fCap, curtain(t, C.y + 0.02, fe.mouth[1] - 0.012, Math.PI - 1.85, Math.PI + 1.85, 0.012, 0.01)); break;
