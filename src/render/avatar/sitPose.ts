@@ -16,6 +16,15 @@ export type { SitStyle };
 const D = Math.PI / 180;
 /** Head nod when lying (rad): chin towards the chest so the big chibi head rests on the pillow. */
 export const LIE_NOD = 22 * D;
+/** height of the ankle (Foot bone) above the sole when the foot is flat, both avatars standing (measured: 0.089–0.091 m) */
+export const ANKLE_H = 0.09;
+/** thigh droop range when solving for planted feet (rad): knees may rise a little above the hips on a low seat */
+const DROOP_MIN = -35 * D, DROOP_MAX = 65 * D;
+/** Thigh droop (rad) that puts the ankle at `ankleY` with the shin at `shinBack`: hipY − a·sin θ − b·cos(shinBack) = ankleY. */
+export function solveDroop(hipY: number, ankleY: number, thigh: number, shin: number, shinBack: number) {
+  const s = (hipY - ankleY - shin * Math.cos(shinBack)) / thigh;
+  return Math.min(DROOP_MAX, Math.max(DROOP_MIN, Math.asin(Math.max(-1, Math.min(1, s)))));
+}
 /** Per seat kind (the per-slot presets live in data/interactionRegistry.ts). Chibi legs are short (hip joint -> sole
  *  ≈ 0.30 m at scale 1.14): on a 0.29 m chair the feet dangle a little above the floor, and nobody can reach the bar
  *  stool rung (0.17 m) from a 0.52 m seat. */
@@ -92,8 +101,14 @@ export class SitPose {
     }
     if (this.neck && bk > 0) this.bend(this.neck, _L, LIE_NOD * bk);
     for (const g of this.legs) {
-      // thigh: forward, a little down, knees slightly apart
-      _des.copy(_F).multiplyScalar(Math.cos(st.droop)).addScaledVector(_U, -Math.sin(st.droop)).addScaledVector(_L, g.side * st.splay).normalize();
+      // thigh: forward, a little down (or, feet planted: the droop that brings the sole onto the floor / foot ring), knees apart
+      let droop = st.droop;
+      if (st.soleY !== undefined) {
+        _p.setFromMatrixPosition(g.up.bone.matrixWorld); _c.setFromMatrixPosition(g.low.bone.matrixWorld); const a = _p.distanceTo(_c);
+        _s.setFromMatrixPosition(g.foot.bone.matrixWorld); const bl = _c.distanceTo(_s);
+        droop = solveDroop(_p.y, st.soleY + ANKLE_H, a, bl, st.shinBack);
+      }
+      _des.copy(_F).multiplyScalar(Math.cos(droop)).addScaledVector(_U, -Math.sin(droop)).addScaledVector(_L, g.side * st.splay).normalize();
       if (lk > 0) { _alt.copy(_UL).multiplyScalar(-Math.cos(16 * D)).addScaledVector(_FL, -Math.sin(16 * D)).addScaledVector(_L, g.side * 0.06).normalize(); _des.lerp(_alt, lk).normalize(); }
       this.aim(g.up, _des, w);
       // shin: down, tucked back under the seat by shinBack (lying: along the bed)

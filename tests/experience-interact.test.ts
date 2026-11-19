@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
+import { legDrop } from '../src/data/furnitureReshape';
 import * as THREE from 'three';
 import { FURNITURE } from '../src/data/furniture';
 import { defaultApartment } from '../src/data/defaultApartment';
@@ -10,17 +11,26 @@ import { makeChar, world } from '../src/game/world';
 const SCALE = 1.14; // V3 default avatar scale
 describe('seat anchors (sit / lie bug fixes)', () => {
   const apt = defaultApartment('t'); const seats = computeSeats(apt, FURNITURE);
-  it('every seat of the starter flat has a measured anchor and surface height', () => {
-    for (const s of seats) { expect(s.hip).toBeDefined(); expect(s.h).toBeGreaterThan(0.2); }
+  // Option C (Nov 2026): the legs of the chairs, stool and sofas were shortened (data/furnitureReshape.ts); measured cushion
+  // heights of the original models: sofa 0.276, chair 0.288, desk chair 0.28, stool 0.522 → minus the declared leg drop
+  it('every seat of the starter flat has a measured anchor and surface height (original cushion − declared leg drop)', () => {
+    for (const s of seats) { expect(s.hip).toBeDefined(); expect(s.h).toBeGreaterThan(0.19); }
+    expect(FURNITURE.chair.seat!.h).toBeCloseTo(0.288 - legDrop('chair'), 6); expect(FURNITURE.loungeSofa.seat!.h).toBeCloseTo(0.276 - legDrop('loungeSofa'), 6);
+    expect(FURNITURE.stoolBar.seat!.h).toBeCloseTo(0.522 - legDrop('stoolBar'), 6);
   });
-  it('hips rest exactly BUTT above the real cushion height, whatever the seat (sofa 0.276, chair 0.288, stool 0.522, bed 0.30)', () => {
-    for (const [defId, h] of [['loungeSofa', 0.276], ['chair', 0.288], ['stoolBar', 0.522], ['bedDouble', 0.3]] as const) {
+  it('the reshaped seats: chair 0.195, desk chair 0.195, bar stool 0.422, sofa / armchair 0.216 m', () => {
+    expect(FURNITURE.chair.seat!.h).toBeCloseTo(0.195, 3); expect(FURNITURE.chairDesk.seat!.h).toBeCloseTo(0.195, 3); expect(FURNITURE.stoolBar.seat!.h).toBeCloseTo(0.422, 3);
+    expect(FURNITURE.loungeSofa.seat!.h).toBeCloseTo(0.216, 3); expect(FURNITURE.loungeChair.seat!.h).toBeCloseTo(0.216, 3);
+  });
+  it('hips rest exactly BUTT above the real cushion height, whatever the seat (sofa 0.216, chair 0.195, stool 0.422, bed 0.30)', () => {
+    for (const [defId, h] of [['loungeSofa', 0.276 - legDrop('loungeSofa')], ['chair', 0.288 - legDrop('chair')], ['stoolBar', 0.522 - legDrop('stoolBar')], ['bedDouble', 0.3]] as const) {
       const lay = { ...apt, items: [{ uid: 'x', defId, x: 8, z: 8, rot: 0 as const }] }; const s = computeSeats(lay, FURNITURE).find((q) => q.pose === 'sit')!;
       const root = sitRoot(s, SCALE, 0.13, new THREE.Vector3()); expect(hipsY(root.y, SCALE)).toBeCloseTo(h + BUTT, 6);
     }
   });
   it('the old bug: a single height for every seat put the hips 0.25 m under the bar-stool cushion', () => {
-    expect(legacySitY(SCALE) + HIP_H * SCALE).toBeLessThan(FURNITURE.stoolBar.seat!.h! - 0.2);
+    expect(legacySitY(SCALE) + HIP_H * SCALE).toBeLessThan(0.522 - 0.2); // the original 0.522 m stool
+    expect(legacySitY(SCALE) + HIP_H * SCALE).toBeLessThan(FURNITURE.stoolBar.seat!.h! - 0.1); // still 0.1 m under the lowered one
   });
   it('wooden chair: hips over the 0.24 m seat, not in front of it (old: 0.18 m in front of the centre)', () => {
     const lay = { ...apt, items: [{ uid: 'c', defId: 'chair', x: 8, z: 8, rot: 1 as const }] }; const s = computeSeats(lay, FURNITURE)[0];

@@ -1,5 +1,6 @@
 import bounds from './furnitureBounds.json';
 import { legacySeat } from './interactionRegistry';
+import { legDrop } from './furnitureReshape';
 
 /** Data-driven furniture catalogue. To add an item: drop the GLB in public/models/furniture,
  *  run `python3 tools/furniture_bounds.py`, then add one entry below. */
@@ -20,7 +21,9 @@ export interface FurnitureDef {
 }
 const B = bounds as Record<string, { w: number; d: number; h: number }>;
 const def = (id: string, name: string, category: Category, price: number, extra: Partial<FurnitureDef> = {}): FurnitureDef =>
-  ({ id, name, model: extra.model ?? id, category, layer: 'floor', price, rarity: 'common', size: B[extra.model ?? id], ...extra });
+  ({ id, name, model: extra.model ?? id, category, layer: 'floor', price, rarity: 'common', size: shortened(extra.model ?? id), ...extra });
+/** item size after the leg reshape (data/furnitureReshape.ts): same footprint, lower top */
+function shortened(model: string) { const b = B[model]; const d = legDrop(model); return d ? { ...b, h: +(b.h - d).toFixed(4) } : b; }
 
 export const FURNITURE: Record<string, FurnitureDef> = Object.fromEntries([
   def('loungeSofa', 'Canapé rose', 'seating', 180, { seat: legacySeat('loungeSofa'), interaction: 'sit', surface: undefined }),
