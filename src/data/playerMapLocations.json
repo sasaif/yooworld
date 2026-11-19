@@ -1,0 +1,655 @@
+{
+  "map": {
+    "width": 1672,
+    "height": 941,
+    "src": "/playermap/map.webp"
+  },
+  "locations": [
+    {
+      "id": "residential",
+      "kind": "district",
+      "name": "Quartier Résidentiel",
+      "icon": "🏡",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/residential.jpg",
+      "blurb": "Maisons pastel et jardins. Mon appart est déjà ouvert.",
+      "inside": "Mon appart · ouvert",
+      "anchor": {
+        "x": 20.5,
+        "y": 24.0
+      },
+      "dot": {
+        "x": 29.84,
+        "y": 13.82,
+        "side": "right"
+      },
+      "hit": {
+        "x": 14.5,
+        "y": 12.0,
+        "w": 16.5,
+        "h": 8.0
+      }
+    },
+    {
+      "id": "home",
+      "kind": "place",
+      "name": "Mon appart",
+      "icon": "🏠",
+      "status": "open",
+      "travel": "home",
+      "current": true,
+      "thumb": "/playermap/thumbs/appart.jpg",
+      "blurb": "Ton chez-toi à décorer. Lieu déjà en ligne.",
+      "anchor": {
+        "x": 28.1,
+        "y": 36.1
+      },
+      "dot": {
+        "x": 38.99,
+        "y": 21.25,
+        "side": "right"
+      },
+      "hit": {
+        "x": 24.0,
+        "y": 17.0,
+        "w": 13.5,
+        "h": 10.5
+      }
+    },
+    {
+      "id": "farm",
+      "kind": "place",
+      "name": "Ferme",
+      "icon": "🚜",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/farm.jpg",
+      "blurb": "Champs, grange et silo. Lieu de travail des YooWorldiens. La paie en Gold attendra le backend.",
+      "anchor": {
+        "x": 12.0,
+        "y": 34.0
+      },
+      "dot": {
+        "x": 14.17,
+        "y": 34.54,
+        "side": "right"
+      },
+      "hit": {
+        "x": 4.0,
+        "y": 28.0,
+        "w": 14.0,
+        "h": 14.0
+      }
+    },
+    {
+      "id": "gardens",
+      "kind": "place",
+      "name": "Jardins",
+      "icon": "🌻",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/gardens.jpg",
+      "blurb": "Potagers et serres, dans le quartier Nature. Jouable plus tard, en local d’abord.",
+      "anchor": {
+        "x": 8.0,
+        "y": 54.0
+      },
+      "dot": {
+        "x": 15.91,
+        "y": 49.42,
+        "side": "right"
+      },
+      "hit": {
+        "x": 3.5,
+        "y": 47.0,
+        "w": 11.0,
+        "h": 10.0
+      }
+    },
+    {
+      "id": "nature",
+      "kind": "district",
+      "name": "Nature",
+      "icon": "🌿",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/nature.jpg",
+      "blurb": "Jardins, camping, zoo et aquarium. Jouable plus tard, en local d’abord.",
+      "inside": "Jardins · Camping · Zoo & aquarium",
+      "anchor": {
+        "x": 16.0,
+        "y": 52.0
+      },
+      "dot": {
+        "x": 26.2,
+        "y": 50.8,
+        "side": "right"
+      },
+      "hit": {
+        "x": 12.5,
+        "y": 45.5,
+        "w": 8.5,
+        "h": 6.0
+      }
+    },
+    {
+      "id": "camping",
+      "kind": "place",
+      "name": "Camping",
+      "icon": "⛺",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/camping.jpg",
+      "blurb": "Tentes et feu de camp, en lisière de la nature. Pas dans le premier jalon.",
+      "anchor": {
+        "x": 8.0,
+        "y": 65.0
+      },
+      "dot": {
+        "x": 14.89,
+        "y": 60.36,
+        "side": "right"
+      },
+      "hit": {
+        "x": 3.5,
+        "y": 58.0,
+        "w": 11.0,
+        "h": 9.5
+      }
+    },
+    {
+      "id": "zoo",
+      "kind": "place",
+      "name": "Zoo & Aquarium",
+      "icon": "🦒",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/zoo.jpg",
+      "blurb": "Animaux, bassin et palmiers, au bord de la plage. Pour plus tard.",
+      "anchor": {
+        "x": 9.0,
+        "y": 76.0
+      },
+      "dot": {
+        "x": 21.65,
+        "y": 69.61,
+        "side": "right"
+      },
+      "hit": {
+        "x": 3.0,
+        "y": 68.0,
+        "w": 15.0,
+        "h": 12.0
+      }
+    },
+    {
+      "id": "workshop",
+      "kind": "place",
+      "name": "Atelier meubles",
+      "icon": "🪑",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/workshop.jpg",
+      "blurb": "Atelier pour fabriquer et customiser les meubles. Après le premier jalon.",
+      "anchor": {
+        "x": 26.5,
+        "y": 58.0
+      },
+      "dot": {
+        "x": 37.62,
+        "y": 56.11,
+        "side": "right"
+      },
+      "hit": {
+        "x": 19.0,
+        "y": 52.0,
+        "w": 12.5,
+        "h": 10.0
+      }
+    },
+    {
+      "id": "cafe",
+      "kind": "place",
+      "name": "Café Yoo",
+      "icon": "☕",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/cafe.jpg",
+      "blurb": "Terrasse tropicale sur la place. Prochain lieu proposé après le Games Club.",
+      "anchor": {
+        "x": 38.5,
+        "y": 44.0
+      },
+      "dot": {
+        "x": 43.78,
+        "y": 36.98,
+        "side": "right"
+      },
+      "hit": {
+        "x": 32.5,
+        "y": 35.0,
+        "w": 12.0,
+        "h": 14.0
+      }
+    },
+    {
+      "id": "plaza",
+      "kind": "place",
+      "name": "Place centrale",
+      "icon": "⛲",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/plaza.jpg",
+      "blurb": "Fontaine, festivals et cœur de la ville. Prochain cadre à construire, avec le Games Club.",
+      "anchor": {
+        "x": 50.0,
+        "y": 43.0
+      },
+      "dot": {
+        "x": 58.73,
+        "y": 33.26,
+        "side": "right"
+      },
+      "hit": {
+        "x": 45.5,
+        "y": 36.0,
+        "w": 10.0,
+        "h": 12.0
+      }
+    },
+    {
+      "id": "festival",
+      "kind": "place",
+      "name": "Festivals & Événements",
+      "icon": "🎪",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/festival.jpg",
+      "blurb": "Scène et stands, au sud de la place. Les événements attendront tes règles.",
+      "anchor": {
+        "x": 47.0,
+        "y": 59.0
+      },
+      "dot": {
+        "x": 59.45,
+        "y": 55.79,
+        "side": "right"
+      },
+      "hit": {
+        "x": 40.0,
+        "y": 53.0,
+        "w": 14.5,
+        "h": 8.5
+      }
+    },
+    {
+      "id": "museum",
+      "kind": "place",
+      "name": "Musée",
+      "icon": "🏛️",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/museum.jpg",
+      "blurb": "Petit musée du quartier Culture & loisirs. Pour plus tard.",
+      "anchor": {
+        "x": 45.0,
+        "y": 20.5
+      },
+      "dot": {
+        "x": 51.67,
+        "y": 23.7,
+        "side": "right"
+      },
+      "hit": {
+        "x": 40.5,
+        "y": 15.5,
+        "w": 10.0,
+        "h": 14.0
+      }
+    },
+    {
+      "id": "park",
+      "kind": "place",
+      "name": "Parc d’attractions",
+      "icon": "🎡",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/park.jpg",
+      "blurb": "Grande roue et manèges, à côté du musée et du mini-golf. Pas dans le premier jalon.",
+      "anchor": {
+        "x": 57.0,
+        "y": 20.5
+      },
+      "dot": {
+        "x": 69.02,
+        "y": 23.7,
+        "side": "right"
+      },
+      "hit": {
+        "x": 52.0,
+        "y": 15.0,
+        "w": 13.0,
+        "h": 14.5
+      }
+    },
+    {
+      "id": "minigolf",
+      "kind": "place",
+      "name": "Mini-golf",
+      "icon": "⛳",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/minigolf.jpg",
+      "blurb": "Green et drapeaux, dans Culture & loisirs, à côté du parc d’attractions.",
+      "anchor": {
+        "x": 70.0,
+        "y": 21.0
+      },
+      "dot": {
+        "x": 77.87,
+        "y": 24.12,
+        "side": "right"
+      },
+      "hit": {
+        "x": 66.0,
+        "y": 17.0,
+        "w": 10.5,
+        "h": 12.0
+      }
+    },
+    {
+      "id": "culture",
+      "kind": "district",
+      "name": "Culture & Loisirs",
+      "icon": "🎡",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/culture.jpg",
+      "blurb": "Musée, parc d’attractions et mini-golf, au nord de la ville.",
+      "inside": "Musée · Parc d’attractions · Mini-golf",
+      "anchor": {
+        "x": 58.0,
+        "y": 16.0
+      },
+      "dot": {
+        "x": 60.94,
+        "y": 7.12,
+        "side": "right"
+      },
+      "hit": {
+        "x": 42.0,
+        "y": 4.5,
+        "w": 16.0,
+        "h": 7.0
+      }
+    },
+    {
+      "id": "club",
+      "kind": "place",
+      "name": "Yoo Games Club",
+      "icon": "🎲",
+      "status": "jalon",
+      "thumb": "/playermap/thumbs/club.jpg",
+      "blurb": "Salon de jeux multijoueur. Jalon 1 : Dominos. Le bâtiment 3D n’est pas encore construit — pas encore visitable.",
+      "anchor": {
+        "x": 62.0,
+        "y": 44.0
+      },
+      "dot": {
+        "x": 73.8,
+        "y": 35.39,
+        "side": "right"
+      },
+      "hit": {
+        "x": 56.5,
+        "y": 35.5,
+        "w": 14.5,
+        "h": 14.0
+      }
+    },
+    {
+      "id": "promenade",
+      "kind": "place",
+      "name": "Promenade & Boutiques",
+      "icon": "🛍️",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/promenade.jpg",
+      "blurb": "Boutiques et Boutique Style, le long du boardwalk juste au-dessus de la plage.",
+      "anchor": {
+        "x": 45.0,
+        "y": 70.0
+      },
+      "dot": {
+        "x": 60.65,
+        "y": 64.51,
+        "side": "right"
+      },
+      "hit": {
+        "x": 32.0,
+        "y": 63.5,
+        "w": 28.0,
+        "h": 9.5
+      }
+    },
+    {
+      "id": "beach",
+      "kind": "place",
+      "name": "Yoo Plage",
+      "icon": "🏖️",
+      "status": "open",
+      "travel": "beach",
+      "thumb": "/playermap/thumbs/plage.jpg",
+      "blurb": "Sable, palmiers, transats et ponton. Lieu déjà en ligne.",
+      "anchor": {
+        "x": 38.0,
+        "y": 82.0
+      },
+      "dot": {
+        "x": 50.66,
+        "y": 78.11,
+        "side": "right"
+      },
+      "hit": {
+        "x": 24.0,
+        "y": 74.0,
+        "w": 28.0,
+        "h": 14.0
+      }
+    },
+    {
+      "id": "work",
+      "kind": "district",
+      "name": "Quartier du Travail",
+      "icon": "🏭",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/work.jpg",
+      "blurb": "Usine, restaurant, hôtel et dépôt. Métiers jouables en local plus tard ; pas de Gold avant le backend.",
+      "inside": "Usine · Restaurant · Hôtel · Dépôt livraisons",
+      "anchor": {
+        "x": 86.0,
+        "y": 22.0
+      },
+      "dot": {
+        "x": 95.69,
+        "y": 10.1,
+        "side": "right"
+      },
+      "hit": {
+        "x": 77.5,
+        "y": 7.0,
+        "w": 16.5,
+        "h": 7.5
+      }
+    },
+    {
+      "id": "factory",
+      "kind": "place",
+      "name": "Usine",
+      "icon": "🏭",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/factory.jpg",
+      "blurb": "Lieu de travail avec entrepôt et cheminées. Même règle : activité locale d’abord, paie plus tard.",
+      "anchor": {
+        "x": 86.0,
+        "y": 18.5
+      },
+      "dot": {
+        "x": 95.22,
+        "y": 21.79,
+        "side": "right"
+      },
+      "hit": {
+        "x": 81.5,
+        "y": 13.5,
+        "w": 12.5,
+        "h": 13.0
+      }
+    },
+    {
+      "id": "restaurant",
+      "kind": "place",
+      "name": "Restaurant",
+      "icon": "🍽️",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/restaurant.jpg",
+      "blurb": "Petit restaurant du quartier du travail. Pour plus tard.",
+      "anchor": {
+        "x": 80.0,
+        "y": 35.0
+      },
+      "dot": {
+        "x": 89.23,
+        "y": 31.14,
+        "side": "right"
+      },
+      "hit": {
+        "x": 76.5,
+        "y": 28.5,
+        "w": 11.0,
+        "h": 10.0
+      }
+    },
+    {
+      "id": "hotel",
+      "kind": "place",
+      "name": "Hôtel",
+      "icon": "🏨",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/hotel.jpg",
+      "blurb": "Hôtel à l’est de la ville. Pas dans le premier jalon.",
+      "anchor": {
+        "x": 90.5,
+        "y": 39.0
+      },
+      "dot": {
+        "x": 84.33,
+        "y": 33.79,
+        "side": "left"
+      },
+      "hit": {
+        "x": 87.0,
+        "y": 31.0,
+        "w": 10.5,
+        "h": 12.0
+      }
+    },
+    {
+      "id": "depot",
+      "kind": "place",
+      "name": "Dépôt livraisons",
+      "icon": "📦",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/depot.jpg",
+      "blurb": "Entrepôt et camions, dans le quartier du travail. Activité locale plus tard.",
+      "anchor": {
+        "x": 86.0,
+        "y": 50.0
+      },
+      "dot": {
+        "x": 96.83,
+        "y": 45.48,
+        "side": "right"
+      },
+      "hit": {
+        "x": 82.0,
+        "y": 42.5,
+        "w": 13.5,
+        "h": 10.0
+      }
+    },
+    {
+      "id": "disco",
+      "kind": "place",
+      "name": "Disco / Karaoké",
+      "icon": "🪩",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/disco.jpg",
+      "blurb": "Pavillon festif en retrait de la promenade. Pas dans le premier jalon.",
+      "anchor": {
+        "x": 76.5,
+        "y": 58.0
+      },
+      "dot": {
+        "x": 85.17,
+        "y": 52.92,
+        "side": "right"
+      },
+      "hit": {
+        "x": 72.0,
+        "y": 50.0,
+        "w": 13.5,
+        "h": 13.0
+      }
+    },
+    {
+      "id": "pier",
+      "kind": "place",
+      "name": "Ponton de pêche",
+      "icon": "🎣",
+      "status": "soon",
+      "thumb": "/playermap/thumbs/pier.jpg",
+      "blurb": "Au bout de la côte sud. La pêche pourra exister en local ; les récompenses attendront tes règles.",
+      "anchor": {
+        "x": 73.0,
+        "y": 86.0
+      },
+      "dot": {
+        "x": 86.24,
+        "y": 78.11,
+        "side": "right"
+      },
+      "hit": {
+        "x": 68.0,
+        "y": 75.0,
+        "w": 16.0,
+        "h": 16.0
+      }
+    }
+  ],
+  "ui": {
+    "close": {
+      "cx": 96.77,
+      "cy": 5.31,
+      "r": 3.2
+    },
+    "zoomIn": {
+      "x": 0.5,
+      "y": 84.8,
+      "w": 4.6,
+      "h": 5.2
+    },
+    "zoomOut": {
+      "x": 0.5,
+      "y": 90.0,
+      "w": 4.6,
+      "h": 5.5
+    },
+    "hits": {
+      "close": {
+        "x": 1568,
+        "y": 2,
+        "w": 100,
+        "h": 100
+      },
+      "zoomIn": {
+        "x": 4,
+        "y": 798,
+        "w": 78,
+        "h": 48
+      },
+      "zoomOut": {
+        "x": 4,
+        "y": 846,
+        "w": 78,
+        "h": 48
+      }
+    }
+  }
+}
