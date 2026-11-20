@@ -152,7 +152,11 @@ ok(B.n === N && B.mode === 'single' && B.bots === botsBefore && B.seated && B.me
 const slowBots = (ms) => ev((ms) => { const h = window.club.s.session?.host; if (h) h.opts.botDelayMs = ms; }, ms);
 async function untilBotThinking() {
   for (let k = 0; k < 4; k++) {
-    await slowBots(1600); await play((st) => st.turn !== null && st.turn !== 0 && st.thinking !== null);
+    // the slower delay only applies to bot timers started AFTER it is set: a bot already thinking with the normal delay
+    // can play before the Quitter tap lands (CI run 44758982259: dialog opened on the player's own turn, "Bot 0").
+    // Wait for a bot turn that began after at least one more move, i.e. one that runs the 1600 ms delay.
+    await slowBots(1600); const seq0 = await ev(() => window.club.s.session?.host.engine.seq ?? 0);
+    await play(async (st) => st.turn !== null && st.turn !== 0 && st.thinking !== null && (await ev(() => window.club.s.session?.host.engine.seq ?? 0)) > seq0);
     if (await ev(() => window.club.s.session?.host.thinking > 0)) return true;
     if (await ev(() => window.club.s.session?.phase === 'results')) { await p.tap('[data-club="replay"]'); await p.waitForFunction(() => window.club.s.session?.phase === 'playing', null, { timeout: 20000 }); }
   }
