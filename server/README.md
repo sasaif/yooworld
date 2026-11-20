@@ -27,6 +27,7 @@ npm run db:start          # private Postgres on 127.0.0.1:54339
 npm run db:reset          # recreate yoland_local and apply all migrations (env=local)
 npm test                  # unit + db + security suites (creates yoland_test; stops Postgres at the end if it started it)
 npm run test:security     # 1000-parallel attack suite only (ATTACK_N=... to change)
+npm run test:coverage     # + TS coverage (v8) and SQL function coverage -> test-results/
 npm run typecheck
 npm run dev               # wrangler dev --local (no account, no deploy)
 npm run db:stop
