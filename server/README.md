@@ -73,6 +73,11 @@ Expected results at 9dedf8e [MESURÉ]: typecheck OK; `npm test` 11 files / 80 te
   (status `owner_rule`). The key and the hold mechanism are kept (a value > 0 re-enables it; tested).
 - Every shop purchase writes `eco.purchase_events` (append-only) with the buyer's account age at purchase time;
   `eco.account_age_days(player)` is the accessor. These are hooks for a future chargeback handler (see below).
+- **Lock order (QA B2 fix, migration 0011)**: trade row → player rows (ascending id, `FOR NO KEY UPDATE`) → item
+  rows (ascending id) → item definition (stock) → wallets (ascending id). Every function that touches a player's
+  wallet locks the player row first. Measured with `test/db/concurrency-mixed.test.ts` [MESURÉ]: QA's probe
+  (300 purchases + 300 gifts on one wallet) went from 587 deadlocks / 103 s to **0 deadlocks / 1.5 s**; a mixed
+  purchase + gift + trade + grant run (462 calls) from 255 deadlocks / 60 s to **0 / 1.8 s**.
 - Prestige cannot be bought (monetary event types refused); VIP is not read by any economy function.
 
 > Note: the current client (`src/economy/purchase.ts`) marks Diamond purchases `bound: true`. Phase B does not
