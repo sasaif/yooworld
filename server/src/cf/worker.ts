@@ -21,6 +21,7 @@ export { RoomDO } from './room-do';
 export { DirectoryDO } from './directory-do';
 export { TableDO } from './table-do';
 export { TradeDO } from './trade-do';
+export { PresenceDO } from './presence-do';
 
 interface User { id: string; email: string; emailVerified: boolean; twoFactorEnabled?: boolean | null; updatedAt: Date | string }
 interface Session { id: string; createdAt: Date | string; userId: string }
@@ -95,6 +96,16 @@ const idem = (c: C) => {
 };
 async function body<T = Record<string, any>>(c: C): Promise<T> { try { return await c.req.json(); } catch { throw new HttpErr(400, 'bad_json'); } }
 
+// ---------- session revocation -> open WebSockets closed (4401) ----------
+/** Close the player's open realtime sockets for one session (sid) or all sessions (null). Rooms come from the
+ *  per-player presence index written when tickets are signed. */
+async function kickSessions(env: Env, cfg: AppConfig, userId: string, sid: string | null) {
+  const rooms = await env.PRESENCE.get(env.PRESENCE.idFromName(`${cfg.env}:presence:${userId}`)).take(sid);
+  const r = await Promise.all(rooms.map((room) => env.ROOM.get(env.ROOM.idFromName(room)).revoke(userId, sid).catch(() => ({ closed: 0 }))));
+  return { rooms: rooms.length, closed: r.reduce((n, x) => n + x.closed, 0) };
+}
+const authFor = (c: C) => makeAuth(c.var.cfg, (userId, sid) => kickSessions(c.env, c.var.cfg, userId, sid));
+
 // ---------- human check (Turnstile hook) on bot-attractive unauthenticated routes ----------
 let verifierCache: { cfg: AppConfig; v: HumanVerifier } | null = null;
 app.use('/api/auth/*', async (c, next) => {
@@ -107,7 +118,7 @@ app.use('/api/auth/*', async (c, next) => {
 });
 // ---------- auth ----------
 app.all('/api/auth/*', async (c) => {
-  const { auth, close } = makeAuth(c.var.cfg);
+  const { auth, close } = authFor(c);
   try {
     let res: Response;
     try { res = await auth.handler(c.req.raw); }
@@ -116,11 +127,14 @@ app.all('/api/auth/*', async (c) => {
     return res;
   } finally { c.executionCtx.waitUntil(close()); }
 });
-const ensured = new Set<string>();            // eco.players row created once per user per isolate (idempotent)
+/** eco.players row ensured + account state, cached per auth SESSION and isolate: the state can only leave 'active'
+ *  through /me/delete, which revokes every session, so a cached 'active' session can never be a closed account. */
+const ensured = new Map<string, { state: string; due: string | null }>();
+const PENDING_ALLOWED = new Set(['/api/me', '/api/me/export', '/api/me/restore']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const uuidParam = (c: C, name: string) => { const v = c.req.param(name) ?? ''; if (!UUID.test(v)) throw new HttpErr(400, 'bad_' + name); return v; };
 async function requireUser(c: C, next: () => Promise<void>) {
-  const { auth, close } = makeAuth(c.var.cfg);
+  const { auth, close } = authFor(c);
   try {
     let s = null as { user: User; session: Session } | null;
     try { s = (await auth.api.getSession({ headers: c.req.raw.headers })) as unknown as typeof s; } catch { s = null; }
@@ -128,7 +142,15 @@ async function requireUser(c: C, next: () => Promise<void>) {
     if (!s.user.emailVerified) throw new HttpErr(403, 'email_not_verified');
     c.set('user', s.user); c.set('session', s.session);
   } finally { c.executionCtx.waitUntil(close()); }
-  if (!ensured.has(c.var.user.id)) { await call(c, 'eco.ensure_player', [c.var.user.id]); ensured.add(c.var.user.id); }
+  let st = ensured.get(c.var.session.id);
+  if (!st) {
+    const r = await call(c, 'eco.ensure_player', [c.var.user.id]);
+    st = { state: String(r.state ?? 'active'), due: (r.deletion_due_at as string | null) ?? null };
+    if (ensured.size > 10_000) ensured.clear();
+    if (st.state === 'active') ensured.set(c.var.session.id, st);   // only 'active' is cached (restore is re-checked)
+  }
+  if (st.state !== 'active' && !PENDING_ALLOWED.has(new URL(c.req.url).pathname))
+    throw new HttpErr(403, st.state === 'deleted' ? 'account_deleted' : 'account_pending_deletion', { deletion_due_at: st.due });
   await next();
 }
 /** Admin = Better Auth session of a user with 2FA enabled, created AFTER the last user update (fail closed).
@@ -146,13 +168,16 @@ app.get('/api/health/db', async (c) => c.json({ ok: true, db: await db(c, async 
 
 const api = new Hono<{ Bindings: Env; Variables: V }>();
 api.use('*', requireUser);
-api.get('/me', async (c) => { await call(c, 'eco.ensure_player', [c.var.user.id]); return c.json({ ok: true, id: c.var.user.id, email: c.var.user.email, twoFactor: !!c.var.user.twoFactorEnabled }); });
+api.get('/me', async (c) => {
+  const r = await call(c, 'eco.ensure_player', [c.var.user.id]);
+  return c.json({ ok: true, id: c.var.user.id, email: c.var.user.email, twoFactor: !!c.var.user.twoFactorEnabled, state: r.state, deletion_due_at: r.deletion_due_at });
+});
 
 // ---------- account: 2FA backup-code count, personal-data export, self-service deletion ----------
 /** Remaining 2FA backup codes (count only; the codes themselves are shown once, at generation, and stored encrypted). */
 api.get('/me/2fa/backup-codes', async (c) => {
   if (!c.var.user.twoFactorEnabled) return c.json({ ok: true, enabled: false, remaining: 0 });
-  const { auth, close } = makeAuth(c.var.cfg);
+  const { auth, close } = authFor(c);
   try {
     const r = await auth.api.viewBackupCodes({ body: { userId: c.var.user.id } }) as { backupCodes?: string[] };
     return c.json({ ok: true, enabled: true, remaining: r.backupCodes?.length ?? 0 });
@@ -172,34 +197,32 @@ api.get('/me/export', async (c) => {
   return c.json({ ok: true, ...game, account });
 });
 const FRESH_MS = 10 * 60_000;
-/** Self-service deletion: password + a session signed in less than 10 minutes ago + explicit confirmation.
- *  Economy side: eco.close_account (close + anonymise, ledger untouched, balance/items frozen in place: policy
- *  pending the owner). Auth side: e-mail/name anonymised, sessions, credentials and 2FA deleted. Idempotent. */
+/** Self-service deletion REQUEST, policy (a): password + a session signed in less than 10 minutes ago + explicit
+ *  confirmation. Economy side: eco.close_account (closed, restorable until deletion_due_at = now + grace). Every
+ *  session is revoked and every open WebSocket closed (4401). Credentials are KEPT during the grace period so the
+ *  player can sign in and POST /api/me/restore; the scheduled job finalises and erases afterwards. Idempotent. */
 api.post('/me/delete', async (c) => {
   const b = await body(c); const me = c.var.user.id;
   if (b.confirm !== 'DELETE') throw new HttpErr(400, 'confirm_required');
   if (Date.now() - new Date(c.var.session.createdAt).getTime() > FRESH_MS) throw new HttpErr(403, 'reauth_required');
-  const { auth, close } = makeAuth(c.var.cfg);
+  const { auth, close } = authFor(c);
   try {
     try { await auth.api.verifyPassword({ body: { password: String(b.password ?? '') }, headers: c.req.raw.headers }); }
     catch { throw new HttpErr(403, 'bad_password'); }
   } finally { c.executionCtx.waitUntil(close()); }
-  const eco = await call(c, 'eco.close_account', [`delete:${me}`, me]);
-  await withClient(c.var.cfg.authDatabaseUrl, async (cl) => {
-    await cl.query('begin');
-    try {
-      const old = (await cl.query('select email from auth."user" where id = $1 for update', [me])).rows[0]?.email as string | undefined;
-      await cl.query(`update auth."user" set email = 'deleted+' || id || '@deleted.invalid', name = 'deleted', image = null,
-                        "emailVerified" = false, "twoFactorEnabled" = false, "updatedAt" = now() where id = $1`, [me]);
-      for (const t of ['session', 'account', '"twoFactor"']) await cl.query(`delete from auth.${t} where "userId" = $1`, [me]);
-      await cl.query('delete from auth.verification where value = $1', [me]);
-      if (c.var.cfg.env === 'local' && old) await cl.query('delete from auth.dev_mail where email = $1', [old]);
-      await cl.query('commit');
-    } catch (e) { await cl.query('rollback').catch(() => {}); throw e; }
-  });
-  ensured.delete(me);
+  const eco = await call(c, 'eco.close_account', [`delete:${me}:${c.var.session.id}`, me]);
+  const sids = await withClient(c.var.cfg.authDatabaseUrl, async (cl) =>
+    (await cl.query('delete from auth.session where "userId" = $1 returning id', [me])).rows.map((r) => String(r.id)));
+  const ws = await kickSessions(c.env, c.var.cfg, me, null);
+  for (const sid of [...sids, c.var.session.id]) ensured.delete(sid);
   c.header('set-cookie', '__Secure-better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
-  return c.json({ ok: true, deleted: true, economy: eco });
+  return c.json({ ok: true, deletion_requested: true, deletion_due_at: eco.deletion_due_at, sessions_revoked: sids.length, websockets_closed: ws.closed, economy: eco });
+});
+/** Cancel a deletion request during the grace period (sign in again first). */
+api.post('/me/restore', async (c) => {
+  const r = await call(c, 'eco.restore_account', [`restore:${c.var.user.id}:${c.var.session.id}`, c.var.user.id]);
+  ensured.delete(c.var.session.id);
+  return c.json(r);
 });
 
 // ---------- server saves + inventory ----------
@@ -235,7 +258,13 @@ async function roomCaps(c: C) {
     return { soft, hard, apt: m['room.apartment_visitors'], event: m['event.capacity_default'] };
   });
 }
-const ticketFor = (c: C, claims: TicketClaims) => signTicket(c.var.cfg.ticketSecret, claims);
+/** Signs a single-use room ticket bound to the auth session, and records (session, room) in the player's presence
+ *  index so a revocation can close that socket. */
+async function ticketFor(c: C, claims: TicketClaims) {
+  const sid = c.var.session.id;
+  await c.env.PRESENCE.get(c.env.PRESENCE.idFromName(`${c.var.cfg.env}:presence:${claims.sub}`)).record(sid, claims.room, c.var.cfg.wsMaxLifetimeMs);
+  return signTicket(c.var.cfg.ticketSecret, { ...claims, sid });
+}
 api.post('/rooms/apt/:owner/join', async (c) => {
   const me = c.var.user.id, owner = c.req.param('owner');
   if (!/^[0-9a-f-]{36}$/.test(owner)) throw new HttpErr(400, 'bad_owner');
@@ -389,8 +418,11 @@ app.get('/ws/:room', async (c) => {
   const r = parseRoom(room); if (!r) return c.json({ ok: false, code: 'bad_room' }, 400);
   const t = await verifyTicket(c.var.cfg.ticketSecret, c.req.query('ticket') ?? '', room, c.var.cfg.env);
   if ('error' in t) return c.json({ ok: false, code: t.error }, 401);
+  if (!t.sid) return c.json({ ok: false, code: 'no_session' }, 401);
+  const admitted = await c.env.PRESENCE.get(c.env.PRESENCE.idFromName(`${c.var.cfg.env}:presence:${t.sub}`)).admit(t.sid, room, t.iat, c.var.cfg.wsMaxLifetimeMs);
+  if (!admitted) return c.json({ ok: false, code: 'session_revoked' }, 401);
   const h = new Headers(c.req.raw.headers);
-  h.set('x-room', room); h.set('x-sub', t.sub); h.set('x-jti', t.jti); h.set('x-exp', String(t.exp)); h.set('x-cap', String(t.cap ?? 0)); h.set('x-owner', t.owner ?? '');
+  h.set('x-room', room); h.set('x-sub', t.sub); h.set('x-jti', t.jti); h.set('x-exp', String(t.exp)); h.set('x-cap', String(t.cap ?? 0)); h.set('x-owner', t.owner ?? ''); h.set('x-sid', t.sid ?? ''); h.set('x-wsmax', String(c.var.cfg.wsMaxLifetimeMs));
   return c.env.ROOM.get(c.env.ROOM.idFromName(room)).fetch(new Request(c.req.raw.url, { headers: h }));
 });
 

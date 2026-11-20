@@ -12,16 +12,17 @@
     { "name": "ROOM", "class_name": "RoomDO" },
     { "name": "DIRECTORY", "class_name": "DirectoryDO" },
     { "name": "TABLE", "class_name": "TableDO" },
-    { "name": "TRADE", "class_name": "TradeDO" }
+    { "name": "TRADE", "class_name": "TradeDO" },
+    { "name": "PRESENCE", "class_name": "PresenceDO" }
   ] },
-  "migrations": [ { "tag": "v1", "new_sqlite_classes": ["RoomDO", "DirectoryDO", "TableDO"] }, { "tag": "v2", "new_sqlite_classes": ["TradeDO"] } ],
+  "migrations": [ { "tag": "v1", "new_sqlite_classes": ["RoomDO", "DirectoryDO", "TableDO"] }, { "tag": "v2", "new_sqlite_classes": ["TradeDO"] }, { "tag": "v3", "new_sqlite_classes": ["PresenceDO"] } ],
   "env": {
     "uat": {
       "name": "yoland-api-uat",
       "workers_dev": false,
       "vars": { "ENV_TAG": "uat" },
       "durable_objects": { "bindings": [
-        { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" }, { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }
+        { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" }, { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }
       ] }
     },
     "prod": {
@@ -29,7 +30,7 @@
       "workers_dev": false,
       "vars": { "ENV_TAG": "prod" },
       "durable_objects": { "bindings": [
-        { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" }, { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }
+        { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" }, { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }
       ] }
     }
   }

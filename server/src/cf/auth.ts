@@ -5,7 +5,10 @@ import pg from 'pg';
 import type { AppConfig } from '../core/envSchema';
 import { DB_TIMEOUT_MS } from './db';
 
-export function makeAuth(cfg: AppConfig) {
+/** onSessionDeleted: called for EVERY deleted session row (sign-out, revoke-session(s), password reset, expiry):
+ *  the Worker closes that session's open WebSockets (close 4401). Failures are logged, never block the auth flow. */
+export type SessionDeleted = (userId: string, sessionId: string) => Promise<unknown>;
+export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
   const pool = new pg.Pool({ connectionString: cfg.authDatabaseUrl, max: 1, connectionTimeoutMillis: DB_TIMEOUT_MS, options: '-c search_path=auth' });
   pool.on('error', () => {});
   const auth = betterAuth({
@@ -39,6 +42,9 @@ export function makeAuth(cfg: AppConfig) {
     },
     advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] }, useSecureCookies: true, database: { generateId: 'uuid' } },
     plugins: [twoFactor({ issuer: 'YoLand' })],
+    databaseHooks: onSessionDeleted ? { session: { delete: { after: async (sess: { id: string; userId: string }) => {
+      try { await onSessionDeleted(sess.userId, sess.id); } catch (e) { console.error('ws revoke failed', e); }
+    } } } } : undefined,
   });
   return { auth, close: () => pool.end().catch(() => {}) };
 }

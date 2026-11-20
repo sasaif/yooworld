@@ -5,12 +5,14 @@ import { RoomCore, CHAT_HISTORY, type In, type Out, type Persist, type ChatMsg }
 import { parseRoom, roomConfig, TECH } from '../core/rooms';
 import type { Env } from './env';
 
-interface Attach { id: string; conn: string; x: number; z: number; at: number }
+/** sid = auth session that obtained the ticket (revocation closes exactly its sockets); until = lifetime cap. */
+interface Attach { id: string; conn: string; x: number; z: number; at: number; sid?: string; until?: number }
+export const CLOSE_REVOKED = 4401, CLOSE_LIFETIME = 4402;
 const enc = new TextEncoder();
 
 export class RoomDO extends DurableObject<Env> {
   private core?: RoomCore; private sql: SqlStorage; private ticking = false;
-  private counters = { constructs: 0, wsMessages: 0, alarms: 0, joins: 0, rejects: 0 };
+  private counters = { constructs: 0, wsMessages: 0, alarms: 0, joins: 0, rejects: 0, revoked: 0, expired: 0 };
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
@@ -63,6 +65,7 @@ export class RoomDO extends DurableObject<Env> {
     if (this.core) (this.core.cfg as { hardCap: number }).hardCap = Number(req.headers.get('x-cap'));
     const core = this.ensureCore()!;
     const sub = req.headers.get('x-sub')!, jti = req.headers.get('x-jti')!, exp = Number(req.headers.get('x-exp'));
+    const sid = req.headers.get('x-sid') || undefined; const wsMax = Number(req.headers.get('x-wsmax')) || 86_400_000;
     const [client, server] = Object.values(new WebSocketPair());
     const conn = crypto.randomUUID();
     // Pre-check refusals on a plain (non-hibernatable) socket: send the reason, close with a 44xx/40xx code.
@@ -81,8 +84,10 @@ export class RoomDO extends DurableObject<Env> {
       server.close(4401, j.code!);
     } else {
       this.counters.joins++;
-      server.serializeAttachment({ id: sub, conn, x: j.pos!.x, z: j.pos!.z, at: Date.now() } satisfies Attach);
+      const now = Date.now();
+      server.serializeAttachment({ id: sub, conn, x: j.pos!.x, z: j.pos!.z, at: now, sid, until: now + wsMax } satisfies Attach);
       await this.membershipChanged();
+      await this.armAlarm();
     }
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -90,6 +95,7 @@ export class RoomDO extends DurableObject<Env> {
     const a = ws.deserializeAttachment() as Attach | null; if (!a) return;
     const core = this.ensureCore(); if (!core) return;
     this.counters.wsMessages++;
+    if (a.until && Date.now() >= a.until) { await this.closeSockets([ws], CLOSE_LIFETIME, 'lifetime'); return; }
     if ((typeof data === 'string' ? data.length : data.byteLength) > 2048) return;
     let m: In; try { m = JSON.parse(typeof data === 'string' ? data : new TextDecoder().decode(data)); } catch { return; }
     const before = core.count;
@@ -98,10 +104,39 @@ export class RoomDO extends DurableObject<Env> {
     if (m?.t === 'move') { const p = core.positionOf(a.id); if (p && (p.x !== a.x || p.z !== a.z)) { ws.serializeAttachment({ ...a, x: p.x, z: p.z }); this.startTick(); } }
   }
   private startTick() { if (!this.ticking) { this.ticking = true; this.ctx.storage.setAlarm(Date.now() + TECH.tickMs); } }
+  /** One alarm serves both the 10 Hz tick (while someone moves) and the WebSocket lifetime cap (earliest expiry). */
+  private async armAlarm() {
+    if (this.ticking) return;                                   // the tick alarm re-arms itself and checks expiries
+    let next = Infinity;
+    for (const w of this.ctx.getWebSockets()) { const a = w.deserializeAttachment() as Attach | null; if (a?.until && a.until < next) next = a.until; }
+    if (next !== Infinity) await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 10));
+  }
   async alarm() {
     this.counters.alarms++;
     const core = this.ensureCore();
-    if (core?.tick()) await this.ctx.storage.setAlarm(Date.now() + TECH.tickMs); else this.ticking = false;
+    const now = Date.now();
+    const expired = this.ctx.getWebSockets().filter((w) => { const a = w.deserializeAttachment() as Attach | null; return !!a?.until && a.until <= now; });
+    if (expired.length) await this.closeSockets(expired, CLOSE_LIFETIME, 'lifetime');
+    if (this.ticking && core?.tick()) await this.ctx.storage.setAlarm(Date.now() + TECH.tickMs);
+    else { this.ticking = false; await this.armAlarm(); }
+  }
+  /** Close sockets (revocation / lifetime) and remove their members; the client reconnects with a fresh ticket. */
+  private async closeSockets(list: WebSocket[], code: number, reason: string) {
+    const core = this.ensureCore(); let changed = false;
+    for (const w of list) {
+      const a = w.deserializeAttachment() as Attach | null;
+      try { w.send(JSON.stringify({ t: 'error', code: reason === 'lifetime' ? 'ws_lifetime' : 'session_revoked' })); } catch { /* */ }
+      try { w.close(code, reason); } catch { /* already closed */ }
+      if (a && core && core.leave(a.id, a.conn, reason)) changed = true;
+      if (code === CLOSE_REVOKED) this.counters.revoked++; else this.counters.expired++;
+    }
+    if (changed) await this.membershipChanged();
+    return list.length;
+  }
+  /** Session revocation (RPC from the API Worker): closes the player's sockets opened with that session (or all). */
+  async revoke(player: string, sid: string | null) {
+    const list = this.ctx.getWebSockets().filter((w) => { const a = w.deserializeAttachment() as Attach | null; return !!a && a.id === player && (sid === null || a.sid === sid); });
+    return { closed: await this.closeSockets(list, CLOSE_REVOKED, 'revoked') };
   }
   async webSocketClose(ws: WebSocket, code: number, reason?: string) {
     try { ws.close(code === 1005 || code === 1006 ? 1000 : code, reason ?? ''); } catch { /* already closed */ }   // complete the close handshake

@@ -9,7 +9,7 @@ afterAll(async () => { await Promise.all([su.end(), api.end()]); });
 const one = async (sql: string, p: unknown[]) => (await api.query(sql, p)).rows[0].r;
 
 describe('eco.close_account', () => {
-  it('cancels open trades, freezes balance and items in place, erases saves, blocks every later economy call, idempotent', async () => {
+  it('deletion request: cancels open trades, freezes balance and items, keeps saves (grace), blocks every later economy call, idempotent', async () => {
     const a = await newPlayer(su), b = await newPlayer(su);
     await su.query('select eco.dev_grant($1,$2,$3,$4)', [key(), a, 'GOLD', 200]);
     await su.query('select eco.dev_grant($1,$2,$3,$4)', [key(), b, 'GOLD', 200]);
@@ -21,7 +21,7 @@ describe('eco.close_account', () => {
     const ledger0 = Number((await su.query('select count(*) n from eco.ledger_entries')).rows[0].n);
     const k = key('close');
     const r = await one('select eco.close_account($1,$2) r', [k, a]);
-    expect(r).toMatchObject({ ok: true, closed: true, trades_cancelled: 1, items_frozen: 1, saves_erased: 1, balances_frozen: { gold: 180 } });
+    expect(r).toMatchObject({ ok: true, closed: true, trades_cancelled: 1, items_frozen: 1, balances_frozen: { gold: 180 }, grace_days: 30 });
     expect(await one('select eco.close_account($1,$2) r', [k, a])).toMatchObject({ replayed: true });   // idempotent replay
     expect(await one('select eco.close_account($1,$2) r', [key('close'), a])).toMatchObject({ already_closed: true });
     expect(Number((await su.query('select count(*) n from eco.ledger_entries')).rows[0].n)).toBe(ledger0 + 2);
@@ -31,8 +31,8 @@ describe('eco.close_account', () => {
     await expect(api.query('select eco.gift_gold($1,$2,$3,5)', [key(), b, a])).rejects.toMatchObject({ hint: 'account_closed' });
     await expect(api.query('select eco.claim_daily($1,$2)', [key(), a])).rejects.toBeTruthy();
     await expect(api.query('select eco.test_grant_gold($1,$2,10)', [key(), a])).rejects.toBeTruthy();
-    expect(Number((await su.query('select count(*) n from app.saves where player_id = $1', [a])).rows[0].n)).toBe(0);
-    expect((await su.query(`select count(*) n from audit.log where action = 'account_closed' and target = $1`, [a])).rows[0].n).toBe(1);
+    expect(Number((await su.query('select count(*) n from app.saves where player_id = $1', [a])).rows[0].n)).toBe(1);   // M4: kept during grace (restorable)
+    expect((await su.query(`select count(*) n from audit.log where action = 'account_deletion_requested' and target = $1`, [a])).rows[0].n).toBe(1);
     expect(Object.values(await recon(su)).filter((v) => typeof v === 'number' && v !== 0)).toEqual([]);
     await expect(api.query('delete from eco.ledger_entries')).rejects.toMatchObject({ code: '42501' });
   });

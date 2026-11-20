@@ -4,7 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { startWrangler, stopWrangler, su, signUp, signIn, http, ikey, openWs, ready, sleep, freshIp, totp, jar, BASE, ORIGIN, SERVER, type Client } from './harness';
+import { startWrangler, stopWrangler, su, signUp, signIn, http, ikey, openWs, ready, waitClosed, sleep, freshIp, totp, jar, BASE, ORIGIN, SERVER, type Client } from './harness';
 
 const pool = su();
 beforeAll(async () => { await startWrangler(); });
@@ -68,14 +68,21 @@ describe('session revocation is immediate', () => {
     expect((await http('POST', '/api/rooms/beach/join', { cookie: s2.cookie, body: {} })).status).toBe(401);
     expect((await http('POST', '/api/economy/daily', { cookie: s2.cookie, headers: { 'idempotency-key': ikey() } })).status).toBe(401);
     expect((await http('GET', '/api/me', { cookie: u.cookie })).status).toBe(200);                  // the revoking session survives
-    // existing WebSocket: measured, not closed by revocation (documented limit; tickets are 30 s and single-use)
-    await sleep(300); const wsStillOpen = ws.closed === null; ws.ws.close();
-    // sign-out
+    // M4: the WebSocket opened with the revoked session is closed immediately (4401)
+    const wsClosed = await waitClosed(ws, 3000);
+    expect(wsClosed).toMatchObject({ code: 4401 });
+    const wsCloseMs = +(performance.now() - t0).toFixed(1);
+    // sign-out closes the signing-out session's socket too
+    const ju = await http('POST', '/api/rooms/beach/join', { cookie: u.cookie, body: {} });
+    const wsu = await openWs(ju.json.room, ju.json.ticket); await ready(wsu);
     expect((await http('POST', '/api/auth/sign-out', { cookie: u.cookie, body: {}, ip: u.ip })).status).toBe(200);
+    expect(await waitClosed(wsu, 3000)).toMatchObject({ code: 4401 });
     expect((await http('GET', '/api/me', { cookie: u.cookie })).status).toBe(401);
     expect((await http('POST', '/api/rooms/beach/join', { cookie: u.cookie, body: {} })).status).toBe(401);
     // password reset revokes every session
     const a = await signIn(u.email, u.password), b = await signIn(u.email, u.password);
+    const ja = await http('POST', '/api/rooms/beach/join', { cookie: a.cookie, body: {} });
+    const wsa = await openWs(ja.json.room, ja.json.ticket); await ready(wsa);
     expect((await http('POST', '/api/auth/request-password-reset', { body: { email: u.email }, ip: freshIp() })).status).toBe(200);
     const mail = (await pool.query(`select url from auth.dev_mail where email=$1 and kind='reset' order by id desc limit 1`, [u.email])).rows[0];
     const token = new URL(mail.url).pathname.split('/').pop()!;
@@ -83,9 +90,10 @@ describe('session revocation is immediate', () => {
     expect(rp.status).toBe(200);
     expect((await http('GET', '/api/me', { cookie: a.cookie })).status).toBe(401);
     expect((await http('GET', '/api/me', { cookie: b.cookie })).status).toBe(401);
+    expect(await waitClosed(wsa, 3000)).toMatchObject({ code: 4401 });             // reset -> socket closed
     expect((await http('POST', '/api/auth/reset-password', { body: { token, newPassword: 'third-horse-battery-77' }, ip: freshIp() })).status).toBe(400);   // token single-use
     await signIn(u.email, 'another-horse-battery-7');
-    results.revocation = { revoked_me_status: me2.status, revoked_first_request_ms: ms, ticket_after_revoke: 401, existing_ws_still_open_after_revoke: wsStillOpen, reset_revokes_all: true, reset_token_single_use: true };
+    results.revocation = { revoked_me_status: me2.status, revoked_first_request_ms: ms, ticket_after_revoke: 401, ws_closed_on_revoke: 4401, ws_close_ms_after_revoke: wsCloseMs, ws_closed_on_sign_out: 4401, ws_closed_on_reset: 4401, reset_revokes_all: true, reset_token_single_use: true };
   });
 });
 
@@ -123,7 +131,7 @@ describe('account enumeration', () => {
 });
 
 describe('self-service deletion + export', () => {
-  it('export = own data without secrets; delete = re-auth, close + anonymise, open trade cancelled, ledger intact', async () => {
+  it('export = own data without secrets; delete = re-auth, grace + restore, WS kicked, expiry via scheduled job: sweep to system, erase, ledger intact', async () => {
     const d = await signUp(pool, 'del'); const e = await signUp(pool, 'cpt');
     await http('PUT', '/api/save/look/default', { cookie: d.cookie, body: { base_version: 0, data: { hair: 7 }, schema: 1 } });
     await http('POST', '/api/economy/test-grant', { cookie: d.cookie, body: { amount: 300 }, headers: { 'idempotency-key': ikey() } });
@@ -153,37 +161,65 @@ describe('self-service deletion + export', () => {
     await pool.query(`update auth.session set "createdAt" = now() - interval '1 hour' where "userId" = $1`, [d.id]);
     expect((await http('POST', '/api/me/delete', { cookie: d.cookie, body: { password: d.password, confirm: 'DELETE' } })).json.code).toBe('reauth_required');
     const d2 = await signIn(d.email, d.password);
+    const jd = await http('POST', '/api/rooms/beach/join', { cookie: d2.cookie, body: {} });
+    const wsd = await openWs(jd.json.room, jd.json.ticket); await ready(wsd);
     const ledgerBefore = Number((await pool.query('select count(*) n from eco.ledger_entries')).rows[0].n);
-    const auditBefore = Number((await pool.query('select count(*) n from audit.log')).rows[0].n);
     const del = await http('POST', '/api/me/delete', { cookie: d2.cookie, body: { password: d.password, confirm: 'DELETE' } });
     expect(del.status).toBe(200);
-    expect(del.json.economy).toMatchObject({ closed: true, trades_cancelled: 1, items_frozen: 1, saves_erased: 1 });
-    // auth side
-    expect((await http('GET', '/api/me', { cookie: d2.cookie })).status).toBe(401);
-    expect((await http('POST', '/api/rooms/beach/join', { cookie: d2.cookie, body: {} })).status).toBe(401);
-    expect((await http('POST', '/api/auth/sign-in/email', { body: { email: d.email, password: d.password }, ip: freshIp() })).status).toBe(401);
-    const au = (await pool.query('select email, name, "emailVerified" from auth."user" where id = $1', [d.id])).rows[0];
-    expect(au).toMatchObject({ email: `deleted+${d.id}@deleted.invalid`, name: 'deleted', emailVerified: false });
-    for (const t of ['session', 'account', '"twoFactor"']) expect(Number((await pool.query(`select count(*) n from auth.${t} where "userId" = $1`, [d.id])).rows[0].n)).toBe(0);
-    // economy side: ledger append-only and intact (only the trade-cancel tx was added), recon = 0
-    const ledgerAfter = Number((await pool.query('select count(*) n from eco.ledger_entries')).rows[0].n);
-    expect(ledgerAfter).toBe(ledgerBefore + 2);                                       // escrow 40 -> E main
-    expect(Number((await pool.query('select count(*) n from audit.log')).rows[0].n)).toBe(auditBefore + 1);
-    expect((await pool.query('select audit.verify_chain() r')).rows[0].r).toMatchObject({ broken: 0 });
+    expect(del.json).toMatchObject({ deletion_requested: true, economy: { closed: true, grace_days: 30, trades_cancelled: 1, items_frozen: 1 } });
+    expect(new Date(del.json.deletion_due_at).getTime() - Date.now()).toBeGreaterThan(29.9 * 86_400_000);
+    expect(await waitClosed(wsd, 3000)).toMatchObject({ code: 4401 });              // open socket closed
+    expect((await http('GET', '/api/me', { cookie: d2.cookie })).status).toBe(401);  // every session revoked
+    expect((await http('GET', '/api/me', { cookie: d.cookie })).status).toBe(401);
+    expect(Number((await pool.query('select count(*) n from eco.ledger_entries')).rows[0].n)).toBe(ledgerBefore + 2);   // escrow 40 -> E only
     expect((await http('GET', '/api/economy/balance', { cookie: e.cookie })).json).toMatchObject({ gold: 300, gold_in_escrow: 0 });
-    const it = (await pool.query('select owner_id, state from eco.item_instances where id = $1', [item])).rows[0];
-    expect(it).toMatchObject({ owner_id: d.id, state: 'owned' });                     // frozen in place (policy pending)
-    const pl = (await pool.query('select closed_at, trade_frozen from eco.players where id = $1', [d.id])).rows[0];
-    expect(pl.closed_at).not.toBeNull(); expect(pl.trade_frozen).toBe(true);
-    await expect(pool.query(`select eco.gift_gold($1,$2,$3,10)`, [ikey(), e.id, d.id])).rejects.toMatchObject({ hint: 'account_closed' });
+    // grace period: credentials kept, account visible but locked, restorable
+    const g = await signIn(d.email, d.password);
+    const meG = await http('GET', '/api/me', { cookie: g.cookie });
+    expect(meG.json).toMatchObject({ state: 'pending_deletion' });
+    const locked = await http('GET', '/api/economy/balance', { cookie: g.cookie });
+    expect(locked.status).toBe(403); expect(locked.json.code).toBe('account_pending_deletion');
+    expect((await http('POST', '/api/rooms/beach/join', { cookie: g.cookie, body: {} })).status).toBe(403);
+    expect((await http('GET', '/api/me/export', { cookie: g.cookie })).status).toBe(200);
+    expect(Number((await pool.query('select count(*) n from app.saves where player_id = $1', [d.id])).rows[0].n)).toBe(1);   // kept during grace
+    const rs = await http('POST', '/api/me/restore', { cookie: g.cookie, body: {} });
+    expect(rs.json).toMatchObject({ ok: true, restored: true });
+    expect((await http('GET', '/api/economy/balance', { cookie: g.cookie })).json).toMatchObject({ ok: true, gold: 250 });
+    expect((await pool.query('select closed_at, trade_frozen from eco.players where id = $1', [d.id])).rows[0]).toMatchObject({ closed_at: null, trade_frozen: false });
+    // second request, then expiry -> scheduled job (same runOpsCheck as the cron) finalises + erases
+    const del2 = await http('POST', '/api/me/delete', { cookie: g.cookie, body: { password: d.password, confirm: 'DELETE' } });
+    expect(del2.status).toBe(200);
+    const ledgerSnap = (await pool.query(`select md5(string_agg(id::text || ':' || amount || ':' || wallet_id, ',' order by id)) h, count(*) n from eco.ledger_entries`)).rows[0];
+    await pool.query(`update eco.players set deletion_due_at = now() - interval '1 second' where id = $1`, [d.id]);
+    const ops = (await http('GET', '/dev/ops/check')).json;
+    expect(ops.retention.finalized).toBeGreaterThanOrEqual(1); expect(ops.retention.failed).toBe(0); expect(ops.retention.authErased).toBeGreaterThanOrEqual(1);
+    const pl = (await pool.query('select closed_at, finalized_at, auth_erased_at from eco.players where id = $1', [d.id])).rows[0];
+    expect(pl.finalized_at).not.toBeNull(); expect(pl.auth_erased_at).not.toBeNull();
+    // ledger: old rows untouched (same ids/amounts), sweep appended (250 GOLD -> system sink), pseudonymised by uuid only
+    const sameOld = (await pool.query(`select md5(string_agg(id::text || ':' || amount || ':' || wallet_id, ',' order by id)) h from (select * from eco.ledger_entries order by id limit $1) x`, [ledgerSnap.n])).rows[0];
+    expect(sameOld.h).toBe(ledgerSnap.h);
+    const sweep = (await pool.query(`select t.op_type, e.amount, w.purpose, w.player_id from prog.player_events pe join eco.ledger_tx t on t.id = pe.ledger_tx
+                                      join eco.ledger_entries e on e.tx_id = t.id join eco.wallets w on w.id = e.wallet_id
+                                      where pe.player_id = $1 and pe.type_id = 'account_finalized' order by e.amount`, [d.id])).rows;
+    expect(sweep.map((r) => [r.op_type, Number(r.amount), r.purpose, r.player_id])).toEqual([['account_sweep', -250, 'main', d.id], ['account_sweep', 250, 'sink:account_closed', null]]);
+    expect((await pool.query('select owner_id, state from eco.item_instances where id = $1', [item])).rows[0]).toMatchObject({ owner_id: '00000000-0000-0000-0000-000000000000', state: 'owned' });
+    expect(Number((await pool.query('select count(*) n from app.saves where player_id = $1', [d.id])).rows[0].n)).toBe(0);
+    const au = (await pool.query('select email, name, image, "emailVerified" from auth."user" where id = $1', [d.id])).rows[0];
+    expect(au).toMatchObject({ email: `deleted+${d.id}@deleted.invalid`, name: 'deleted', image: null, emailVerified: false });
+    for (const t of ['session', 'account', '"twoFactor"']) expect(Number((await pool.query(`select count(*) n from auth.${t} where "userId" = $1`, [d.id])).rows[0].n)).toBe(0);
+    expect((await http('POST', '/api/auth/sign-in/email', { body: { email: d.email, password: d.password }, ip: freshIp() })).status).toBe(401);
+    expect((await pool.query('select audit.verify_chain() r')).rows[0].r).toMatchObject({ broken: 0 });
+    const acts = (await pool.query(`select action from audit.log where target = $1 order by id`, [d.id])).rows.map((r) => r.action);
+    expect(acts).toEqual(expect.arrayContaining(['account_deletion_requested', 'account_restored', 'account_finalized', 'account_auth_erased']));
     const recon = (await pool.query('select eco.recon_summary() r')).rows[0].r;
     expect(Object.values(recon).filter((v) => typeof v === 'number' && v !== 0)).toEqual([]);
-    expect(Number((await pool.query('select count(*) n from app.saves where player_id = $1', [d.id])).rows[0].n)).toBe(0);
-    // the e-mail address is free again (a NEW account with a new id)
+    // a re-run is a no-op, and the e-mail address is free again (a NEW account with a new id)
+    expect((await http('GET', '/dev/ops/check')).json.retention).toMatchObject({ failed: 0 });
     const re = await http('POST', '/api/auth/sign-up/email', { body: { email: d.email, password: 'brand-new-pass-123', name: 'n' }, ip: freshIp() });
     expect(re.status).toBe(200);
     const newId = (await pool.query('select id from auth."user" where email = $1', [d.email])).rows[0]?.id;
     expect(newId).toBeTruthy(); expect(newId).not.toBe(d.id);
-    results.deletion = { trades_cancelled: 1, ledger_rows_added: ledgerAfter - ledgerBefore, ledger_rows_removed: 0, recon_nonzero: 0, audit_chain_broken: 0, email_reusable: true };
+    results.deletion = { policy: 'a', grace_days: 30, ws_closed: 4401, pending_api_status: 403, restored: true, swept_gold: 250, item_to_system: true,
+      old_ledger_rows_unchanged: true, recon_nonzero: 0, audit_chain_broken: 0, auth_anonymised: true, email_reusable: true };
   });
 });

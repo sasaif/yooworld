@@ -35,7 +35,32 @@ export function metricsFor(cfg: AppConfig): Metrics {
   return shared.m;
 }
 
-export interface OpsReport { rooms: number; roomAlerts: Alert[]; recon: { clean: boolean; problems: Record<string, number> }; flushed: number; flushError?: string }
+/** Retention job, policy (a): finalise due deletions (economy side, Postgres), then anonymise the auth identity of
+ *  every finalised account (role app_auth) and mark it. Safe to re-run: each step is idempotent. */
+export async function finalizeDeletions(cfg: AppConfig) {
+  const fin = await envChecked(cfg, (q) => q('select eco.finalize_deletions(50) r', [])) as { finalized: string[]; failed: unknown[] };
+  const pending = await envChecked(cfg, (q) => q('select eco.pending_auth_erasure(100) r', [])) as string[];
+  let erased = 0;
+  for (const id of pending) {
+    await withClient(cfg.authDatabaseUrl, async (cl) => {
+      await cl.query('begin');
+      try {
+        const old = (await cl.query('select email from auth."user" where id = $1 for update', [id])).rows[0]?.email as string | undefined;
+        await cl.query(`update auth."user" set email = 'deleted+' || id || '@deleted.invalid', name = 'deleted', image = null,
+                          "emailVerified" = false, "twoFactorEnabled" = false, "updatedAt" = now() where id = $1`, [id]);
+        for (const t of ['session', 'account', '"twoFactor"']) await cl.query(`delete from auth.${t} where "userId" = $1`, [id]);
+        await cl.query('delete from auth.verification where value = $1', [id]);
+        if (cfg.env === 'local' && old) await cl.query('delete from auth.dev_mail where email = $1', [old]);
+        await cl.query('commit');
+      } catch (e) { await cl.query('rollback').catch(() => {}); throw e; }
+    });
+    await envChecked(cfg, (q) => q('select eco.mark_auth_erased($1) r', [id]));
+    erased++;
+  }
+  return { finalized: fin.finalized.length, failed: fin.failed.length, authErased: erased };
+}
+
+export interface OpsReport { rooms: number; roomAlerts: Alert[]; retention: Awaited<ReturnType<typeof finalizeDeletions>>; recon: { clean: boolean; problems: Record<string, number> }; flushed: number; flushError?: string }
 /** Room health over every live public shard + reconciliation (critical alerts deduplicated in ops.alerts). */
 export async function runOpsCheck(env: Env, cfg: AppConfig): Promise<OpsReport> {
   const m = metricsFor(cfg); const pg = new PgSink(cfg);
@@ -52,8 +77,10 @@ export async function runOpsCheck(env: Env, cfg: AppConfig): Promise<OpsReport> 
       for (const a of found) { roomAlerts.push(a); await pg.raise(a); }
     }
   }
+  const retention = await finalizeDeletions(cfg);
+  m.emit('account.finalized', retention.finalized); if (retention.failed) await pg.raise({ kind: 'retention.failed', subject: 'finalize_deletions', severity: 'warn', detail: retention });
   const recon = await envChecked(cfg, (q) => q('select ops.recon_check() r', [])) as { clean: boolean; problems: Record<string, number> };
   m.emit('ops.check', 1, { rooms });
   const f = await m.flush();
-  return { rooms, roomAlerts, recon: { clean: recon.clean, problems: recon.problems }, flushed: f.sent, flushError: f.error };
+  return { rooms, roomAlerts, retention, recon: { clean: recon.clean, problems: recon.problems }, flushed: f.sent, flushError: f.error };
 }

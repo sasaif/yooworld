@@ -11,6 +11,8 @@ export interface AppConfig {
   env: EnvTag; databaseUrl: string; authDatabaseUrl: string; adminDatabaseUrl?: string;
   authSecret: string; ticketSecret: string; resultSecret: string; authUrl: string; appOrigin: string;
   humanMode: 'off' | 'fake' | 'turnstile'; turnstileSecret?: string;
+  /** WebSocket lifetime cap (ms): sockets older than this are closed (4402) and the client reconnects with a fresh ticket. */
+  wsMaxLifetimeMs: number;
 }
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
@@ -46,8 +48,11 @@ export function validateEnv(e: RawEnv): { ok: true; cfg: AppConfig } | { ok: fal
   if (!['off', 'fake', 'turnstile'].includes(hm)) errors.push('TURNSTILE_MODE must be off|fake|turnstile (required outside local)');
   if (env !== 'local' && hm !== 'turnstile') errors.push(`TURNSTILE_MODE must be turnstile in ${env}`);
   if (hm === 'turnstile' && (s('TURNSTILE_SECRET').length < 20 || (env !== 'local' && /local|example|changeme|dev|test/i.test(s('TURNSTILE_SECRET'))))) errors.push('TURNSTILE_SECRET missing or placeholder');
+  const wsMax = s('WS_MAX_LIFETIME_S') === '' ? 86_400 : Number(s('WS_MAX_LIFETIME_S'));
+  const wsMin = env === 'local' ? 2 : 3_600;
+  if (!Number.isInteger(wsMax) || wsMax < wsMin || wsMax > 604_800) errors.push(`WS_MAX_LIFETIME_S must be an integer in [${wsMin}, 604800]`);
   if (errors.length) return { ok: false, errors };
   return { ok: true, cfg: { env, databaseUrl: s('DATABASE_URL'), authDatabaseUrl: s('AUTH_DATABASE_URL'), adminDatabaseUrl: s('ADMIN_DATABASE_URL') || undefined,
     authSecret: s('BETTER_AUTH_SECRET'), ticketSecret: s('TICKET_SECRET'), resultSecret: s('RESULT_SECRET'), authUrl: s('BETTER_AUTH_URL'), appOrigin: s('APP_ORIGIN'),
-    humanMode: hm as AppConfig['humanMode'], turnstileSecret: s('TURNSTILE_SECRET') || undefined } };
+    humanMode: hm as AppConfig['humanMode'], turnstileSecret: s('TURNSTILE_SECRET') || undefined, wsMaxLifetimeMs: wsMax * 1000 } };
 }

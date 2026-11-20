@@ -1,6 +1,6 @@
 /** Signed (HMAC-SHA-256), short-lived, room-bound, single-use room tickets. Portable: Web Crypto only.
  *  Format: base64url(payload).base64url(hmac). Single use is enforced by the room (jti stored durably). */
-export interface TicketClaims { sub: string; room: string; env: string; kind: string; cap?: number; owner?: string }
+export interface TicketClaims { sub: string; room: string; env: string; kind: string; cap?: number; owner?: string; sid?: string }
 export interface Ticket extends TicketClaims { exp: number; jti: string; iat: number }
 export const TICKET_TTL_MS = 30_000;
 const enc = new TextEncoder();

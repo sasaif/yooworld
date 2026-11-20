@@ -11,3 +11,5 @@ BETTER_AUTH_URL=http://127.0.0.1:8787
 APP_ORIGIN=http://127.0.0.1:5173
 # Human check: off (default) | fake (local tests: token "local-fake-pass") | turnstile (uat/prod, real secret via wrangler secret)
 TURNSTILE_MODE=off
+# WebSocket lifetime cap in seconds (default 86400 = 24 h; local min 2, uat/prod min 3600)
+# WS_MAX_LIFETIME_S=86400

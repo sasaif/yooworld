@@ -84,7 +84,7 @@ describe('backup -> encrypted S3 object -> restore into an empty database', () =
       expect((await d.query('select audit.verify_chain() r')).rows[0].r).toMatchObject({ broken: 0 });
       expect(await ledgerNdjson(DST)).toBe(ndjson);
       // the restored DB keeps working (identities reset, triggers active again)
-      const p = (await d.query('select id from eco.players limit 1')).rows[0].id;
+      const p = (await d.query('select id from eco.players where closed_at is null order by created_at limit 1')).rows[0].id;   // not the SYSTEM player (0013)
       const api = pool(DST, 'app_api');
       expect((await api.query('select eco.test_grant_gold($1,$2,$3) r', [k(), p, 5])).rows[0].r).toMatchObject({ ok: true });
       await expect(d.query('update eco.ledger_entries set amount = 0')).rejects.toMatchObject({ hint: 'append_only' });

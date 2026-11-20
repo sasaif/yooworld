@@ -38,7 +38,7 @@ describe('event kick ban survives a restart', () => {
 
 describe('chat history survives a restart', () => {
   it('last 50 messages kept in the room DO SQLite and replayed to a newcomer after wrangler/DO restart', async () => {
-    const room = 'local:beach:777';
+    const room = 'local:farm:777';   // not beach: slice.test asserts the first beach shard
     const cs: WsClient[] = [];
     for (let p = 0; p < 11; p++) { const c = await openWs(room, await localTicket(room, `00000000-0000-4000-8000-0000000007${String(p).padStart(2, '0')}`)); await ready(c); cs.push(c); }
     for (let k = 0; k < 5; k++) for (let p = 0; p < 11; p++) { cs[p].send({ t: 'chat', text: `m${p}-${k}`, cid: `h${k}` }); await sleep(5); }
@@ -92,7 +92,7 @@ describe('Postgres outage', () => {
 describe('reconnect storm', () => {
   it('500 clients in 20 rooms drop at once and reconnect at once: all back, no duplicate avatars, rooms consistent', async () => {
     const ROOMS = 20, PER = 25, N = ROOMS * PER;
-    const room = (r: number) => `local:beach:${500 + r}`;
+    const room = (r: number) => `local:farm:${500 + r}`;   // not beach (shared DO store across files)
     const id = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`;
     const connectAll = async () => {
       const t0 = performance.now(); const fails: string[] = []; const cs: (WsClient | null)[] = [];

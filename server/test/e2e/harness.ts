@@ -56,8 +56,9 @@ export const pgStop = () => execFileSync(process.execPath, [pgScript, 'stop'], {
 export const pgStart = () => execFileSync(process.execPath, [pgScript, 'start'], { stdio: 'ignore' });
 
 // ---------------- HTTP ----------------
-let ipN = 1;
-export const freshIp = () => `198.18.${Math.floor(ipN / 250)}.${(ipN++ % 250) + 1}`;
+// random start per test file: the auth rate-limit table persists across files in one run (sign-up 5/h/IP)
+let ipN = Math.floor(Math.random() * 60_000);
+export const freshIp = () => { const n = ipN++ % 64_000; return `198.18.${Math.floor(n / 250)}.${(n % 250) + 1}`; };
 export interface Client { cookie: string; id: string; email: string; password: string; ip: string }
 export async function http(method: string, p: string, o: { body?: unknown; cookie?: string; origin?: string | null; ip?: string; headers?: Record<string, string> } = {}) {
   const h: Record<string, string> = { 'content-type': 'application/json', 'cf-connecting-ip': o.ip ?? '198.18.200.1', ...(o.headers ?? {}) };
@@ -136,5 +137,5 @@ export const waitClosed = async (c: WsClient, ms = 5000) => { const t0 = Date.no
 /** Locally-signed ticket (test-only: the harness knows the LOCAL ticket secret) — used by load tests to skip sign-up. */
 export async function localTicket(room: string, sub: string, kind = 'public', cap = 30, owner?: string) {
   const { signTicket } = await import('../../src/core/ticket');
-  return signTicket(VARS.TICKET_SECRET, { sub, room, env: 'local', kind, cap, owner });
+  return signTicket(VARS.TICKET_SECRET, { sub, room, env: 'local', kind, cap, owner, sid: `e2e-local-${sub}` });   // tickets must carry a session id (M4)
 }
