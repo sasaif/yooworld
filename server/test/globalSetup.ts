@@ -29,7 +29,7 @@ export async function teardown() {
       select n.nspname || '.' || p.proname as fn, coalesce(s.calls, 0)::int as calls
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       left join pg_stat_user_functions s on s.funcid = p.oid
-      where n.nspname in ('eco','social','prog','mod','audit') and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
+      where n.nspname in ('eco','social','prog','mod','audit','app','ops') and p.prokind = 'f' and p.prorettype <> 'trigger'::regtype
       order by 1`)).rows as { fn: string; calls: number }[];
     await c.end();
     const covered = rows.filter((r) => r.calls > 0);
