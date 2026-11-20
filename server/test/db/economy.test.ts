@@ -271,6 +271,21 @@ describe('audit chain', () => {
   });
 });
 
+describe('read functions', () => {
+  it('list_items, get_config and activity_end work for app_api', async () => {
+    const p = await newPlayer(su); await gate.testGrantGold(p, 100, key());
+    const def = await defItem(su, { gold: 100 });
+    const b: any = await gate.shopBuy(p, def, 'GOLD', key());
+    const items = (await api.query('select * from eco.list_items($1)', [p])).rows;
+    expect(items).toEqual([expect.objectContaining({ id: b.item, def_id: def, state: 'owned', origin: 'gold', tradable: true })]);
+    const cfg = (await api.query('select * from eco.get_config()')).rows;
+    expect(cfg.find((r) => r.key === 'item.diamond_hold_days')).toMatchObject({ value: 14, status: 'pending_approval' });
+    const s: any = await gate.activityStart(p, 'factory', 'local:factory:9', key());
+    expect((await api.query('select eco.activity_end($1,$2) r', [p, s.session])).rows[0].r).toEqual({ ok: true, ended: true });
+    expect((await api.query('select eco.activity_end($1,$2) r', [p, s.session])).rows[0].r).toEqual({ ok: true, ended: false });
+  });
+});
+
 describe('reconciliation', () => {
   it('is all zeros after the functional suite', async () => {
     const r = await recon(su);
