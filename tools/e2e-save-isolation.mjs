@@ -40,6 +40,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'] });
 
 const isProdKey = (k) => (k.startsWith('yooworld:') && !k.startsWith('yooworld:e:')) || k.startsWith('yw.');
+const looksLikeFullKey = (k) => k.startsWith('yooworld:') || k.startsWith('yw.') || k.startsWith('yw:'); // mirrors src/persistence/saveEnv.ts
 const dump = (p) => p.evaluate(() => ({ local: Object.fromEntries(Object.keys(localStorage).map((k) => [k, localStorage.getItem(k)])), session: Object.fromEntries(Object.keys(sessionStorage).map((k) => [k, sessionStorage.getItem(k)])) }));
 async function boot(p, url) {
   // unload the previous WebGL page first (headless SwiftShader Chrome sometimes dies on a direct heavy -> heavy reload)
@@ -61,8 +62,11 @@ async function play(p, tag) {
   // prefs through real HUD buttons
   const click = async (sel) => { const el = await p.$(sel); if (el) { await el.evaluate((e) => e.click()); await p.waitForTimeout(250); return true; } return false; };
   r.cam = await click('.chip.cam');
-  r.places = await click('button[aria-label^="Lieux"]'); await p.evaluate(() => window.game.store.set({ panel: null }));
-  await p.evaluate(() => window.game.setPanel('chat')); await p.waitForTimeout(200); r.chat = await click('.chat-fold'); await p.evaluate(() => window.game.store.set({ panel: null }));
+  // the places button is 'Lieux' on older bases and the dock 'Carte' (data-map="dock") since the map: either marks placesSeen
+  r.places = await click('button[aria-label^="Lieux"], button[data-map="dock"]'); await p.evaluate(() => window.game.store.set({ panel: null }));
+  // chat: the collapsible card (chatCollapsed pref) is gone since the vertical chat; its only persisted state is the
+  // panel layout in its own UI namespace ywchatui.<env tag>.panel (written by the − size step), never a save key
+  await p.evaluate(() => window.game.setPanel('chat')); await p.waitForTimeout(400); r.chatSize = await click('.chat-sheet .chat-size'); r.chat = await click('.chat-fold'); await p.evaluate(() => window.game.store.set({ panel: null }));
   await p.evaluate(() => window.game.setPanel('settings')); await p.waitForTimeout(200); r.ctl = await click('.ctl-opt:not(.on)'); await p.evaluate(() => window.game.store.set({ panel: null }));
   r.rotate = await click('.rotate-skip');
   await p.waitForTimeout(800); // GameController.persist debounce (250 ms)
@@ -98,11 +102,12 @@ const ROOT_SESSION = { 'yw.portrait': 'ROOT-1', 'yw.lieuDefaultUsed': 'ROOT-1' }
   for (const [k, v] of Object.entries(ROOT_SESSION)) ok(after.session[k] === v, `root session key byte-identical: ${k}`);
   const newRoot = Object.keys(after.local).filter((k) => isProdKey(k) && !(k in before.local)); ok(newRoot.length === 0, 'no new un-namespaced localStorage key', newRoot);
   const newRootS = Object.keys(after.session).filter((k) => isProdKey(k) && !(k in before.session)); ok(newRootS.length === 0, 'no new un-namespaced sessionStorage key', newRootS);
-  const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !k.startsWith(`yooworld:e:test.${F}:`) && !k.startsWith(`yw:e:test.${F}:`));
+  const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !k.startsWith(`yooworld:e:test.${F}:`) && !k.startsWith(`yw:e:test.${F}:`) && !k.startsWith(`ywchatui.test.${F}.`));
   ok(foreign.length === 0, `${F} wrote only its own prefixes`, foreign);
   const c1 = Object.keys(after.local).filter((k) => k.startsWith(`yooworld:e:test.${F}:`) || k.startsWith(`yw:e:test.${F}:`)).sort();
-  for (const k of [`yooworld:e:test.${F}:eco:dev`, `yooworld:e:test.${F}:profile`, `yooworld:e:test.${F}:look:test-player:f`, `yw:e:test.${F}:camView`, `yw:e:test.${F}:placesSeen`, `yw:e:test.${F}:chatCollapsed`, `yw:e:test.${F}:controls.v1`])
+  for (const k of [`yooworld:e:test.${F}:eco:dev`, `yooworld:e:test.${F}:profile`, `yooworld:e:test.${F}:look:test-player:f`, `yw:e:test.${F}:camView`, `yw:e:test.${F}:placesSeen`, `yw:e:test.${F}:controls.v1`])
     ok(c1.includes(k), `${F} key written: ${k}`);
+  ok(`ywchatui.test.${F}.panel` in after.local && !looksLikeFullKey(`ywchatui.test.${F}.panel`), `${F} chat layout written only under ywchatui.test.${F}.panel (outside every save keyspace)`, Object.keys(after.local).filter((k) => k.startsWith('ywchatui.')));
   ok(c1.some((k) => k.startsWith(`yooworld:e:test.${F}:apt:`)) && c1.some((k) => k.startsWith(`yooworld:e:test.${F}:inv:`)), `${F} apartment + inventory written`);
   const eco = JSON.parse(after.local[`yooworld:e:test.${F}:eco:dev`]); ok(eco.accounts['test-player'].gold.balance === r.gold && !!eco.accounts['test-player'].owned.tee_heart, `${F} economy changed (Gold + owned tee)`, { gold: eco.accounts['test-player'].gold.balance });
   ok(after.session[`yw:e:test.${F}:lieuDefaultUsed`] === '1', `session flag namespaced (yw:e:test.${F}:lieuDefaultUsed)`);
@@ -135,9 +140,10 @@ const C1_SESSION = { [`yw:e:test.${F}:portrait`]: 'C1', [`yw:e:test.${F}:lieuDef
   const after = await dump(p);
   for (const [k, v] of Object.entries(C1_SEED)) ok(after.local[k] === v, `${F} key byte-identical: ${k}`);
   for (const [k, v] of Object.entries(C1_SESSION)) ok(after.session[k] === v, `${F} session key byte-identical: ${k}`);
-  const envKeys = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !(k in C1_SEED) && !(k in C1_SESSION));
+  const envKeys = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !isProdKey(k) && !(k in C1_SEED) && !(k in C1_SESSION) && !k.startsWith('ywchatui.prod.'));
   ok(envKeys.length === 0, 'prod root wrote no env-namespaced key', envKeys);
-  for (const k of ['yooworld:eco:dev', 'yooworld:profile', 'yooworld:look:test-player:f', 'yw.camView', 'yw.placesSeen', 'yw.chatCollapsed', 'yw.controls.v1']) ok(k in after.local, `root (legacy) key written by prod: ${k}`);
+  for (const k of ['yooworld:eco:dev', 'yooworld:profile', 'yooworld:look:test-player:f', 'yw.camView', 'yw.placesSeen', 'yw.controls.v1']) ok(k in after.local, `root (legacy) key written by prod: ${k}`);
+  ok('ywchatui.prod.panel' in after.local, 'prod chat layout written only under ywchatui.prod.panel', Object.keys(after.local).filter((k) => k.startsWith('ywchatui.')));
   ok(after.session['yw.lieuDefaultUsed'] === '1', 'prod session flag keeps its legacy name (yw.lieuDefaultUsed)');
   ok(JSON.parse(after.local['yooworld:eco:dev']).accounts['test-player'].gold.balance === r.gold && r.gold < r.gold0, 'root economy changed', { gold: r.gold });
   console.log('     root keys:', Object.keys(after.local).filter(isProdKey).sort().join(', '));
@@ -188,7 +194,7 @@ if (SIB) {
     for (const [k, v] of Object.entries(seed)) ok(after.local[k] === v, `E: ${seedF} key byte-identical after playing ${playF}: ${k}`);
     for (const [k, v] of Object.entries(sess)) ok(after.session[k] === v, `E: ${seedF} session key byte-identical after playing ${playF}: ${k}`);
     for (const [k, v] of Object.entries(ROOT_SEED)) ok(after.local[k] === v, `E: root key byte-identical after playing ${playF}: ${k}`);
-    const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !(k in seed) && !(k in sess) && !(k in ROOT_SEED) && !k.startsWith(`yooworld:e:test.${playF}:`) && !k.startsWith(`yw:e:test.${playF}:`));
+    const foreign = [...Object.keys(after.local), ...Object.keys(after.session)].filter((k) => !(k in seed) && !(k in sess) && !(k in ROOT_SEED) && !k.startsWith(`yooworld:e:test.${playF}:`) && !k.startsWith(`yw:e:test.${playF}:`) && !k.startsWith(`ywchatui.test.${playF}.`));
     ok(foreign.length === 0, `E: ${playF} wrote only its own prefixes`, foreign);
     ok(Object.keys(after.local).some((k) => k.startsWith(`yooworld:e:test.${playF}:eco:`)) && r.gold < r.gold0, `E: ${playF} economy written in its own keyspace`, { gold: r.gold });
     ok(errs.length === 0, 'no page errors', errs.slice(0, 3));
