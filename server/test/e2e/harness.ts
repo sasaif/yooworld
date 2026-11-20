@@ -26,7 +26,7 @@ export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let proc: ChildProcess | null = null;
 export const startedPids: number[] = [];
-export async function startWrangler(extraVars: Record<string, string> = {}) {
+export async function startWrangler(extraVars: Record<string, string> = {}, expectStatus = 200) {
   const dir = path.join(SERVER, '.local'); fs.mkdirSync(dir, { recursive: true });
   const envFile = path.join(dir, 'e2e.vars');
   fs.writeFileSync(envFile, Object.entries({ ...VARS, ...extraVars }).map(([k, v]) => `${k}=${v}`).join('\n') + '\n', { mode: 0o600 });
@@ -39,7 +39,7 @@ export async function startWrangler(extraVars: Record<string, string> = {}) {
   let exited = false; proc.on('exit', () => { exited = true; });
   for (let i = 0; i < 120; i++) {
     if (exited) break;
-    try { const r = await fetch(`${BASE}/api/health`); if (r.ok) return; } catch { /* not yet */ }
+    try { const r = await fetch(`${BASE}/api/health`); if (r.status === expectStatus) return; } catch { /* not yet */ }
     await sleep(500);
   }
   throw new Error('wrangler did not start (see .local/wrangler-e2e.log)');

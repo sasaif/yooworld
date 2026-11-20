@@ -23,7 +23,7 @@
     "dev": "wrangler dev --local"
   },
   "dependencies": {
-    "better-auth": "^1.7.27",
+    "better-auth": "1.7.27",
     "hono": "^4.13.19",
     "pg": "^8.23.1"
   },

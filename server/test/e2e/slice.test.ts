@@ -22,6 +22,19 @@ describe('auth', () => {
   });
 });
 
+describe('auth hardening (Better Auth review evidence)', () => {
+  it('session cookie: __Secure- prefix, HttpOnly, Secure, SameSite=Lax; sign-in rate limit 5/min per IP', async () => {
+    const r = await fetch(`${BASE}/api/auth/sign-in/email`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:5173', 'cf-connecting-ip': '198.19.1.1' }, body: JSON.stringify({ email: A.email, password: A.password }) });
+    const sc = r.headers.getSetCookie().find((c) => c.includes('session_token'))!;
+    expect(sc).toMatch(/^__Secure-better-auth\.session_token=/); expect(sc).toMatch(/HttpOnly/i); expect(sc).toMatch(/Secure/); expect(sc).toMatch(/SameSite=Lax/i);
+    const codes: number[] = [];
+    for (let i = 0; i < 7; i++) codes.push((await http('POST', '/api/auth/sign-in/email', { body: { email: A.email, password: 'wrong-password-xyz' }, ip: '198.19.2.2' })).status);
+    expect(codes.slice(0, 5).every((c) => c === 401)).toBe(true);
+    expect(codes.slice(5).every((c) => c === 429)).toBe(true);
+    expect((await http('POST', '/api/auth/sign-in/email', { body: { email: A.email, password: 'wrong-password-xyz' }, ip: '198.19.2.3' })).status).toBe(401);
+  });
+});
+
 describe('server saves + inventory', () => {
   it('save/load look with optimistic versioning; conflict -> 409; inventory listed', async () => {
     const put = (v: number, data: unknown) => http('PUT', '/api/save/look/default', { cookie: A.cookie, body: { base_version: v, data, schema: 1 } });
