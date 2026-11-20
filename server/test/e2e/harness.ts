@@ -68,7 +68,7 @@ export async function http(method: string, p: string, o: { body?: unknown; cooki
   if (r.status >= 400) fs.appendFileSync(path.join(SERVER, '.local', 'e2e-http.log'), `${new Date().toISOString()} ${method} ${p} ${r.status} ${text.slice(0, 300)}\n`);
   return { status: r.status, json, headers: r.headers };
 }
-const jar = (h: Headers) => h.getSetCookie().map((c) => c.split(';')[0]).join('; ');
+export const jar = (h: Headers) => h.getSetCookie().map((c) => c.split(';')[0]).join('; ');
 export const ikey = () => `e2e-${crypto.randomUUID()}`;
 
 /** Sign up -> read the verification link from the LOCAL dev outbox -> verify -> sign in. */

@@ -10,9 +10,10 @@ const su = superPool();
 afterAll(() => su.end());
 
 describe('migrations', () => {
-  it('applies the 9 Phase B migrations in order with checksums', async () => {
+  it('applies every Phase B migration in order with checksums', async () => {
     const rows = (await su.query('select version, name, checksum, env from migrations.applied order by version')).rows;
-    expect(rows.map((r) => r.name)).toEqual(['0001_roles.sql', '0002_auth.sql', '0003_eco.sql', '0004_social.sql', '0005_prog.sql', '0006_mod_audit.sql', '0007_rooms_saves.sql', '0008_games_admin.sql', '0009_owner_rules_purchase_hooks.sql']);
+    expect(rows.map((r) => r.name).slice(0, 10)).toEqual(['0001_roles.sql', '0002_auth.sql', '0003_eco.sql', '0004_social.sql', '0005_prog.sql', '0006_mod_audit.sql', '0007_rooms_saves.sql', '0008_games_admin.sql', '0009_owner_rules_purchase_hooks.sql', '0010_account_lifecycle.sql']);
+    expect(rows.map((r) => r.name)).toEqual(listMigrations().map((f: { name: string }) => f.name));
     expect(rows.every((r) => r.env === 'local')).toBe(true);
     const files = listMigrations();
     expect(rows.map((r) => r.checksum)).toEqual(files.map((f: { checksum: string }) => f.checksum));
