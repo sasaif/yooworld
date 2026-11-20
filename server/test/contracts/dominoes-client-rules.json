@@ -1,0 +1,10 @@
+{
+  "files": {
+    "src/minigames/rng.ts": "33bf68dc731faab1b769f99913992c3c27c0460fadaa0b12eee7f8757e8bf4ce",
+    "src/minigames/types.ts": "b3db8a7b139b1acdfd53799d3eaf1dd6fc5e5976b13bd1076d254c05515b4bab",
+    "src/minigames/turnEngine.ts": "e789da8f3cd490320204c06401525dd1bf781db3c6ea3f3b76fc1c7fe5cd22c3",
+    "src/minigames/dominoes/rules.ts": "ac36ea2f396f0e8ffd725f56ff95d03e026b241cc60215234944ab01ee8562db"
+  },
+  "behaviour": "bf048ae25ede995d8b1311977514c042eaeed112d008c66f1d9f7fe4eeda4e8b",
+  "pinned_at": "2026-11-20T18:28:11.708Z"
+}
