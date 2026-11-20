@@ -22,13 +22,14 @@ async function page(u, settle = 1500) {
 }
 // storage key NAMES (profile ids are random per fresh profile: normalised) and request paths (bundle hash normalised)
 const keys = (p) => p.evaluate(() => ({ local: Object.keys(localStorage).map((k) => k.replace(/p_[a-z0-9]+/, 'p_*')).sort(), session: Object.keys(sessionStorage).sort() }));
-const paths = (reqs) => [...new Set(reqs.filter((r) => !r.startsWith('blob:')).map((r) => new URL(r).pathname.replace(/-[A-Za-z0-9_]{8}\./, '-H.')))].sort();
+const paths = (reqs) => [...new Set(reqs.filter((r) => !r.startsWith('blob:')).map((r) => new URL(r).pathname.replace(/-[A-Za-z0-9_-]{8}\./, '-H.')))].sort();
 
 // ---------- flag OFF ----------
 const off = await page(url + '?lieu=beach', 12000);
 ok(!off.reqs.some((r) => new URL(r).port === srv.port), 'flag off: no request to the game server', off.reqs.filter((r) => new URL(r).port === srv.port));
 ok(!off.reqs.some((r) => /RemotePlayers/.test(r)), 'flag off: net-only chunk (RemotePlayers) not loaded');
 ok(await off.p.evaluate(() => !document.querySelector('[data-net-login]') && !('__live' in window) && window.game.net.status === 'offline'), 'flag off: no login form, no live transport, status offline');
+ok(await off.p.evaluate(() => document.querySelector('.chip.net')?.textContent === 'Mode local'), 'flag off: HUD chip still "Mode local" (no player count)');
 const offKeys = await keys(off.p);
 if (baseUrl) {
   const base = await page(baseUrl + '?lieu=beach', 12000);
@@ -56,6 +57,10 @@ const formErr = (P) => P.p.evaluate(() => document.querySelector('[data-net-logi
 ok(sa.status === 'online' && sb.status === 'online', 'flag on: both signed in through the dev form and online (server rate limit: 5 sign-ins / min / IP)', { a: sa.status, b: sb.status, formA: await formErr(A), formB: await formErr(B) });
 ok(sa.remotes.some((r) => r.id === sb.you) && sb.remotes.some((r) => r.id === sa.you), 'presence: each sees the other', { a: sa.remotes, b: sb.remotes });
 ok(await A.p.evaluate(() => !document.querySelector('[data-net-login]')), 'login form removed after sign-in');
+// M4: the other player is drawn with the real avatar renderer (Character, id net-<uuid>) and the HUD shows the count
+const avatarOf = (P, id) => P.p.waitForFunction((id) => { let sc = window.__cam; while (sc?.parent) sc = sc.parent; let f = false; sc?.traverse((o) => { if (o.userData?.avatarId === 'net-' + id) f = true; }); return f; }, id, { timeout: 30000 }).then(() => true, () => false);
+ok(await avatarOf(B, sa.you) && await avatarOf(A, sb.you), 'avatars: each sees the other as a real avatar (Character, lite), not a marker');
+ok(await B.p.waitForFunction(() => /En ligne · 2 joueurs/.test(document.querySelector('.chip.net')?.textContent ?? ''), null, { timeout: 5000 }).then(() => true, () => false), 'HUD: "En ligne · 2 joueurs" (flag on only)', await B.p.evaluate(() => document.querySelector('.chip.net')?.textContent));
 
 const before = sb.remotes.find((r) => r.id === sa.you);
 const localA0 = await A.p.evaluate(() => { const c = window.__world.chars[window.game.s.activeChar]; return { x: c.pos.x, z: c.pos.z }; });
