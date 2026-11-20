@@ -48,6 +48,49 @@ class Art:
   def grain(s, box, amt=2.0, seed=0):  # tiny noise so flat paint matches the art's texture
     a = np.array(s.out.crop(box)).astype(np.float32); a += np.random.default_rng(seed).normal(0, amt, a.shape)
     s.out.paste(Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)), box[:2])
+  def paint(s, pts, top, bottom, light=0.14, ao=0.28, outline=(60, 28, 18), ow=1.4, tex=7.0, grain=2.2, seed=0,
+            lines=None, line_col=None, line_alpha=0.35, highlight=None):
+    """Painted surface in the map's style (not a flat fill): vertical colour gradient (top -> bottom), light from the
+       upper left, soft ambient occlusion towards the edges, low-frequency paint texture + fine grain, optional soft
+       detail lines (shingles / planks), a light rim along the front edge, and a slightly soft dark outline."""
+    import cv2
+    m = Image.new('L', (s.W * SS, s.H * SS), 0); ImageDraw.Draw(m).polygon([(x * SS, y * SS) for x, y in pts], fill=255)
+    A = np.array(m.resize((s.W, s.H), Image.LANCZOS)).astype(np.float32) / 255
+    ys, xs = np.nonzero(A > 0.01); y0, y1, x0, x1 = ys.min() - 3, ys.max() + 4, xs.min() - 3, xs.max() + 4
+    a = A[y0:y1, x0:x1]; h, w = a.shape
+    t = np.clip((np.arange(h)[:, None] - 3) / max(1, h - 7), 0, 1); u = np.clip((np.arange(w)[None, :] - 3) / max(1, w - 7), 0, 1)
+    col = np.array(top, np.float32) * (1 - t[..., None]) + np.array(bottom, np.float32) * t[..., None]
+    col = col * (1 + light * (0.5 - u))[..., None] * (1 + light * 0.5 * (0.5 - t))[..., None]
+    inner = cv2.GaussianBlur(a, (0, 0), 2.2); col *= (1 - ao * np.clip(1 - inner, 0, 1) * (a > 0))[..., None]
+    rng = np.random.default_rng(seed)
+    lo = cv2.GaussianBlur(rng.normal(0, 1, (h, w)).astype(np.float32), (0, 0), 2.6); lo /= (lo.std() + 1e-6)
+    col += (lo * tex)[..., None] + rng.normal(0, grain, (h, w, 3))
+    if lines:
+      L = Image.new('L', (w * SS, h * SS), 0); d = ImageDraw.Draw(L)
+      for seg in lines: d.line([((x - x0) * SS, (y - y0) * SS) for x, y in seg], fill=255, width=int(0.9 * SS))
+      la = cv2.GaussianBlur(np.array(L.resize((w, h), Image.LANCZOS)).astype(np.float32) / 255, (0, 0), 0.45) * line_alpha
+      lc = np.array(line_col or [v * 0.62 for v in bottom], np.float32)
+      col = col * (1 - la[..., None]) + lc * la[..., None]
+    if highlight:  # light rim (e.g. the front edge catching the light)
+      H = Image.new('L', (w * SS, h * SS), 0); ImageDraw.Draw(H).line([((x - x0) * SS, (y - y0) * SS) for x, y in highlight], fill=255, width=int(1.3 * SS))
+      ha = cv2.GaussianBlur(np.array(H.resize((w, h), Image.LANCZOS)).astype(np.float32) / 255, (0, 0), 0.5) * 0.75
+      col = col * (1 - ha[..., None]) + np.minimum(255, np.array(bottom, np.float32) * 1.35 + 30) * ha[..., None]
+    if outline is not None and ow:
+      O = Image.new('L', (w * SS, h * SS), 0); P = [((x - x0) * SS, (y - y0) * SS) for x, y in pts]
+      ImageDraw.Draw(O).line(P + [P[0]], fill=255, width=int(ow * SS), joint='curve')
+      oa = cv2.GaussianBlur(np.array(O.resize((w, h), Image.LANCZOS)).astype(np.float32) / 255, (0, 0), 0.4)
+      col = col * (1 - oa[..., None]) + np.array(outline, np.float32) * oa[..., None]; a = np.maximum(a, oa)
+    base = np.array(s.out.crop((x0, y0, x1, y1))).astype(np.float32)
+    res = base * (1 - a[..., None]) + np.clip(col, 0, 255) * a[..., None]
+    s.out.paste(Image.fromarray(np.clip(res, 0, 255).astype(np.uint8)), (int(x0), int(y0)))
+  def glow(s, pts, color, w=1.6, blur=2.5, strength=0.8):  # neon line with a soft halo
+    import cv2
+    m = Image.new('L', (s.W * SS, s.H * SS), 0); ImageDraw.Draw(m).line([(x * SS, y * SS) for x, y in pts], fill=255, width=int(w * SS))
+    a = np.array(m.resize((s.W, s.H), Image.LANCZOS)).astype(np.float32) / 255
+    halo = cv2.GaussianBlur(a, (0, 0), blur) * strength
+    o = np.array(s.out).astype(np.float32); c = np.array(color, np.float32)
+    o = o + (c - o) * halo[..., None] * 0.55; o = o * (1 - a[..., None]) + np.minimum(255, c * 0.6 + 110) * a[..., None]
+    s.out = Image.fromarray(np.clip(o, 0, 255).astype(np.uint8))
   def labels_mask(s, skip=()):
     m = Image.new('L', (s.W, s.H), 0)
     for n in BOXES:

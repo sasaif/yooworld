@@ -26,3 +26,19 @@ degree Festivals, Dépôt and Ponton. District badges and level-2 pins are drawn
 - **Ponton**: a narrow second LaMa pass removes ghost shapes.
 
 `public/playermap/hd/map_clean_{r}{c}.webp` holds 2×2 tiles of a 3344×1882 version of the clean art. It was made with Real-ESRGAN x4plus-anime-6B (BSD-3, CPU) and then Lanczos-downscaled to exactly 2×. `PlayerMap` loads only the tiles under the view, and only on level 2 when zoom × devicePixelRatio > 1.15 (for example on an iPhone at DPR 3).
+
+## v3 touch-up (areas_v3.py + painted surfaces)
+Base: the v2 result rebuilt losslessly (`inpaint_v2.py` areas on the v1 clean art), then `areas_v2.cafe/disco` (now painted)
+and every `areas_v3.AREAS` recipe. `Art.paint()` replaces flat vector fills with a painted surface: vertical colour
+gradient, light from the upper left, soft edge occlusion, low-frequency paint texture + grain, soft detail lines
+(shingles / planks / slats), a lit front rim and a slightly soft outline; `Art.glow()` draws neon with a halo.
+- Restaurant: label area restored from the original, LaMa for the street/trees (other labels masked out of the context),
+  second LaMa pass on the street behind the roof (truck smear), then a painted terracotta hip roof + ridge cap + fascia.
+- Promenade & Boutiques: restored from the original, LaMa with the cut lamp/rail stubs hidden from the context, a
+  thin ghost-post pass, and the streetlamp stem repainted to its base.
+- Café main block / Disco: painted roof, facade/parapet, sign board (Café) and neon + spotlights (Disco).
+- Dépôt seam: the double white trim is repainted as one grey slat hip face with one lit trim into the original valley.
+- Place centrale: LaMa on the grass edge, painted top rail + end post on the left bench.
+- Sky x 0-60: the mirrored patch is pasted opaque to the edge and graded (saturation / value / local contrast).
+HD tiles: `upscale.py` on the v3 PNG, then split into `hd/map_clean_{r}{c}.webp` (2x2 of 1672x940/942, q74).
+Thumbs regenerated with the same crop boxes (template-matched): cafe, depot, disco, festival, restaurant, factory.
