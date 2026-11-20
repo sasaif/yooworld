@@ -87,7 +87,13 @@ async function laneRun({ a, d, dir, st, target, maxWin, tag }) {
   let out = null;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     await place(st.x, st.z, Math.atan2(dir[0], dir[1])); await p.waitForTimeout(150); await renderedFrames(2); await resetSamples(); lastA = lastB = null; lastWall = NaN; longFrames = 0;
-    await stickTo(d, a, 1, 2); const m0 = await mv(); const t0 = m0.t;
+    await stickTo(d, a, 1, 2);
+    // the finger glide takes 0.5-1 s of game time on a ~3 fps renderer, and the avatar walks meanwhile (1.2-1.9 m of a
+    // 3.4 m lane at 1.9 m/s in ?move=classic): the window left was too short to hold 3 frames (CI run 44753781217).
+    // Test setup only: with the thumb still held, put the avatar back at the lane start (same teleport as place(), velocity
+    // and mode untouched) and restart the samples, so the whole verified-clear lane is available for the measurement.
+    await p.evaluate(([x, z]) => { const c = window.__world.chars[window.game.s.activeChar]; c.pos.set(x, 0, z); window.__samples = []; }, [st.x, st.z]);
+    const m0 = await mv(); const t0 = m0.t;
     const walked = Math.max(0, (m0.pos[0] - st.x) * dir[0] + (m0.pos[1] - st.z) * dir[1]); const v = Math.max(0.15, MAX * (target ?? m0.factor));
     // window: maxWin, stretched to ≥ 4 frame times on a starved renderer (CI ~3 fps: 900 ms held 0-2 frames), but never
     // longer than the verified-clear lane allows. A longer steady-state window measures the same speed with more frames.
