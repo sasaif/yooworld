@@ -141,7 +141,8 @@ for (const d of want('main') ? DEVS : []) {
   const before = s.sheet;
   await drag(p, '.chat-sheet .chat-mode', -260, 60);
   s = await state(p);
-  ok(s.sheet && Math.abs(s.sheet.l - (before.l - 260)) < 3, `${d.name}: header drag moves the panel`, { before, after: s.sheet });
+  // forbidden zones: the 260 px drag may land on the avatar / a control, so the panel snaps to the nearest free spot
+  ok(s.sheet && s.sheet.l < before.l - 10 && !ov(s.avatar, s.sheet), `${d.name}: header drag moves the panel (snapped clear of the avatar / controls)`, { before, after: s.sheet, avatar: s.avatar });
   await drag(p, '.chat-sheet .chat-mode', -5000, 5000);
   s = await state(p);
   ok(inside(s.sheet, d), `${d.name}: drag far off-screen is clamped (panel fully on screen)`, s.sheet);
@@ -150,7 +151,11 @@ for (const d of want('main') ? DEVS : []) {
   const r0 = await R(p, '.chat-sheet');
   await drag(p, '.chat-grip', -70, -50, 'corner');
   const r1 = await R(p, '.chat-sheet');
-  ok(r1 && r1.w > r0.w + 30 && r1.h > r0.h + 20 && inside(r1, d), `${d.name}: resize grip enlarges (${Math.round(r0.w)}x${Math.round(r0.h)} -> ${Math.round(r1.w)}x${Math.round(r1.h)})`, { r0, r1 });
+  // the default spot sits right under the top chips: growth upward stops there (forbidden zone); growth to the left
+  // stops at the avatar safe area (on SE the avatar is right next to the default spot: then no growth is correct)
+  const avB = (await state(p)).avatar; const wide = { l: r0.l - 70, t: r0.t, r: r0.r, b: r0.b };
+  const room = !(avB && ov({ l: avB.l - 14, t: avB.t - 14, r: avB.r + 14, b: avB.b + 14 }, wide));
+  ok(r1 && inside(r1, d) && !ov(avB, r1) && (room ? r1.w * r1.h > r0.w * r0.h * 1.12 && r1.w >= r0.w && r1.h >= r0.h : r1.w >= r0.w && r1.h >= r0.h), `${d.name}: resize grip enlarges${room ? '' : ' (blocked by the avatar safe area: unchanged, correct)'} (${Math.round(r0.w)}x${Math.round(r0.h)} -> ${Math.round(r1.w)}x${Math.round(r1.h)})`, { r0, r1 });
   await drag(p, '.chat-grip', 900, 900, 'corner');
   const r2 = await R(p, '.chat-sheet');
   ok(r2 && r2.w >= 207 && r2.h >= 167 && inside(r2, d), `${d.name}: resize to the minimum is clamped (${Math.round(r2.w)}x${Math.round(r2.h)})`, r2);
@@ -169,7 +174,8 @@ for (const d of want('main') ? DEVS : []) {
   await p.reload(); await p.waitForFunction(() => window.game?.s.ready && window.__metrics, null, { timeout: 180000 }); await p.waitForTimeout(1500);
   await openPanel(p);
   const r5 = await R(p, '.chat-sheet');
-  ok(r5 && Math.abs(r5.l - r4.l) < 2 && Math.abs(r5.t - r4.t) < 2 && Math.abs(r5.w - r4.w) < 2 && Math.abs(r5.h - r4.h) < 2, `${d.name}: reload restores the moved / resized panel`, { r4, r5 });
+  // re-validated against the live controls at load: a few px of settle shift is allowed, no jump
+  ok(r5 && Math.abs(r5.l - r4.l) <= 6 && Math.abs(r5.t - r4.t) <= 6 && Math.abs(r5.w - r4.w) < 2 && Math.abs(r5.h - r4.h) < 2, `${d.name}: reload restores the moved / resized panel (±6 px)`, { r4, r5 });
   // double-click header -> default position again
   await p.dblclick('.chat-sheet .chat-mode'); await p.waitForTimeout(300);
   s = await state(p);

@@ -91,7 +91,7 @@ describe('vertical chat panel layout', () => {
     });
     it('a saved forbidden rect is re-placed (and shrunk when nothing fits) on load / resize', () => {
       const r = rectFromPrefs({ dr: 667 - 6 - 300, top: 375 - 6 - 250, w: 300, h: 250 }, vp);
-      expect(panelFree(r, Z)).toBe(true);
+      expect(panelFree(r, Z, 2)).toBe(true); // load re-check uses a 2 px gap (drags keep 6 px)
       const small: PanelViewport = { vw: 568, vh: 320, topMin: 44, avoid: [{ l: 14, t: 190, r: 138, b: 314 }, { l: 150, t: 268, r: 520, b: 316 }, { l: 8, t: 8, r: 560, b: 40 }, { l: 230, t: 90, r: 310, b: 220 }] };
       const f = fitPanel({ x: 0, y: 0, w: 340, h: 300 }, small);
       expect(panelFree(f, small.avoid)).toBe(true); expect(f.w).toBeLessThan(340); expect(f.w).toBeGreaterThanOrEqual(PANEL_MIN.w);
