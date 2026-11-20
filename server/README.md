@@ -32,10 +32,10 @@ Postgres as the single source of truth, with every economy write going through t
 
 ## Commands (exact — verified on a fresh clone of 9dedf8e)
 Prerequisites: **Node >= 22.12 + npm** (`engines` in package.json; wrangler 4.x refuses older Node, so `npm run test:e2e`
-fails on Node 20 — QA B1). On this box: Node 22 (the system `/usr/bin/node` is v20 *without* npm, so use the bundled
-Node 22). No account, no network service other than `npm ci`. Postgres comes from the npm package `embedded-postgres`.
+fails on Node 20 — QA B1). On this box: Node 22 (the system `/usr/bin/node` is v20 *without* npm, so install Node 22). No account, no network service other than `npm ci`. Postgres comes from the npm package `embedded-postgres`.
 ```bash
-export PATH=/workspace/games-3d/yooworld/work-backend-a/node22/bin:$PATH   # node v22.21.1 + npm
+# Use any Node >= 22.12 with npm on your PATH (e.g. via nvm/fnm: `nvm use 22`); check with `node -v`.
+# From the repo root:
 cd server && npm ci
 npm run typecheck         # tsc (src + tests), 0 errors expected
 npm test                  # unit + db + security + backup suites; starts its own Postgres if needed, stops it at the end
