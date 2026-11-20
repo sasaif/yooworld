@@ -24,13 +24,13 @@
 /* level 1: district tap zones + name-only badges + the two big MVP pins */
 .pmap-zone { position:absolute; appearance:none; border:0; padding:0; background:transparent; border-radius:18px; cursor:pointer; }
 .pmap-zone:active { background:rgba(255,255,255,.16); }
-.pmap-badge { position:absolute; transform:translate(-50%,-50%); appearance:none; cursor:pointer; white-space:nowrap; z-index:2;
+.pmap-badge { position:absolute; transform:translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))); appearance:none; cursor:pointer; white-space:nowrap; z-index:2;
   min-height:44px; padding:0 16px 0 10px; display:flex; align-items:center; gap:6px; border-radius:999px;
   background:linear-gradient(#fffdf8,#fff1e2); border:3px solid #7a4a32; box-shadow:0 4px 0 #7a4a32, 0 8px 16px rgba(60,30,20,.3);
   font:800 15px/1 system-ui,sans-serif; color:var(--ink); letter-spacing:.01em; }
 .pmap-badge .i { font-size:19px; }
-.pmap-badge:active { transform:translate(-50%,-50%) translateY(2px); box-shadow:0 2px 0 #7a4a32; }
-.pmap-feat { position:absolute; transform:translate(-50%,-50%); appearance:none; border:0; padding:0; background:transparent; cursor:pointer; z-index:3;
+.pmap-badge:active { transform:translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) translateY(2px); box-shadow:0 2px 0 #7a4a32; }
+.pmap-feat { position:absolute; transform:translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))); appearance:none; border:0; padding:0; background:transparent; cursor:pointer; z-index:3;
   display:flex; flex-direction:column; align-items:center; min-width:64px; min-height:64px; }
 .pmap-feat .i { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; font-size:24px; background:var(--paper);
   border:3px solid var(--coral); box-shadow:0 4px 10px rgba(60,20,40,.35); animation:pmap-bob 2.4s ease-in-out infinite; }
@@ -38,7 +38,7 @@
 @keyframes pmap-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
 
 /* level 2: code-drawn place pins */
-.pmap-pin { position:absolute; transform:translate(-50%,-50%); appearance:none; cursor:pointer; white-space:nowrap; z-index:2;
+.pmap-pin { position:absolute; transform:translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))); appearance:none; cursor:pointer; white-space:nowrap; z-index:2;
   min-height:44px; padding:0 12px 0 8px; display:flex; align-items:center; gap:5px; border-radius:999px; background:var(--paper);
   border:2px solid #fff; box-shadow:0 3px 10px rgba(40,20,10,.35); font:700 13px/1 system-ui,sans-serif; color:var(--ink); }
 .pmap-pin .i { font-size:16px; }
@@ -50,7 +50,7 @@
 .pmap-pin.active .n, .pmap.few .pmap-pin .n { display:inline; }
 .pmap-pin.active { z-index:3; border-color:var(--coral); box-shadow:0 0 0 3px rgba(255,111,145,.45), 0 3px 10px rgba(40,20,10,.35); }
 
-.pmap-here { position:absolute; z-index:4; pointer-events:none !important; display:flex; flex-direction:column; align-items:center; transform:translate(-50%,-100%); }
+.pmap-here { position:absolute; z-index:4; pointer-events:none !important; display:flex; flex-direction:column; align-items:center; transform:translate(calc(-50% + var(--dx, 0px)), calc(-100% + var(--dy, 0px))); }
 .pmap-here .ring { position:absolute; bottom:-2px; width:22px; height:22px; border-radius:50%; background:rgba(255,111,145,.35); animation:pmap-ring 1.8s ease-out infinite; }
 @keyframes pmap-ring { 0%{transform:scale(.6);opacity:.8} 100%{transform:scale(2.4);opacity:0} }
 .pmap-here .face { width:24px; height:24px; border-radius:50%; background:linear-gradient(#ffd0e4,#ff8fb4); border:2px solid #fff; box-shadow:0 2px 6px rgba(60,20,40,.3); }
@@ -83,7 +83,7 @@
 .pmap-card.active { border-color:var(--coral); box-shadow:0 0 0 3px rgba(255,111,145,.4), 0 4px 12px rgba(0,0,0,.25); }
 .pmap-card img { grid-row:1 / span 2; width:62px; height:100%; object-fit:cover; border-radius:10px; background:#eee; }
 .pmap-card .meta { min-width:0; overflow:hidden; }
-.pmap-card h3 { margin:0 0 3px; font:800 13px/1.15 system-ui,sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pmap-card h3 { margin:0 0 3px; font:800 13px/1.15 system-ui,sans-serif; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
 .pmap-card p { display:none !important; margin:3px 0 0; font:500 10.5px/1.25 system-ui,sans-serif; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
 .pmap-tag { display:inline-flex; align-items:center; height:18px; padding:0 8px; border-radius:999px; font:800 10px/1 system-ui,sans-serif; }
 .pmap-tag.open { background:#d8f5e5; color:#187a48; }
@@ -98,6 +98,11 @@
 .pmap-future b { font:800 12px/1 system-ui,sans-serif; }
 .pmap-future span { font:600 11px/1.35 system-ui,sans-serif; }
 
+/* narrow phones (iPhone SE 667 px): only the active tab keeps its name, the others are icon chips (all 6 fit, no scrolling) */
+@media (max-width:759px) {
+  .pmap-tabs button:not(.on) { padding:0; width:44px; justify-content:center; font-size:16px; }
+  .pmap-tabs button:not(.on) .tn { display:none; }
+}
 @media (min-width:1000px) and (min-height:600px) {
   .pmap { --strip:156px; }
   .pmap-card { width:300px; grid-template-columns:96px 1fr; padding:10px; }
