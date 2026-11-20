@@ -8,5 +8,6 @@ export default defineConfig({
     hookTimeout: 120_000,
     reporters: ['default', 'json'],
     outputFile: { json: 'test-results/results.json' },
+    coverage: { provider: 'v8', include: ['src/**', '../shared/**'], reporter: ['text-summary', 'json-summary'], reportsDirectory: 'test-results/coverage' },
   },
 });
