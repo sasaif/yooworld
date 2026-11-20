@@ -5,6 +5,7 @@
  *  check), authoritative Dominoes tables, admin two-person adjust. Postgres outages -> 503 + Retry-After.
  */
 import { Hono, type Context } from 'hono';
+import { cors } from 'hono/cors';
 import type pg from 'pg';
 import { validateEnv, type AppConfig } from '../core/envSchema';
 import { createEconomyGate, toGateError } from '../core/economy';
@@ -48,6 +49,11 @@ app.use('*', async (c, next) => {
   c.set('cfg', r.cfg);
   await next();
 });
+// CORS: the browser client (APP_ORIGIN only, exact match) may call the API with its session cookie. No wildcard.
+app.use('/api/*', async (c, next) => cors({
+  origin: (o) => (o === c.var.cfg.appOrigin ? o : null), credentials: true, maxAge: 600,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['content-type', 'idempotency-key', 'x-turnstile-token'],
+})(c, next));
 // CSRF: state-changing API calls must come from the app origin (Better Auth checks its own routes too).
 app.use('/api/*', async (c, next) => {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) && c.req.header('origin') !== c.var.cfg.appOrigin)

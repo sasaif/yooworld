@@ -20,7 +20,8 @@
     "test:db": "vitest run test/db",
     "test:security": "vitest run test/security",
     "test:e2e": "vitest run -c vitest.e2e.config.ts",
-    "dev": "wrangler dev --local"
+    "dev": "wrangler dev --local",
+    "dev:user": "node scripts/dev-user.mjs"
   },
   "dependencies": {
     "better-auth": "1.7.27",

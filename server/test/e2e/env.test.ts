@@ -1,6 +1,6 @@
 // Environment separation at runtime: the Worker refuses to serve with a mixed configuration.
 import { it, expect, afterEach } from 'vitest';
-import { startWrangler, stopWrangler, http, VARS } from './harness';
+import { startWrangler, stopWrangler, http, VARS, BASE, ORIGIN } from './harness';
 afterEach(async () => { await stopWrangler(); });
 it('ENV_TAG=uat with a loopback database and placeholder secrets -> every route 500 env_invalid', async () => {
   await startWrangler({ ENV_TAG: 'uat' }, 500);
@@ -24,4 +24,15 @@ it('human check (Turnstile hook, fake verifier): sign-up and password reset need
   expect((await http('POST', '/api/auth/request-password-reset', { body: { email }, ip: '198.19.9.2' })).json.code).toBe('human_check_failed');
   expect((await http('POST', '/api/auth/request-password-reset', { body: { email }, ip: '198.19.9.2', headers: { 'x-turnstile-token': 'local-fake-pass' } })).status).toBe(200);
   expect((await http('POST', '/api/auth/sign-in/email', { body: { email, password: 'wrong-password-zz' }, ip: '198.19.9.3' })).status).toBe(401);   // not gated
+});
+it('CORS: only APP_ORIGIN gets credentialed CORS headers (preflight and response); other origins get none', async () => {
+  await startWrangler();
+  const pre = await fetch(`${BASE}/api/rooms/beach/join`, { method: 'OPTIONS', headers: { origin: ORIGIN, 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } });
+  expect(pre.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+  expect(pre.headers.get('access-control-allow-credentials')).toBe('true');
+  const evil = await fetch(`${BASE}/api/rooms/beach/join`, { method: 'OPTIONS', headers: { origin: 'http://evil.example', 'access-control-request-method': 'POST' } });
+  expect(evil.headers.get('access-control-allow-origin')).toBeNull();
+  const g = await fetch(`${BASE}/api/health`, { headers: { origin: ORIGIN } });
+  expect(g.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+  expect((await fetch(`${BASE}/api/health`, { headers: { origin: 'http://evil.example' } })).headers.get('access-control-allow-origin')).toBeNull();
 });
