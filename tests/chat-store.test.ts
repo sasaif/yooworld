@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ChatStore } from '../src/game/social/ChatStore';
 import { LocalChatService, sanitize } from '../src/game/social/social';
 import { OfflineTransport } from '../src/net/NetworkTransport';
+import { CHAT_CONFIG } from '../src/game/social/chatConfig';
 
 describe('ChatStore (wraps LocalChatService)', () => {
   it('send / history / subscribe keep the existing local behaviour', () => {
@@ -29,11 +30,12 @@ describe('ChatStore (wraps LocalChatService)', () => {
     expect(store.history()).toHaveLength(1); // empty text is not pushed (existing LocalChatService rule)
   });
 
-  it('caps stored history at 50 like LocalChatService', () => {
+  it('caps stored history at CHAT_CONFIG.historyMax (was 50; raised so overflowed bubbles stay readable)', () => {
     const store = new ChatStore(new LocalChatService(new OfflineTransport()));
-    for (let i = 0; i < 60; i++) store.send('f', 'm' + i);
-    expect(store.history()).toHaveLength(50);
+    const max = CHAT_CONFIG.historyMax;
+    for (let i = 0; i < max + 10; i++) store.send('f', 'm' + i);
+    expect(store.history()).toHaveLength(max);
     expect(store.history()[0].text).toBe('m10');
-    expect(store.last()?.text).toBe('m59');
+    expect(store.last()?.text).toBe('m' + (max + 9));
   });
 });
