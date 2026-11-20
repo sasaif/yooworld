@@ -7,6 +7,7 @@ import {
 } from '../../data/playerMap';
 import { camToRect, clampCam, fitCam, L2_TOP, l2Strip, type Cam } from './mapCamera';
 import { CITY_NAV, mapNavigation } from './mapNavigation';
+import { placeBoxes, type Box, type Nudge } from './mapLayout';
 import './playerMap.css';
 
 const MW = PLAYER_MAP.width, MH = PLAYER_MAP.height;
@@ -31,6 +32,8 @@ export function PlayerMap() {
   const view = useRef<HTMLDivElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
+  const root = useRef<HTMLDivElement>(null);
+  const [nudge, setNudge] = useState<Record<string, Nudge>>({});
 
   const measure = useCallback(() => {
     const el = view.current; if (!el) return;
@@ -90,10 +93,32 @@ export function PlayerMap() {
   const cards = places.filter((p) => p.status !== 'future');
   const future = places.filter((p) => p.status === 'future');
   const shown = panel === 'places' || (leaving.current && !!transition);
+  const layoutKey = `${vw}x${vh}|${district}|${selected}|${loc}|${shown}|${visible}|${baked}`;
+  // Keep badges / pins / "Toi" readable and tappable: inside the view, off the ✕ / title / tabs / card strip, never
+  // on top of each other. Positions come from layout boxes (offset*), so the opening scale animation does not skew them.
+  useLayoutEffect(() => {
+    const r = root.current; if (!r || !vw || !vh) return;
+    const box = (el: HTMLElement, ay: number): Box => ({ x: el.offsetLeft - el.offsetWidth / 2, y: el.offsetTop - el.offsetHeight * ay, w: el.offsetWidth, h: el.offsetHeight });
+    const fixed: Box[] = [];
+    r.querySelectorAll<HTMLElement>('.pmap-top > *').forEach((el) => {
+      const p = el.offsetParent as HTMLElement | null;
+      fixed.push({ x: (p?.offsetLeft ?? 0) + el.offsetLeft, y: (p?.offsetTop ?? 0) + el.offsetTop, w: el.offsetWidth, h: el.offsetHeight });
+    });
+    const st = r.querySelector<HTMLElement>('.pmap-strip'); if (st) fixed.push({ x: 0, y: st.offsetTop, w: vw, h: st.offsetHeight });
+    const els = [...r.querySelectorAll<HTMLElement>('[data-map-district], [data-map-pin], .pmap-layer [data-map-place]')];
+    const here = r.querySelector<HTMLElement>('[data-map="here"]');
+    const items = els.map((el) => box(el, 0.5));
+    if (here) { els.push(here); items.push(box(here, 1)); }
+    const ns = placeBoxes(items, fixed, { w: vw, h: vh }, 6);
+    const next: Record<string, Nudge> = {};
+    els.forEach((el, i) => { const k = el.dataset.mapDistrict ?? el.dataset.mapPin ?? el.dataset.mapPlace ?? 'here'; if (ns[i].dx || ns[i].dy) next[(el.dataset.mapDistrict ? 'd:' : el.dataset.mapPin ? 'p:' : el.dataset.mapPlace ? 'l:' : '') + k] = ns[i]; });
+    setNudge((old) => (JSON.stringify(old) === JSON.stringify(next) ? old : next));
+  }, [layoutKey]);
+  const nv = (k: string) => { const n = nudge[k]; return n ? ({ '--dx': `${n.dx}px`, '--dy': `${n.dy}px` } as React.CSSProperties) : undefined; };
   if (!shown && !visible) return null;
 
   return (
-    <div className={'pmap' + (panel === 'places' || leaving.current ? ' open' : '') + (visible ? ' visible' : '') + (d ? ' l2' : ' l1') + (cards.length <= 2 ? ' few' : '')}
+    <div ref={root} className={'pmap' + (panel === 'places' || leaving.current ? ' open' : '') + (visible ? ' visible' : '') + (d ? ' l2' : ' l1') + (cards.length <= 2 ? ' few' : '')}
       role="dialog" aria-label="Carte de YoLand" aria-modal="true" data-map="root" data-map-level={d ? 2 : 1} data-map-art={baked ? 'baked' : 'clean'}>
       <div ref={view} className="pmap-view" data-map="view" onClick={() => setSelected(null)}>
         <div className="pmap-world" style={{ width: MW, height: MH, transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.s})` }}>
@@ -107,26 +132,26 @@ export function PlayerMap() {
               onClick={(e) => { e.stopPropagation(); openDistrict(x.id); }} />
           )))}
           {!d && PLAYER_MAP_DISTRICTS.map((x) => (
-            <button key={x.id} type="button" className="pmap-badge" data-map-district={x.id} style={at(x.badge)}
+            <button key={x.id} type="button" className="pmap-badge" data-map-district={x.id} style={{ ...at(x.badge), ...nv('d:' + x.id) }}
               onClick={(e) => { e.stopPropagation(); openDistrict(x.id); }}>
               <span className="i" aria-hidden="true">{x.icon}</span>{x.name}
             </button>
           ))}
           {!d && featuredPlaces().map((p) => (
-            <button key={p.id} type="button" className="pmap-feat" data-map-pin={p.id} style={at(p.label)} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
+            <button key={p.id} type="button" className="pmap-feat" data-map-pin={p.id} style={{ ...at(p.label), ...nv('p:' + p.id) }} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
               onClick={(e) => { e.stopPropagation(); openDistrict(p.district, p.id); }}>
               <span className="i" aria-hidden="true">{p.icon}</span>
               <span className="t">{p.name} · {MAP_STATUS[p.status].label}</span>
             </button>
           ))}
           {d && cards.map((p) => (
-            <button key={p.id} type="button" className={'pmap-pin ' + MAP_STATUS[p.status].cls + (selected === p.id ? ' active' : '')} data-map-place={p.id} style={at(p.label)} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
+            <button key={p.id} type="button" className={'pmap-pin ' + MAP_STATUS[p.status].cls + (selected === p.id ? ' active' : '')} data-map-place={p.id} style={{ ...at(p.label), ...nv('l:' + p.id) }} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
               onClick={(e) => { e.stopPropagation(); setSelected(p.id); }}>
               <span className="i" aria-hidden="true">{p.icon}</span><span className="n">{p.name}</span><i className="dot" aria-hidden="true" />
             </button>
           ))}
           {here && (!d || here.district === d.id) && (
-            <div className="pmap-here" data-map="here" style={at(here.anchor)}>
+            <div className="pmap-here" data-map="here" style={{ ...at(here.anchor), ...nv('here') }}>
               <span className="ring" /><span className="face" /><span className="tag">Toi</span>
             </div>
           )}
@@ -138,8 +163,8 @@ export function PlayerMap() {
           <button type="button" className="pmap-back" data-map="back" onClick={backToCity} aria-label="Retour à la ville">‹ Ville</button>
           <nav className="pmap-tabs" aria-label="Quartiers">
             {PLAYER_MAP_DISTRICTS.map((x) => (
-              <button key={x.id} type="button" data-map-tab={x.id} className={x.id === d.id ? 'on' : ''} aria-pressed={x.id === d.id} onClick={() => openDistrict(x.id)}>
-                <span aria-hidden="true">{x.icon}</span> {x.name}
+              <button key={x.id} type="button" aria-label={x.name} data-map-tab={x.id} className={x.id === d.id ? 'on' : ''} aria-pressed={x.id === d.id} onClick={() => openDistrict(x.id)}>
+                <span aria-hidden="true">{x.icon}</span><span className="tn"> {x.name}</span>
               </button>
             ))}
           </nav>

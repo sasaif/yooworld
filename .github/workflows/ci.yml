@@ -66,6 +66,10 @@ jobs:
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 10
         run: SHOTS=ci-shots/experience node tools/e2e-experience.mjs http://127.0.0.1:5230/
+      - name: e2e player map, 2 levels (iPhone SE landscape)
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 8
+        run: DEV=se SHOTS=ci-shots/player-map node tools/e2e-player-map.mjs http://127.0.0.1:5230/
       - name: e2e player map, 2 levels (iPhone 15 landscape)
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 8
