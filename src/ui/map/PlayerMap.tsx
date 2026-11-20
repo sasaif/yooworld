@@ -1,227 +1,178 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
-import { PLAYER_MAP, PLAYER_MAP_PLACES, PLAYER_MAP_UI, MAP_STATUS, canVisit, mapPlaceById, visitLabel, type MapPlace } from '../../data/playerMap';
-import { camToPoint, clampCam, fitCam, maxScale, pctToPx, zoomAt, type Cam } from './mapCamera';
+import {
+  PLAYER_MAP, PLAYER_MAP_DISTRICTS, MAP_STATUS, canVisit, districtById, featuredPlaces, placeForLocation, placesIn, visitLabel,
+  type DistrictId, type MapPlace, type Pct,
+} from '../../data/playerMap';
+import { camToRect, clampCam, fitCam, L2_TOP, l2Strip, type Cam } from './mapCamera';
+import { CITY_NAV, mapNavigation } from './mapNavigation';
 import './playerMap.css';
 
 const MW = PLAYER_MAP.width, MH = PLAYER_MAP.height;
 const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const forceBaked = () => typeof location !== 'undefined' && new URLSearchParams(location.search).get('mapart') === 'baked';
 
 /**
- * Full-city player map (Alessandro's illustration). Replaces the Lieux list when panel === 'places'.
- * Visiter calls game.travelWithFade for open, built places only (Mon appart, Yoo Plage, Yoo Games Club).
+ * Two-level city map (YoLand). Level 1: the illustrated city with 6 district badges, the Usine / Ferme pins and "Toi".
+ * Level 2 (tap a district): the art framed on that district + a strip of location cards with status and Visiter.
+ * No free pan / zoom. Visiter calls game.travelWithFade for playable places only (Mon appart, Yoo Plage, Yoo Games Club).
+ * All text, markers and controls are UI; the art is the clean (text-free) illustration, with the original art as fallback.
  */
 export function PlayerMap() {
   const loc = useStore(game.store, (s) => s.location);
   const panel = useStore(game.store, (s) => s.panel);
   const transition = useStore(game.store, (s) => s.transition);
   const [visible, setVisible] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
+  const [{ district, selected }, dispatch] = useReducer(mapNavigation, CITY_NAV);
+  const setSelected = (id: string | null) => dispatch({ type: 'select', id });
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [baked, setBaked] = useState(forceBaked);
   const view = useRef<HTMLDivElement>(null);
-  const world = useRef<HTMLDivElement>(null);
-  const cam = useRef<Cam>({ x: 0, y: 0, s: 1 });
+  const strip = useRef<HTMLDivElement>(null);
   const leaving = useRef(false);
-  const ptrs = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ mid: { x: number; y: number }; dist: number } | null>(null);
-  const moved = useRef(false);
-  const suppress = useRef(false);
 
-  const viewSize = () => ({ w: view.current?.clientWidth ?? 0, h: view.current?.clientHeight ?? 0 });
-  const apply = useCallback((c: Cam) => {
-    const { w, h } = viewSize();
-    cam.current = clampCam(c, w, h, MW, MH);
-    const el = world.current; if (!el) return;
-    el.style.transform = `translate(${cam.current.x}px,${cam.current.y}px) scale(${cam.current.s})`;
-    el.style.setProperty('--zs', String(cam.current.s));
-    // keep hit targets ≥ 44 CSS px
-    const z = cam.current.s;
-    for (const p of PLAYER_MAP_PLACES) {
-      const b = el.querySelector<HTMLElement>(`[data-map-place="${p.id}"]`); if (!b) continue;
-      const bw = pctToPx(p.hit.w, MW), bh = pctToPx(p.hit.h, MH), min = 44 / z;
-      const ew = Math.max(bw, min), eh = Math.max(bh, min);
-      b.style.width = `${ew}px`; b.style.height = `${eh}px`;
-      b.style.left = `${pctToPx(p.hit.x, MW) - (ew - bw) / 2}px`;
-      b.style.top = `${pctToPx(p.hit.y, MH) - (eh - bh) / 2}px`;
-    }
-    // Expand baked chrome to ≥ 44 CSS px without letting + and − overlap
-    // (they sit one above the other; a uniform min-size at city-fit scale would collide).
-    const min = 44 / z;
-    const zin = el.querySelector<HTMLElement>('[data-map="zin"]');
-    const zout = el.querySelector<HTMLElement>('[data-map="zout"]');
-    const close = el.querySelector<HTMLElement>('[data-map="close"]');
-    if (zin) {
-      const h = Math.max(PLAYER_MAP_UI.hits.zoomIn.h, min);
-      zin.style.width = `${Math.max(PLAYER_MAP_UI.hits.zoomIn.w, min)}px`;
-      zin.style.height = `${h}px`;
-      zin.style.top = `${PLAYER_MAP_UI.hits.zoomIn.y + PLAYER_MAP_UI.hits.zoomIn.h - h}px`;
-    }
-    if (zout) {
-      zout.style.width = `${Math.max(PLAYER_MAP_UI.hits.zoomOut.w, min)}px`;
-      zout.style.height = `${Math.max(PLAYER_MAP_UI.hits.zoomOut.h, min)}px`;
-      zout.style.top = `${PLAYER_MAP_UI.hits.zoomOut.y}px`;
-    }
-    if (close) {
-      close.style.minWidth = `${min}px`; close.style.minHeight = `${min}px`;
-    }
-    const here = el.querySelector<HTMLElement>('[data-map="here"]');
-    if (here) here.style.transform = `translate(-50%,-100%) scale(${Math.min(1, 0.72 / z)})`;
-  }, []);
-
-  const fit = useCallback(() => {
-    const { w, h } = viewSize(); if (!w || !h) return fitCam(1, 1, MW, MH);
-    return fitCam(w, h, MW, MH);
+  const measure = useCallback(() => {
+    const el = view.current; if (!el) return;
+    setSize((s) => (s.w === el.clientWidth && s.h === el.clientHeight ? s : { w: el.clientWidth, h: el.clientHeight }));
   }, []);
 
   useEffect(() => {
     if (panel !== 'places') {
       if (!transition) leaving.current = false;
-      setVisible(false); setSelected(null);
+      setVisible(false); dispatch({ type: 'city' });
       return;
     }
     leaving.current = false;
-    const id = requestAnimationFrame(() => { apply(fit()); setVisible(true); });
+    const id = requestAnimationFrame(() => { measure(); setVisible(true); });
     return () => cancelAnimationFrame(id);
-  }, [panel, apply, fit, transition]);
+  }, [panel, transition, measure]);
 
   useEffect(() => {
-    const onResize = () => { if (panel === 'places') apply(fit()); };
-    addEventListener('resize', onResize);
-    return () => removeEventListener('resize', onResize);
-  }, [panel, apply, fit]);
+    addEventListener('resize', measure);
+    return () => removeEventListener('resize', measure);
+  }, [measure]);
+  useLayoutEffect(measure);
+
+  const openDistrict = (id: DistrictId, selected: string | null = null) => dispatch({ type: 'district', id, selected });
+  const backToCity = () => dispatch({ type: 'city' });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || panel !== 'places') return;
-      if (selected) setSelected(null); else game.setPanel(null);
+      if (district) backToCity(); else game.setPanel(null);
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
-  }, [panel, selected]);
+  }, [panel, district]);
 
-  const zoomBy = (f: number) => {
-    const r = view.current?.getBoundingClientRect(); if (!r) return;
-    const f0 = fit();
-    const next = zoomAt(cam.current, r.width / 2, r.height / 2, cam.current.s * f, f0.s, maxScale(f0));
-    animate(clampCam(next, r.width, r.height, MW, MH), 260);
-  };
+  useEffect(() => {
+    if (!selected) return;
+    strip.current?.querySelector<HTMLElement>(`[data-map-card="${selected}"]`)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+  }, [selected, district]);
 
-  const animate = (to: Cam, ms: number) => new Promise<void>((res) => {
-    if (reduced() || ms <= 0) { apply(to); res(); return; }
-    const from = { ...cam.current }, t0 = performance.now();
-    const st = (n: number) => {
-      const t = Math.min(1, (n - t0) / ms), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-      apply({ x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, s: from.s + (to.s - from.s) * e });
-      if (t < 1) requestAnimationFrame(st); else res();
-    };
-    requestAnimationFrame(st);
-  });
-
-  const onDown = (e: React.PointerEvent) => {
-    if (e.button) return;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    moved.current = false;
-    view.current?.classList.add('grabbing');
-    if (ptrs.current.size === 2) {
-      const p = [...ptrs.current.values()];
-      pinch.current = { mid: { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 }, dist: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) };
-    }
-  };
-  const onMove = (e: React.PointerEvent) => {
-    const pr = ptrs.current.get(e.pointerId); if (!pr) return;
-    ptrs.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    const { w, h } = viewSize(); const f0 = fit();
-    if (ptrs.current.size === 1) {
-      const dx = e.clientX - pr.x, dy = e.clientY - pr.y;
-      if (Math.hypot(dx, dy) > 2) moved.current = true;
-      apply({ x: cam.current.x + dx, y: cam.current.y + dy, s: cam.current.s });
-    } else if (ptrs.current.size === 2 && pinch.current) {
-      const p = [...ptrs.current.values()], mid = { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2 };
-      const d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
-      const r = view.current!.getBoundingClientRect();
-      const zoomed = zoomAt(cam.current, mid.x - r.left, mid.y - r.top, cam.current.s * d / (pinch.current.dist || d), f0.s, maxScale(f0));
-      apply(clampCam({ s: zoomed.s, x: zoomed.x + mid.x - pinch.current.mid.x, y: zoomed.y + mid.y - pinch.current.mid.y }, w, h, MW, MH));
-      pinch.current = { mid, dist: d };
-      moved.current = true;
-    }
-  };
-  const onUp = (e: React.PointerEvent) => {
-    ptrs.current.delete(e.pointerId);
-    if (!ptrs.current.size) { view.current?.classList.remove('grabbing'); pinch.current = null; }
-    if (moved.current) { suppress.current = true; setTimeout(() => { suppress.current = false; }, 60); }
-  };
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const r = view.current!.getBoundingClientRect(); const f0 = fit();
-    const next = zoomAt(cam.current, e.clientX - r.left, e.clientY - r.top, cam.current.s * (e.deltaY > 0 ? 0.9 : 1.11), f0.s, maxScale(f0));
-    apply(clampCam(next, r.width, r.height, MW, MH));
-  };
-
-  const openSheet = (id: string) => {
-    if (suppress.current) return;
-    setFlash(id); setTimeout(() => setFlash((x) => x === id ? null : x), 260);
-    setSelected(id);
-  };
-  const visit = async (p: MapPlace) => {
+  const visit = (p: MapPlace) => {
     if (!p.travel || !canVisit(p, loc)) return;
-    setSelected(null);
     leaving.current = true;
-    const { w, h } = viewSize(); const f0 = fit();
-    if (!reduced()) await animate(clampCam(camToPoint(p.anchor.x, p.anchor.y, Math.min(maxScale(f0), f0.s * 2.6), w, h, MW, MH), w, h, MW, MH), 700);
     game.travelWithFade(p.travel);
   };
 
-  const here = mapPlaceById(loc) ?? PLAYER_MAP_PLACES.find((p) => p.travel === loc);
-  const ui = PLAYER_MAP_UI.hits;
-  const place = selected ? mapPlaceById(selected) : undefined;
+  const { w: vw, h: vh } = size;
+  const d = district ? districtById(district) : undefined;
+  let cam: Cam = fitCam(vw || 1, vh || 1, MW, MH);
+  if (d && vw && vh) {
+    const fit = cam, stripH = l2Strip(vw, vh);
+    cam = clampCam(camToRect(d.focus, { x: 0, y: L2_TOP, w: vw, h: vh - L2_TOP - stripH }, MW, MH, Math.min(1, fit.s * 2.2), fit.s), vw, vh - stripH, MW, MH);
+  }
+  const at = (p: Pct) => ({ left: cam.x + (p.x / 100) * MW * cam.s, top: cam.y + (p.y / 100) * MH * cam.s });
+  const here = placeForLocation(loc);
+  const places = d ? placesIn(d.id) : [];
+  const cards = places.filter((p) => p.status !== 'future');
+  const future = places.filter((p) => p.status === 'future');
   const shown = panel === 'places' || (leaving.current && !!transition);
-
   if (!shown && !visible) return null;
 
   return (
-    <div className={'pmap' + (panel === 'places' || leaving.current ? ' open' : '') + (visible ? ' visible' : '') + (place ? ' sheet-open' : '')} role="dialog" aria-label="Carte de YooWorld" aria-modal="true" data-map="root">
-      <div ref={view} className="pmap-view" data-map="view" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel} onClick={() => { if (!suppress.current) setSelected(null); }}>
-        <div ref={world} className="pmap-world" style={{ width: MW, height: MH }}>
-          <img className="map" src={PLAYER_MAP.src} width={MW} height={MH} alt="Carte illustrée de YooWorld" draggable={false} />
-          {PLAYER_MAP_PLACES.map((p) => (
-            <button key={p.id} type="button" className={'pmap-hs' + (flash === p.id || selected === p.id ? ' flash' : '') + (selected === p.id ? ' active' : '')} data-map-place={p.id} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
-              style={{ left: pctToPx(p.hit.x, MW), top: pctToPx(p.hit.y, MH), width: pctToPx(p.hit.w, MW), height: pctToPx(p.hit.h, MH) }}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); openSheet(p.id); }} />
+    <div className={'pmap' + (panel === 'places' || leaving.current ? ' open' : '') + (visible ? ' visible' : '') + (d ? ' l2' : ' l1') + (cards.length <= 2 ? ' few' : '')}
+      role="dialog" aria-label="Carte de YoLand" aria-modal="true" data-map="root" data-map-level={d ? 2 : 1} data-map-art={baked ? 'baked' : 'clean'}>
+      <div ref={view} className="pmap-view" data-map="view" onClick={() => setSelected(null)}>
+        <div className="pmap-world" style={{ width: MW, height: MH, transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.s})` }}>
+          <img className="map" src={baked ? PLAYER_MAP.fallback : PLAYER_MAP.src} width={MW} height={MH} alt="Carte illustrée de YoLand" draggable={false}
+            onError={() => { if (!baked) setBaked(true); }} />
+        </div>
+        <div className="pmap-layer" key={d ? 'l2-' + d.id : 'l1'}>
+          {!d && PLAYER_MAP_DISTRICTS.map((x) => x.zones.map((z, i) => (
+            <button key={x.id + i} type="button" className="pmap-zone" data-map-zone={x.id} aria-label={`Quartier ${x.name}`} tabIndex={-1}
+              style={{ ...at(z), width: (z.w / 100) * MW * cam.s, height: (z.h / 100) * MH * cam.s }}
+              onClick={(e) => { e.stopPropagation(); openDistrict(x.id); }} />
+          )))}
+          {!d && PLAYER_MAP_DISTRICTS.map((x) => (
+            <button key={x.id} type="button" className="pmap-badge" data-map-district={x.id} style={at(x.badge)}
+              onClick={(e) => { e.stopPropagation(); openDistrict(x.id); }}>
+              <span className="i" aria-hidden="true">{x.icon}</span>{x.name}
+            </button>
           ))}
-          {PLAYER_MAP_PLACES.map((p) => (
-            <span key={'dot-' + p.id} className={'pmap-dot ' + p.status} data-map-dot={p.id} style={{ left: pctToPx(p.dot.x, MW), top: pctToPx(p.dot.y, MH) }} />
+          {!d && featuredPlaces().map((p) => (
+            <button key={p.id} type="button" className="pmap-feat" data-map-pin={p.id} style={at(p.label)} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
+              onClick={(e) => { e.stopPropagation(); openDistrict(p.district, p.id); }}>
+              <span className="i" aria-hidden="true">{p.icon}</span>
+              <span className="t">{p.name} · {MAP_STATUS[p.status].label}</span>
+            </button>
           ))}
-          {here && (
-            <div className="pmap-here" data-map="here" style={{ left: pctToPx(here.anchor.x, MW), top: pctToPx(here.anchor.y, MH), transform: 'translate(-50%,-100%)' }}>
+          {d && cards.map((p) => (
+            <button key={p.id} type="button" className={'pmap-pin ' + MAP_STATUS[p.status].cls + (selected === p.id ? ' active' : '')} data-map-place={p.id} style={at(p.label)} aria-label={`${p.name} — ${MAP_STATUS[p.status].label}`}
+              onClick={(e) => { e.stopPropagation(); setSelected(p.id); }}>
+              <span className="i" aria-hidden="true">{p.icon}</span><span className="n">{p.name}</span><i className="dot" aria-hidden="true" />
+            </button>
+          ))}
+          {here && (!d || here.district === d.id) && (
+            <div className="pmap-here" data-map="here" style={at(here.anchor)}>
               <span className="ring" /><span className="face" /><span className="tag">Toi</span>
             </div>
           )}
-          <button type="button" className="pmap-ui" data-map="close" aria-label="Fermer la carte" style={{ left: ui.close.x, top: ui.close.y, width: ui.close.w, height: ui.close.h }}
-            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); game.setPanel(null); }} />
-          <button type="button" className="pmap-ui" data-map="zin" aria-label="Zoomer" style={{ left: ui.zoomIn.x, top: ui.zoomIn.y, width: ui.zoomIn.w, height: ui.zoomIn.h }}
-            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); zoomBy(1.4); }} />
-          <button type="button" className="pmap-ui" data-map="zout" aria-label="Dézoomer" style={{ left: ui.zoomOut.x, top: ui.zoomOut.y, width: ui.zoomOut.w, height: ui.zoomOut.h }}
-            onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); zoomBy(1 / 1.4); }} />
         </div>
       </div>
-      <div className="pmap-legend" aria-hidden="true"><span><i className="o" />Ouvert</span><span><i className="j" />Jalon 1</span><span><i className="s" />Bientôt</span></div>
-      {place && (
-        <aside className="pmap-sheet show" data-map="card" aria-live="polite">
-          <img className="preview" src={place.thumb} alt={`Aperçu de ${place.name}`} />
-          <div className="meta">
-            <h2>{place.icon} {place.name} <span className={'pmap-tag ' + MAP_STATUS[place.status].cls}>{MAP_STATUS[place.status].label}</span></h2>
-            <p className="blurb">{place.blurb}{place.inside ? ' · ' + place.inside : ''}</p>
-          </div>
-          <div className="actions">
-            <button type="button" className="x" data-map="card-x" aria-label="Fermer la fiche" onClick={() => setSelected(null)}>✕</button>
-            <button type="button" className={'pmap-go' + (place.travel === loc && place.status === 'open' ? ' here' : '')} data-map="go" disabled={!canVisit(place, loc)} onClick={() => visit(place)}>
-              {visitLabel(place, loc)}
-            </button>
-          </div>
-        </aside>
+
+      <div className="pmap-top">
+        {d ? <>
+          <button type="button" className="pmap-back" data-map="back" onClick={backToCity} aria-label="Retour à la ville">‹ Ville</button>
+          <nav className="pmap-tabs" aria-label="Quartiers">
+            {PLAYER_MAP_DISTRICTS.map((x) => (
+              <button key={x.id} type="button" data-map-tab={x.id} className={x.id === d.id ? 'on' : ''} aria-pressed={x.id === d.id} onClick={() => openDistrict(x.id)}>
+                <span aria-hidden="true">{x.icon}</span> {x.name}
+              </button>
+            ))}
+          </nav>
+        </> : (
+          <div className="pmap-title" data-map="title"><b>Carte de YoLand</b><span>Choisis un quartier</span></div>
+        )}
+        <button type="button" className="pmap-close" data-map="close" aria-label="Fermer la carte" onClick={() => game.setPanel(null)}>✕</button>
+      </div>
+
+      {d && (
+        <div ref={strip} className="pmap-strip" data-map="strip" onClick={(e) => e.stopPropagation()}>
+          {cards.map((p) => {
+            const here = p.status === 'playable' && p.travel === loc;
+            return (
+              <article key={p.id} className={'pmap-card' + (selected === p.id ? ' active' : '')} data-map-card={p.id} onClick={() => setSelected(p.id)}>
+                <img src={p.thumb} alt="" loading="lazy" />
+                <div className="meta">
+                  <h3>{p.icon} {p.name}</h3>
+                  <span className={'pmap-tag ' + MAP_STATUS[p.status].cls}>{MAP_STATUS[p.status].label}</span>
+                  <p>{p.blurb}</p>
+                </div>
+                <button type="button" className={'pmap-go' + (here ? ' here' : '')} data-map-go={p.id} disabled={!canVisit(p, loc)}
+                  onClick={(e) => { e.stopPropagation(); visit(p); }}>{visitLabel(p, loc)}</button>
+              </article>
+            );
+          })}
+          {future.length > 0 && (
+            <div className="pmap-future" data-map="future">
+              <b>Extension future</b>
+              <span>{future.map((p) => `${p.icon} ${p.name}`).join(' · ')}</span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

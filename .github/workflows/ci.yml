@@ -66,6 +66,18 @@ jobs:
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 10
         run: SHOTS=ci-shots/experience node tools/e2e-experience.mjs http://127.0.0.1:5230/
+      - name: e2e player map, 2 levels (iPhone 15 landscape)
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 8
+        run: DEV=iphone15 SHOTS=ci-shots/player-map node tools/e2e-player-map.mjs http://127.0.0.1:5230/
+      - name: e2e player map, 2 levels (desktop 1440x900)
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 8
+        run: DEV=desktop SHOTS=ci-shots/player-map node tools/e2e-player-map.mjs http://127.0.0.1:5230/
+      - name: e2e Yoo Games Club via the map (4 players, iPhone 15)
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        timeout-minutes: 20
+        run: DEV=iphone15 PLAYERS=4 node tools/e2e-club.mjs http://127.0.0.1:5230/
       - name: Perf baseline (draw calls)
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 4

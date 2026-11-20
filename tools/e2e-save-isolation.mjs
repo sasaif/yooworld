@@ -61,7 +61,7 @@ async function play(p, tag) {
   // prefs through real HUD buttons
   const click = async (sel) => { const el = await p.$(sel); if (el) { await el.evaluate((e) => e.click()); await p.waitForTimeout(250); return true; } return false; };
   r.cam = await click('.chip.cam');
-  r.places = await click('button[aria-label^="Lieux"]'); await p.evaluate(() => window.game.store.set({ panel: null }));
+  r.places = await click('button[data-map="dock"]'); await p.evaluate(() => window.game.store.set({ panel: null }));
   await p.evaluate(() => window.game.setPanel('chat')); await p.waitForTimeout(200); r.chat = await click('.chat-fold'); await p.evaluate(() => window.game.store.set({ panel: null }));
   await p.evaluate(() => window.game.setPanel('settings')); await p.waitForTimeout(200); r.ctl = await click('.ctl-opt:not(.on)'); await p.evaluate(() => window.game.store.set({ panel: null }));
   r.rotate = await click('.rotate-skip');
