@@ -136,3 +136,41 @@ jobs:
             ci-shots/**/*.json
           retention-days: 7
           if-no-files-found: warn
+  # server/ (Phase B backend, LOCAL ONLY): typecheck, unit + DB + security + backup suites against a private
+  # Postgres (npm package embedded-postgres, started by the tests), then the workerd e2e (wrangler dev --local).
+  # No secrets, no cloud account, no deploy. Independent of the client job above.
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: server
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.12'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        timeout-minutes: 5
+      - name: Server type check
+        timeout-minutes: 5
+        run: npm run typecheck
+      - name: Server unit + DB + security + backup suites (incl. Dominoes contract test)
+        id: unit
+        timeout-minutes: 10
+        run: npm test
+      - name: Server workerd e2e (wrangler dev --local)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: server-test-results
+          path: server/test-results/**
+          retention-days: 7
+          if-no-files-found: warn
