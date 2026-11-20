@@ -25,7 +25,7 @@ describe('TurnstileVerifier (siteverify contract, fake fetch)', () => {
     expect((await makeVerifier('off').verify(null)).ok).toBe(true);
     expect(() => makeVerifier('turnstile')).toThrow(/TURNSTILE_SECRET/);
   });
-  it('env: local defaults to off; uat/prod require turnstile with a non-placeholder secret', () => {
+  it('env: local defaults to off; prod requires turnstile (uat: turnstile or fake, Phase C) with a non-placeholder secret', () => {
     const base = { ENV_TAG: 'local', DATABASE_URL: 'postgres://app_api:x@127.0.0.1:54339/y', AUTH_DATABASE_URL: 'postgres://app_auth:x@127.0.0.1:54339/y',
       BETTER_AUTH_SECRET: 'a'.repeat(40), TICKET_SECRET: 'b'.repeat(40), RESULT_SECRET: 'c'.repeat(40), BETTER_AUTH_URL: 'http://127.0.0.1:8787', APP_ORIGIN: 'http://127.0.0.1:5173' };
     const r = validateEnv(base); expect(r.ok && r.cfg.humanMode).toBe('off');
@@ -33,7 +33,8 @@ describe('TurnstileVerifier (siteverify contract, fake fetch)', () => {
     const uat = { ...base, ENV_TAG: 'uat', DATABASE_URL: 'postgres://app_api:x@db.example/y?sslmode=require', AUTH_DATABASE_URL: 'postgres://app_auth:x@db.example/y?sslmode=require', BETTER_AUTH_URL: 'https://u.example', APP_ORIGIN: 'https://u.example' };
     const errs = (e: Record<string, unknown>) => { const x = validateEnv(e); return x.ok ? '' : x.errors.join(); };
     expect(errs(uat)).toMatch(/TURNSTILE_MODE must be turnstile/);
-    expect(errs({ ...uat, TURNSTILE_MODE: 'fake' })).toMatch(/TURNSTILE_MODE must be turnstile/);
+    expect(errs({ ...uat, TURNSTILE_MODE: 'fake' })).toBe('');
+    expect(errs({ ...uat, ENV_TAG: 'prod', TURNSTILE_MODE: 'fake' })).toMatch(/TURNSTILE_MODE must be turnstile in prod/);
     expect(errs({ ...uat, TURNSTILE_MODE: 'turnstile', TURNSTILE_SECRET: 'test-secret-000000000000' })).toMatch(/TURNSTILE_SECRET/);
     expect(errs({ ...uat, TURNSTILE_MODE: 'turnstile', TURNSTILE_SECRET: '0x4AAAAAAA' + 'Q'.repeat(20) })).toBe('');
   });

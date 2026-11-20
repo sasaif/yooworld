@@ -1,5 +1,5 @@
 -- Neon: per-environment LOGIN passwords + least-privilege checks for the roles created by db/migrations/0001_roles.sql.
--- Run AFTER the migrations, as the Neon project owner (neondb_owner), with psql variables:
+-- Run AFTER the migrations, as the Neon project owner (neondb_owner), with psql variables (or infra/neon/apply-roles.mjs):
 --   psql "$NEON_OWNER_URL" -v ON_ERROR_STOP=1 -v env=uat \
 --        -v app_api_pw=... -v app_auth_pw=... -v app_rw_pw=... -v admin_ops_pw=... -v backup_ro_pw=... \
 --        -v reporting_ro_pw=... -v migrator_pw=... -f infra/neon/setup-roles.sql
@@ -14,8 +14,8 @@ ALTER ROLE reporting_ro PASSWORD :'reporting_ro_pw';
 ALTER ROLE migrator     PASSWORD :'migrator_pw';
 -- migrator: DDL for CI migrations only (member of eco_owner so it can create/alter owned objects); not used by the app
 GRANT eco_owner TO migrator;
-ALTER ROLE migrator NOSUPERUSER NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 2;
-ALTER ROLE backup_ro NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 2;
+ALTER ROLE migrator NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 2;          -- (NO)SUPERUSER: not settable by a non-superuser owner; asserted below
+ALTER ROLE backup_ro NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 2;
 -- the env tag the database refuses to contradict (eco.env_check)
 SELECT set_config('yoland.env', :'env', false);
 -- assertions: no application role is superuser / can create roles / bypasses RLS

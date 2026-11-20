@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 // @ts-expect-error plain .mjs helper
-import { dump, restore, encrypt, decrypt, newKeypair, s3, rowCounts, ledgerNdjson } from '../../scripts/backup.mjs';
+import { dump, dumpWith, fkOrder, restore, restoreWith, encrypt, decrypt, newKeypair, s3, rowCounts, ledgerNdjson } from '../../scripts/backup.mjs';
 // @ts-expect-error plain .mjs helper
 import { startS3Local } from '../../scripts/s3-local.mjs';
 // @ts-expect-error plain .mjs helper
@@ -93,5 +93,30 @@ describe('backup -> encrypted S3 object -> restore into an empty database', () =
       fs.mkdirSync(path.join(SERVER_DIR, 'test-results'), { recursive: true });
       fs.writeFileSync(path.join(SERVER_DIR, 'test-results/backup-restore.json'), JSON.stringify(out, null, 2));
     } finally { await st.close(); }
+  });
+  it("Phase C: the JSON encoding (drivers without COPY, e.g. Neon's WebSocket driver) restores the same data", async () => {
+    const DSTJ = 'yoland_bk_dst_json'; const admin = pool('postgres');
+    await admin.query(`select pg_terminate_backend(pid) from pg_stat_activity where datname = $1`, [DSTJ]);
+    await admin.query(`drop database if exists ${DSTJ}`);
+    const src = await pool(SRC, 'backup_ro').connect();
+    let plain: Buffer; try { plain = await dumpWith(src, { via: 'json' }); } finally { src.release(); }
+    expect(JSON.parse(plain.subarray(0, plain.indexOf(10)).toString())).toMatchObject({ format: 'yoland-logical-v1', encoding: 'json', env: 'local' });
+    const kp = await newKeypair(); const dec = await decrypt(await encrypt(plain, kp.recipient), kp.identity);
+    await migrate({ database: DSTJ, reset: false, env: 'local', log: () => {} });
+    const d = pool(DSTJ); const c = await d.connect();
+    try {
+      const ord = (await fkOrder(c, [{ t: '"eco"."wallets"' }, { t: '"eco"."ledger_entries"' }, { t: '"eco"."players"' }, { t: '"eco"."ledger_tx"' }])).map((x: { t: string }) => x.t);
+      expect(ord.indexOf('"eco"."players"')).toBeLessThan(ord.indexOf('"eco"."wallets"'));                 // managed-PG path: parents first
+      expect(ord.indexOf('"eco"."ledger_tx"')).toBeLessThan(ord.indexOf('"eco"."ledger_entries"'));
+      await restoreWith(c, dec, { env: 'local' });
+    } finally { c.release(); }
+    await expect((async () => { const c2 = await d.connect(); try { await restoreWith(c2, dec, { env: 'uat' }); } finally { c2.release(); } })()).rejects.toThrow(/backup env local != target env uat/);
+    const counts = async (pl: pg.Pool) => { const x = await pl.connect(); try { return await rowCounts(x); } finally { x.release(); } };
+    expect(await counts(d)).toEqual(await counts(pool(SRC)));
+    expect(await ledgerNdjson(DSTJ)).toBe(await ledgerNdjson(SRC));
+    expect(Object.values((await d.query('select eco.recon_summary() r')).rows[0].r).filter((v) => v !== 0)).toEqual([]);
+    expect((await d.query('select audit.verify_chain() r')).rows[0].r).toMatchObject({ broken: 0 });
+    const p = (await d.query('select id from eco.players where closed_at is null order by created_at limit 1')).rows[0].id;
+    expect((await pool(DSTJ, 'app_api').query('select eco.test_grant_gold($1,$2,$3) r', [k(), p, 5])).rows[0].r).toMatchObject({ ok: true });   // identities reset
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Human check (anti-bot) hook. Interface + Cloudflare Turnstile implementation + a fake for local tests.
- * Phase B: NO real keys anywhere; local runs use mode 'off' (default) or 'fake'. uat/prod must use 'turnstile'
+ * Phase B: NO real keys anywhere; local runs use mode 'off' (default) or 'fake'. prod must use 'turnstile' (uat may use 'fake' until a Turnstile widget exists: the fake token is public, so uat sign-up is NOT bot-protected)
  * with a real secret (enforced by envSchema). Fail closed: any network/parse error = not verified.
  */
 export interface HumanVerdict { ok: boolean; codes: string[] }

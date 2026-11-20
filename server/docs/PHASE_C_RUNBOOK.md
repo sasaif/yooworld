@@ -1,4 +1,6 @@
-# Phase C — runbook + infrastructure-as-code (préparé en Phase B, RIEN de créé)
+# Phase C — runbook + infrastructure-as-code (uat CRÉÉ le 20/11/2026, prod : RIEN de créé)
+
+> **État réel uat : voir § 7.** Les §§ 1–6 décrivent la procédure ; la prod n'existe pas.
 
 > Étiquettes : [FAIT] = fichier présent dans le dépôt ; [MESURÉ] = exécuté localement ; [NON MESURÉ] = ne peut être
 > exécuté qu'avec les comptes d'Alessandro ; [PROPOSITION] = choix à valider. **Alessandro possède tous les comptes.**
@@ -71,10 +73,11 @@ cp infra/phase-c.params.example .local/phase-c.params   # remplir ids + hôtes
 node infra/cloudflare/render-wrangler.mjs .local/phase-c.params
 npx wrangler deploy -c .local/wrangler.phase-c.jsonc --env uat --dry-run --outdir .local/dry
 ```
-**Écart de code à combler en Phase C [PROPOSITION, non construit]** : le Worker lit aujourd'hui `DATABASE_URL` /
-`AUTH_DATABASE_URL` / `ADMIN_DATABASE_URL` (secrets). Avec Hyperdrive, il faudra prendre
-`env.HD_API.connectionString` (etc.) lorsqu'un binding est présent, et adapter le schéma d'environnement (l'hôte
-Hyperdrive n'a pas `sslmode=require`). Petit changement, mais non testable sans compte → hors Phase B.
+**Bindings Hyperdrive [FAIT, MESURÉ en uat]** : `HD_API` / `HD_AUTH` / `HD_ADMIN` remplacent `DATABASE_URL` /
+`AUTH_DATABASE_URL` / `ADMIN_DATABASE_URL` quand ils sont présents (`envSchema.ts`, tests `test/unit/phase-c-uat-env.test.ts`).
+[MESURÉ] l'URL fournie par Cloudflare n'a ni le rôle d'origine comme utilisateur ni l'hôte Neon : les règles d'URL ne
+s'appliquent pas aux bindings ; le rôle est fixé par la config Hyperdrive (une par rôle) et `/api/health/db` renvoie le
+rôle effectif (`app_api` mesuré). Refusés en local ; une URL `*.hyperdrive.local` écrite à la main est refusée.
 Crons : `*/5 * * * *` → `scheduled()` = `runOpsCheck` (alertes, réconciliation, purge métriques, **job de rétention**
 `finalize_deletions` + effacement auth). Migrations DO : v1 (RoomDO, DirectoryDO, TableDO), v2 (TradeDO),
 v3 (PresenceDO) — déployées dans l'ordre, jamais réécrites.
@@ -111,3 +114,41 @@ le même flux est [MESURÉ] localement avec dump COPY + émulateur S3 (`test/bac
 1. Comptes §1 → 2. Neon §2 (uat) → 3. Hyperdrive + secrets uat §3–4 → 4. `wrangler deploy --env uat` (Alessandro) →
 5. tests de fumée uat (inscription + e-mail, 2FA, salle, échange, suppression/restauration, cron visible dans les logs)
 → 6. mesures de coût (`docs/PHASE_C_COST_PLAN.md`) → 7. sauvegarde + exercice B4 → 8. décision prod d'Alessandro.
+
+## 7. uat — ressources réelles (créées le 20/11/2026, compte YoLand) [MESURÉ]
+Aucun secret ici. Valeurs secrètes : `server/.local/uat.env` sur la box (600, ignoré par git) → **à copier dans le
+gestionnaire de mots de passe d'Alessandro**. Rien de nommé « prod » n'a été créé ; aucun environnement prod déployé.
+
+| Ressource | Valeur |
+|---|---|
+| Neon org / projet | `org-icy-cake-37269234` / `spring-recipe-02836917` « Yoland », aws-eu-central-1, PG 18 |
+| Neon branche uat | `uat` = `br-rough-scene-bgxojamf` (enfant de la branche par défaut `production` `br-wandering-truth-bg4tcgj8`, **laissée vide et intacte**) |
+| Neon endpoint uat | `ep-patient-dream-bgtymaii` (`ep-patient-dream-bgtymaii.c-9.eu-central-1.aws.neon.tech`), autoscaling max 1 CU |
+| Base | `yoland` (propriétaire `neondb_owner`), `eco.env` = `uat`, 13 migrations |
+| Rôles | `eco_owner` (NOLOGIN), `app_api`, `app_auth`, `app_rw`, `admin_ops`, `reporting_ro`, `backup_ro`, `migrator` — aucun superuser / createrole / bypassrls ; mots de passe uat neufs |
+| Cloudflare compte | `9a7873168d77930d42e6b1183b338b2b` (YoLand) — plan gratuit |
+| Sous-domaine workers.dev | `yoland` (créé par API) |
+| Hyperdrive (cache désactivé) | `yoland-uat-api` `963510e5f39c4e20a4df414383fe6183` (app_api) · `yoland-uat-auth` `11f0acd4732f4a45ab42153c54e91789` (app_auth) · `yoland-uat-admin` `33bf6d98204a477091d51bd6375c6230` (admin_ops) |
+| Worker | `yoland-api-uat` → **https://yoland-api-uat.yoland.workers.dev** ; config `infra/cloudflare/wrangler.uat.jsonc` (uat seul, pas d'env prod) ; DO RoomDO/DirectoryDO/TableDO/TradeDO/PresenceDO (migrations v1–v3) ; cron `*/5 * * * *` |
+| Secrets Worker | `BETTER_AUTH_SECRET`, `TICKET_SECRET`, `RESULT_SECRET` (`wrangler secret bulk`, neufs, ≠ local) |
+| R2 | **BLOQUÉ** : R2 non activé sur le compte (API 10042 « enable R2 through the Dashboard ») → aucun bucket |
+
+**Dérogations uat (refusées en prod par `envSchema`)** : `TURNSTILE_MODE=fake` (jeton public `local-fake-pass` : l'inscription
+uat n'est **pas** protégée contre les robots) ; `EMAIL_MODE=disabled` (liens de vérification / réinitialisation **non
+envoyés**, journal sans lien ni adresse ; vérification des comptes de test par SQL propriétaire) ; `APP_ORIGIN` = l'URL de
+l'API (pas encore de front uat).
+
+**Particularités Neon (Postgres géré)** :
+- `neondb_owner` n'est pas superuser → `migrate-url.mjs` retire `NOSUPERUSER` de `0001` (fichier inchangé) et pose
+  `createrole_self_grant = 'set, inherit'` (PG16+) pour obtenir SET sur les rôles qu'il crée ;
+- `setup-roles.sql` : `NOSUPERUSER` retiré (vérifié par les assertions) ; exécuté sans psql par `infra/neon/apply-roles.mjs` ;
+- depuis la box, TCP 5432 est inaccessible : pilote WebSocket Neon (443) ; la restauration y utilise l'encodage JSON
+  (`dumpWith(c, { via: 'json' })`) et, sans superuser, désactive les triggers USER table par table et charge dans
+  l'ordre des clés étrangères (`fkOrder`).
+
+**Fumée uat** (`infra/smoke/uat-smoke.mjs`) et **exercice de sauvegarde** (`infra/neon/uat-backup-drill.mjs`) : résultats
+dans le rapport du 20/11/2026 ; R2 à refaire quand il sera activé.
+
+**Reste pour la prod** : décision d'Alessandro ; R2 activé + bucket + jeton R2 limité ; domaine + Turnstile + fournisseur
+d'e-mail (puis `TURNSTILE_MODE=turnstile`, `EMAIL_MODE=provider` câblé) ; branche/base prod Neon et mots de passe prod
+distincts ; configs Hyperdrive prod ; Workers Paid si la charge l'exige (décision d'argent) ; `migrate-url.mjs --i-am-alessandro`.

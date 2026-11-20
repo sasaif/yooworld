@@ -11,6 +11,7 @@ export type SessionDeleted = (userId: string, sessionId: string) => Promise<unkn
 export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
   const pool = new pg.Pool({ connectionString: cfg.authDatabaseUrl, max: 1, connectionTimeoutMillis: DB_TIMEOUT_MS, options: '-c search_path=auth' });
   pool.on('error', () => {});
+  const deliver = (email: string, kind: 'verify' | 'reset', url: string) => deliverMail(cfg, pool, email, kind, url);
   const auth = betterAuth({
     appName: 'YoLand',
     database: pool,
@@ -22,16 +23,14 @@ export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
       enabled: true, requireEmailVerification: true, minPasswordLength: 10, maxPasswordLength: 128, autoSignIn: false,
       revokeSessionsOnPasswordReset: true, resetPasswordTokenExpiresIn: 60 * 30,
       sendResetPassword: async ({ user, url }) => {
-        if (cfg.env !== 'local') throw new Error('no e-mail provider configured (Phase C: Resend, owner account)');
-        await pool.query('insert into auth.dev_mail(email, kind, url) values ($1, $2, $3)', [user.email, 'reset', url]);
+        await deliver(user.email, 'reset', url);
       },
     },
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: false,
       sendVerificationEmail: async ({ user, url }) => {
-        if (cfg.env !== 'local') throw new Error('no e-mail provider configured (Phase C: Resend, owner account)');
-        await pool.query('insert into auth.dev_mail(email, kind, url) values ($1, $2, $3)', [user.email, 'verify', url]);
+        await deliver(user.email, 'verify', url);
       },
     },
     session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24, cookieCache: { enabled: false } },
@@ -47,5 +46,11 @@ export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
     } } } } : undefined,
   });
   return { auth, close: () => pool.end().catch(() => {}) };
+}
+/** E-mail delivery by EMAIL_MODE. 'disabled' (uat only) sends nothing and logs WITHOUT the link or address. */
+export async function deliverMail(cfg: Pick<AppConfig, 'emailMode'>, db: { query: (q: string, v: unknown[]) => Promise<unknown> }, email: string, kind: 'verify' | 'reset', url: string) {
+  if (cfg.emailMode === 'dev_mail') { await db.query('insert into auth.dev_mail(email, kind, url) values ($1, $2, $3)', [email, kind, url]); return 'stored'; }
+  if (cfg.emailMode === 'disabled') { console.warn(`email disabled (uat): ${kind} link not sent`); return 'dropped'; }
+  throw new Error('no e-mail provider configured (Phase C: Resend, owner account)');
 }
 export type Auth = ReturnType<typeof makeAuth>['auth'];

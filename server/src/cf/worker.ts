@@ -164,7 +164,7 @@ async function requireAdmin(c: C, next: () => Promise<void>) {
 }
 
 app.get('/api/health', (c) => c.json({ ok: true, env: c.var.cfg.env, service: 'yoland-api' }));
-app.get('/api/health/db', async (c) => c.json({ ok: true, db: await db(c, async (cl) => (await cl.query('select eco.env_check() t')).rows[0].t) }));
+app.get('/api/health/db', async (c) => { const r = await db(c, async (cl) => (await cl.query('select eco.env_check() t, current_user r')).rows[0]); return c.json({ ok: true, db: r.t, role: r.r }); });
 
 const api = new Hono<{ Bindings: Env; Variables: V }>();
 api.use('*', requireUser);
