@@ -131,7 +131,7 @@ gestionnaire de mots de passe d'Alessandro**. Rien de nommé « prod » n'a ét�
 | Hyperdrive (cache désactivé) | `yoland-uat-api` `963510e5f39c4e20a4df414383fe6183` (app_api) · `yoland-uat-auth` `11f0acd4732f4a45ab42153c54e91789` (app_auth) · `yoland-uat-admin` `33bf6d98204a477091d51bd6375c6230` (admin_ops) |
 | Worker | `yoland-api-uat` → **https://yoland-api-uat.yoland.workers.dev** ; config `infra/cloudflare/wrangler.uat.jsonc` (uat seul, pas d'env prod) ; DO RoomDO/DirectoryDO/TableDO/TradeDO/PresenceDO (migrations v1–v3) ; cron `*/5 * * * *` |
 | Secrets Worker | `BETTER_AUTH_SECRET`, `TICKET_SECRET`, `RESULT_SECRET` (`wrangler secret bulk`, neufs, ≠ local) |
-| R2 | **BLOQUÉ** : R2 non activé sur le compte (API 10042 « enable R2 through the Dashboard ») → aucun bucket |
+| R2 | bucket **`yoland-backups-uat`** (créé le 20/11/2026 23:30 Paris après activation de R2 par Alessandro) : classe Standard, emplacement ENAM (aucun indice de région donné), juridiction par défaut, accès public r2.dev **désactivé**, aucune règle de cycle de vie ajoutée (seule la règle par défaut de Cloudflare : abandon des envois multipart après 7 jours), aucune option payante. Objets sous `uat/AAAA-MM-JJ/…dump.age`, chiffrés age |
 
 **Dérogations uat (refusées en prod par `envSchema`)** : `TURNSTILE_MODE=fake` (jeton public `local-fake-pass` : l'inscription
 uat n'est **pas** protégée contre les robots) ; `EMAIL_MODE=disabled` (liens de vérification / réinitialisation **non
@@ -146,9 +146,20 @@ l'API (pas encore de front uat).
   (`dumpWith(c, { via: 'json' })`) et, sans superuser, désactive les triggers USER table par table et charge dans
   l'ordre des clés étrangères (`fkOrder`).
 
-**Fumée uat** (`infra/smoke/uat-smoke.mjs`) et **exercice de sauvegarde** (`infra/neon/uat-backup-drill.mjs`) : résultats
-dans le rapport du 20/11/2026 ; R2 à refaire quand il sera activé.
+**Fumée uat** (`infra/smoke/uat-smoke.mjs`) : résultats dans le rapport du 20/11/2026.
 
-**Reste pour la prod** : décision d'Alessandro ; R2 activé + bucket + jeton R2 limité ; domaine + Turnstile + fournisseur
+**Exercice de sauvegarde uat avec R2 [MESURÉ, 20/11/2026 23:31 Paris]** (`infra/neon/uat-backup-drill.mjs`) : dump de la
+branche uat (rôle `backup_ro`, 48 tables, 78 lignes, 20 445 o) → age (clé X25519 éphémère, en mémoire seulement) →
+envoi R2 `uat/2026-11-20/yoland-uat-1795213857381.dump.age` (20 645 o, 715 ms) → téléchargement (275 ms, sha256
+identique, en-tête age, aucun texte en clair, une autre clé ne déchiffre pas) → déchiffrement identique → branche
+scratch `scratch-restore-202611202230` + base neuve → 13 migrations → restauration (≈ 32 s) → **0 différence**
+(empreinte md5 du contenu trié de chacune des 48 tables, source = restauré ; comptes de lignes égaux), réconciliation 0,
+chaîne d'audit intacte → branche scratch supprimée (restent `uat` et `production`).
+Accès R2 : via l'API Cloudflare avec le jeton existant (Workers R2 Storage Edit). **Aucune paire de clés S3 créée** : le
+jeton ne peut pas créer de jetons (API 9109). Pour le workflow GitHub `backup-r2.yml` (S3/SigV4), Alessandro doit créer
+un jeton R2 « Object Read & Write » limité au bucket `yoland-backups-uat` (et un jeton lecture seule pour l'exercice).
+[PROPOSITION] pour la prod : bucket en juridiction **EU** (données personnelles ; Neon est à Francfort).
+
+**Reste pour la prod** : décision d'Alessandro ; bucket R2 prod (juridiction EU proposée) + jeton R2 limité ; domaine + Turnstile + fournisseur
 d'e-mail (puis `TURNSTILE_MODE=turnstile`, `EMAIL_MODE=provider` câblé) ; branche/base prod Neon et mots de passe prod
 distincts ; configs Hyperdrive prod ; Workers Paid si la charge l'exige (décision d'argent) ; `migrate-url.mjs --i-am-alessandro`.
