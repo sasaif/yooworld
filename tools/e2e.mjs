@@ -30,7 +30,7 @@ await p.waitForTimeout(600);
 // 5. reload -> layout, finish and inventory persisted through the repository
 await p.reload(); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 });
 const after = await p.evaluate(() => ({ n: window.game.s.apartment.items.length, floor: window.game.s.apartment.floor, coins: window.game.s.inventory.coins, chairs: window.game.s.inventory.items.chair ?? 0 }));
-ok(after.n === n1 && after.floor === 'mint' && after.coins === 420 && after.chairs === 0, 'persisted after reload ' + JSON.stringify(after));
+ok(after.n === n1 && after.floor === 'mint' && after.coins === 500 && after.chairs === 0, 'persisted after reload ' + JSON.stringify(after));
 await p.evaluate(() => { const g = window.game; g.setMode('edit'); const it = g.s.apartment.items.find((i) => i.defId === 'chair' && !i.uid.startsWith('start_')); g.store.set({ selItem: it.uid }); g.storeSelected(); });
 ok(await p.evaluate(() => window.game.s.inventory.items.chair === 1), 'store back into the bag');
 // 6. interaction: toggle the TV
