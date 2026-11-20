@@ -5,7 +5,7 @@
   "type": "module",
   "description": "YoLand backend foundation (Phase B, LOCAL ONLY). API Worker + EconomyGate (Postgres SECURITY DEFINER functions).",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   },
   "scripts": {
     "db:start": "node scripts/pg-local.mjs start",

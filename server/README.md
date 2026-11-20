@@ -31,7 +31,8 @@ Postgres as the single source of truth, with every economy write going through t
 | `scripts/migrate.mjs` | Migration runner (checksums, env tag, refuses prod and non-loopback hosts). |
 
 ## Commands (exact — verified on a fresh clone of 9dedf8e)
-Prerequisites on this box: **Node 22 + npm** (the system `/usr/bin/node` is v20 *without* npm, so use the bundled
+Prerequisites: **Node >= 22.12 + npm** (`engines` in package.json; wrangler 4.x refuses older Node, so `npm run test:e2e`
+fails on Node 20 — QA B1). On this box: Node 22 (the system `/usr/bin/node` is v20 *without* npm, so use the bundled
 Node 22). No account, no network service other than `npm ci`. Postgres comes from the npm package `embedded-postgres`.
 ```bash
 export PATH=/workspace/games-3d/yooworld/work-backend-a/node22/bin:$PATH   # node v22.21.1 + npm
