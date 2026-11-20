@@ -16,6 +16,9 @@
 .pmap.visible { opacity:1; transform:scale(1); }
 .pmap-view { position:absolute; inset:0; overflow:hidden; touch-action:manipulation; }
 .pmap-world { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; transition:transform .45s cubic-bezier(.3,.9,.3,1); }
+.pmap-hd { position:absolute; inset:0; overflow:hidden; border-radius:14px; pointer-events:none; }
+.pmap-hd img { position:absolute; display:block; opacity:0; transition:opacity .25s; user-select:none; -webkit-user-drag:none; }
+.pmap-hd img.ok { opacity:1; }
 .pmap-world img.map { display:block; pointer-events:none; -webkit-user-drag:none; user-select:none; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
 .pmap-layer { position:absolute; inset:0; pointer-events:none; animation:pmap-fade .35s ease .2s both; }
 .pmap-layer > * { pointer-events:auto; }

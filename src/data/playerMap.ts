@@ -44,7 +44,21 @@ export const MAP_STATUS: Record<MapStatus, { label: string; cls: string }> = {
 };
 
 /** `src` = clean art (no baked text / buttons); `fallback` = the original labelled art, used if the clean file fails to load. */
-export const PLAYER_MAP = data.map as { width: number; height: number; src: string; fallback: string };
+/** `hd`: optional 2x tiles of the clean art (2 cols x 2 rows, split at `cols` / `rows` in CSS px), loaded lazily on
+ *  level 2 only when the zoom x devicePixelRatio would upscale the 1x art (e.g. iPhone DPR 3). */
+export type MapHd = { src: string; cols: number[]; rows: number[] };
+export const PLAYER_MAP = data.map as { width: number; height: number; src: string; fallback: string; hd?: MapHd };
+export type HdTile = { id: string; src: string; x: number; y: number; w: number; h: number };
+/** HD tiles that intersect the visible map rect (map CSS px). */
+export function hdTilesFor(view: { x0: number; y0: number; x1: number; y1: number }, hd: MapHd | undefined = PLAYER_MAP.hd): HdTile[] {
+  if (!hd) return [];
+  const out: HdTile[] = [];
+  for (let r = 0; r + 1 < hd.rows.length; r++) for (let c = 0; c + 1 < hd.cols.length; c++) {
+    const x = hd.cols[c], y = hd.rows[r], w = hd.cols[c + 1] - x, h = hd.rows[r + 1] - y;
+    if (x < view.x1 && x + w > view.x0 && y < view.y1 && y + h > view.y0) out.push({ id: `${r}${c}`, src: hd.src.replace('{r}', String(r)).replace('{c}', String(c)), x, y, w, h });
+  }
+  return out;
+}
 export const PLAYER_MAP_DISTRICTS: MapDistrict[] = data.districts as MapDistrict[];
 export const PLAYER_MAP_PLACES: MapPlace[] = data.locations as MapPlace[];
 

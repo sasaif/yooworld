@@ -20,7 +20,12 @@ const shot = (name) => p.screenshot({ path: `${SHOTS}/${DEV}_${name}.png` });
 const tap = (sel) => (dev.mobile ? p.tap(sel) : p.click(sel));
 const ready = () => p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 });
 const level = () => p.locator('[data-map="root"]').getAttribute('data-map-level');
-const settle = () => p.waitForTimeout(700); // camera transition .45 s + layer fade
+// camera transition .45 s + layer fade, then wait until every finite CSS animation / transition has really finished
+// (slow CI runners can lag the 0.4 s open scale-in past a fixed delay and skew the measured boxes)
+const settle = async () => {
+  await p.waitForTimeout(700);
+  await p.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getTiming?.().iterations === Infinity), null, { timeout: 8000 }).catch(() => {});
+};
 const box = (sel) => p.locator(sel).first().boundingBox();
 const inView = (r) => !!r && r.x >= 0 && r.y >= 0 && r.x + r.width <= dev.width + 0.5 && r.y + r.height <= dev.height + 0.5;
 // ---------- layout guards (QA BUG-1 / BUG-2 / minor): no overlap with the ✕ / title / tabs, no truncation ----------
@@ -54,6 +59,15 @@ const guard = async (tag) => {
   ok(L.trunc.length === 0, `${tag}: no truncated badge / tab / card label` + (L.trunc.length ? ' — ' + L.trunc.join('; ') : ''));
   ok(L.tabsCut.length === 0, `${tag}: every district tab fully visible` + (L.tabsCut.length ? ' — ' + L.tabsCut.join(', ') : ''));
 };
+// level-2 zoom: when zoom x DPR would upscale the 1x art (> 1.15), the 2x art tiles under the view load lazily
+const hdCheck = async (tag) => {
+  const sc = await p.evaluate(() => +document.querySelector('.pmap-world').style.transform.match(/scale\(([\d.]+)\)/)[1]);
+  const need = sc * (dev.mobile ? 2 : 1) > 1.15;
+  if (need) await p.waitForFunction(() => [...document.querySelectorAll('[data-map-hd]')].length > 0 && [...document.querySelectorAll('[data-map-hd]')].every((i) => i.classList.contains('ok')), null, { timeout: 20000 }).catch(() => {});
+  const hd = await p.evaluate(() => [...document.querySelectorAll('[data-map-hd]')].map((i) => ({ id: i.dataset.mapHd, w: i.naturalWidth, ok: i.classList.contains('ok') })));
+  if (need) ok(hd.length >= 1 && hd.every((t) => t.ok && t.w === 1672), `${tag}: zoom ${sc.toFixed(2)} x DPR ${dev.mobile ? 2 : 1} → 2x art tiles loaded (${hd.map((t) => t.id).join(',') || 'none'})`);
+  else if (!hd.length) ok(true, `${tag}: zoom ${sc.toFixed(2)} x DPR ${dev.mobile ? 2 : 1} → 1x art is enough, no 2x tiles requested`);
+};
 const tapCenter = async (sel) => { const r = await box(sel); const x = r.x + r.width / 2, y = r.y + r.height / 2; await (dev.mobile ? p.touchscreen.tap(x, y) : p.mouse.click(x, y)); };
 const openMap = async () => { await tap('.dock button[data-map="dock"]'); await p.waitForSelector('[data-map="root"].visible', { timeout: 10000 }); await settle(); };
 
@@ -68,6 +82,7 @@ await shot('01_closed');
 // ---------- level 1 ----------
 await openMap();
 ok(await level() === '1', 'map opens on level 1 (city)');
+ok(await p.locator('[data-map-hd]').count() === 0, 'level 1 never loads the 2x art tiles');
 ok(await p.locator('[data-map="root"]').getAttribute('data-map-art') === 'clean', 'clean (text-free) art is loaded, not the fallback');
 ok(await p.evaluate(() => { const i = document.querySelector('.pmap-world img.map'); return !!i && i.complete && i.naturalWidth === 1672 && i.currentSrc.endsWith('/playermap/map_clean.webp'); }), 'map_clean.webp decoded at 1672 px');
 const names = await p.locator('[data-map-district]').allInnerTexts();
@@ -106,6 +121,7 @@ for (const id of ['factory', 'farm']) {
 }
 ok(await p.locator('[data-map="future"]').innerText().then((t) => t.includes('Dépôt') && t.includes('Atelier')), 'Travail: Extension future lists Dépôt + Atelier meubles');
 await guard('Travail view (Usine selected)');
+await hdCheck('Travail view');
 await shot('03_work');
 await tap('[data-map-place="farm"]'); await p.waitForTimeout(250);
 ok(await p.locator('[data-map-card="farm"].active').count() === 1, 'tapping the Ferme pin selects its card');
@@ -169,7 +185,7 @@ await p.waitForTimeout(1200);
 
 await openMap();
 await guard('level 1 at home');
-await tap('[data-map-district="residential"]'); await settle(); await guard('Résidentiel view');
+await tap('[data-map-district="residential"]'); await settle(); await guard('Résidentiel view'); await hdCheck('Résidentiel view');
 for (const d of ['fun', 'nature']) { await tap(`[data-map-tab="${d}"]`); await settle(); await guard(`${d} view`); }
 await tap('[data-map="back"]'); await settle();
 await tap('[data-map-district="center"]'); await settle();

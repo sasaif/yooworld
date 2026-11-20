@@ -7,6 +7,7 @@ import {
 import { camToPoint, camToRect, clampCam, fitCam, L2_TOP, l2Strip, maxScale, pctToPx, zoomAt } from '../src/ui/map/mapCamera';
 import { CITY_NAV, mapNavigation } from '../src/ui/map/mapNavigation';
 import { isPlayable, LOCATIONS } from '../src/data/locations';
+import { hdTilesFor, PLAYER_MAP as PM } from '../src/data/playerMap';
 
 const inMap = (p: { x: number; y: number }) => p.x > 0 && p.x < 100 && p.y > 0 && p.y < 100;
 const D = (id: DistrictId) => placesIn(id).map((p) => p.id);
@@ -222,5 +223,18 @@ describe('player map: ephemeral two-level navigation', () => {
     const s = { district: 'center' as const, selected: 'club' };
     expect(mapNavigation(s, { type: 'select', id: null })).toEqual({ district: 'center', selected: null });
     expect(mapNavigation(s, { type: 'city' })).toEqual(CITY_NAV);
+  });
+});
+
+describe('player map HD tiles', () => {
+  it('2x2 tiles cover the whole 1672x941 art exactly', () => {
+    const all = hdTilesFor({ x0: 0, y0: 0, x1: PM.width, y1: PM.height });
+    expect(all.map((t) => t.id)).toEqual(['00', '01', '10', '11']);
+    expect(all.reduce((a, t) => a + t.w * t.h, 0)).toBe(PM.width * PM.height);
+    expect(all.every((t) => /^\/playermap\/hd\/map_clean_\d\d\.webp$/.test(t.src))).toBe(true);
+  });
+  it('only the tiles under the visible rect are requested', () => {
+    expect(hdTilesFor({ x0: 1300, y0: 50, x1: 1650, y1: 300 }).map((t) => t.id)).toEqual(['01']);
+    expect(hdTilesFor({ x0: 600, y0: 300, x1: 1000, y1: 600 }).map((t) => t.id)).toEqual(['00', '01', '10', '11']);
   });
 });
