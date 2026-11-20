@@ -63,6 +63,21 @@ npm run db:stop
 > Note: the current client (`src/economy/purchase.ts`) marks Diamond purchases `bound: true`. Phase B does not
 > change the client economy; this mismatch must be resolved when the client switches to the server economy.
 
+## Backup / restore (tested locally: `npx vitest run test/backup`)
+`scripts/backup.mjs`: consistent logical dump (one REPEATABLE READ snapshot, role `backup_ro`) of every table in
+auth/eco/social/prog/mod/audit/app -> **age** encryption (X25519 recipient; private identity kept offline by the owner)
+-> upload to an S3-compatible bucket with SigV4 (`scripts/s3-local.mjs` emulator here; R2 in Phase C) -> download ->
+decrypt -> restore into an **empty** database (schema from the same migrations, checksums compared; data via COPY with
+triggers disabled; identities reset). Also a ledger NDJSON export. The test checks reconciliation = 0, identical row
+counts for all tables, identical ledger NDJSON, intact audit hash chain, and that the restored DB works.
+Deviation: `pg_dump` / MinIO are not installed on this box and Phase B forbids non-npm downloads, so the dump is a
+COPY-based logical dump and the object store is a local SigV4 emulator. Phase C must re-run with pg_dump/pg_restore
+against Neon and a real R2 bucket.
+
+## Cost harness (`npx vitest run -c vitest.e2e.config.ts test/e2e/cost.test.ts`)
+Counts incoming/outgoing WS messages, bytes and alarms for one 25-player room (moving vs idle) and writes
+`test-results/cost-harness.json` with a labelled $ ESTIMATION from Cloudflare's public DO pricing.
+
 ## Before real payments (BACKLOG — not built in Phase B)
 - Chargeback / refund handler: claw back the Diamonds and the items bought with them, freeze items already given
   away or traded, flag repeat offenders (uses `eco.purchase_events`, `item_moves`, `eco.account_age_days`).
