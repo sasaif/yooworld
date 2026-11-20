@@ -1,5 +1,5 @@
 import { createRequire } from 'module'; const { chromium } = createRequire(import.meta.url)(process.env.PW ?? 'playwright-core');
-// Yoo Plage end-to-end on an iPhone-landscape touch viewport with real localStorage: travel via the Lieux menu,
+// Yoo Plage end-to-end on an iPhone-landscape touch viewport with real localStorage: travel via the Carte (Plage → Visiter),
 // tap-to-walk on the sand, sit via the tap menu, dance at the DJ, persistence after reload, travel back home.
 const url = process.argv[2] ?? `http://localhost:${process.env.PORT ?? '5210'}/`;
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -14,8 +14,10 @@ const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process
 await p.goto(url); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 });
 await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 120000 }); await p.waitForTimeout(4000);
 ok(await p.evaluate(() => window.game.s.location) === 'home', 'starts at home');
-await p.tap('.dock button:first-child'); await p.waitForTimeout(500);
-const card = p.locator('.sheet .card', { hasText: 'Yoo Plage' }); ok(await card.isEnabled(), 'Yoo Plage card enabled in Lieux');
+// two-level Carte (the Lieux sheet was replaced by the map): city → Plage district → Yoo Plage card → Visiter
+await p.tap('.dock button[data-map="dock"]'); await p.waitForSelector('[data-map="root"].visible', { timeout: 10000 }); await p.waitForTimeout(500);
+await p.tap('[data-map-district="beach"]'); await p.waitForSelector('[data-map-go="beach"]', { timeout: 5000 }); await p.waitForTimeout(500);
+const card = p.locator('[data-map-go="beach"]'); ok(await card.isEnabled(), 'Yoo Plage Visiter enabled on the Carte (Plage)');
 await card.tap(); await p.waitForTimeout(200);
 ok(await p.evaluate(() => window.game.s.transition?.to) === 'beach', 'fade transition started');
 await p.waitForFunction(() => window.game.s.location === 'beach' && !window.game.s.transition, null, { timeout: 20000 });
