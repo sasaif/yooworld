@@ -168,8 +168,8 @@ chaîne d'audit intacte → branche scratch supprimée (restent `uat` et `produc
 Accès R2 : via l'API Cloudflare avec le jeton existant (Workers R2 Storage Edit). **Aucune paire de clés S3 créée** : le
 jeton ne peut pas créer de jetons (API 9109). Pour le workflow GitHub `backup-r2.yml` (S3/SigV4), Alessandro doit créer
 un jeton R2 « Object Read & Write » limité au bucket `yoland-backups-uat` (et un jeton lecture seule pour l'exercice).
-[PROPOSITION] pour la prod : bucket en juridiction **EU** (données personnelles ; Neon est à Francfort).
+[DÉCISION 20/11, directeur technique] pour la prod : bucket R2 en juridiction **EU** (RGPD, données personnelles ; Neon est à Francfort). Le bucket uat en ENAM reste OK (données de test). Les jetons R2 S3 pour `backup-r2.yml` seront demandés à Alessandro lors de la préparation de la prod.
 
-**Reste pour la prod** : décision d'Alessandro ; bucket R2 prod (juridiction EU proposée) + jeton R2 limité ; domaine + Turnstile + fournisseur
+**Reste pour la prod** : décision d'Alessandro ; bucket R2 prod (juridiction EU, décidée) + jeton R2 limité ; domaine + Turnstile + fournisseur
 d'e-mail (puis `TURNSTILE_MODE=turnstile`, `EMAIL_MODE=provider` câblé) ; branche/base prod Neon et mots de passe prod
 distincts ; configs Hyperdrive prod ; Workers Paid si la charge l'exige (décision d'argent) ; `migrate-url.mjs --i-am-alessandro`.
