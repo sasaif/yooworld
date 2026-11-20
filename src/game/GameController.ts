@@ -12,7 +12,9 @@ import type { PlacedItem } from './apartment/ApartmentModel';
 import type { NetworkTransport } from '../net/NetworkTransport';
 import { LocalChatService } from './social/social';
 import { ChatStore } from './social/ChatStore';
-import { goTo, placeChar, say, world } from './world';
+import { goTo, placeChar, say, setSayGate, world } from './world';
+import { BubbleDirector } from './social/bubbleDirector';
+import { bubbleDurationMs } from './social/chatConfig';
 import { BEACH_SPAWN, DANCE_SPOTS, beachWorld, propById } from './beach/beachLayout';
 import { isPlayable, locationById, remembered } from '../data/locations';
 import { isPlayerChar, syncAmbientNpcs } from './npc/ambientNpcs';
@@ -46,6 +48,10 @@ const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision:
 export class GameController {
   readonly store = new Store<GameState>({ ready: false, profile: null, apartment: null, inventory: null, mode: 'play', panel: null, selItem: null, placing: null, menuItem: null, activeChar: 'f', toast: null, location: 'home', transition: null, mood: 'day', beachMusic: false, saveProblems: [], temporary: false });
   readonly chat: ChatStore;
+  /** speech-bubble owner (cap + neutral policy, game/social/bubblePolicy.ts) */
+  readonly bubbles: BubbleDirector;
+  /** LOCAL SIMULATION only (dev/chatSim.ts): positions of simulated senders that have no rendered avatar. */
+  readonly virtualSpeakers = new Map<string, { x: number; z: number; name?: string }>();
   readonly cat = FURNITURE;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   /** P0.B quarantine: placed furniture whose defId this build does not know. Hidden from the room, but always
@@ -55,7 +61,17 @@ export class GameController {
    *  instead of the legacy furniture `inventory.coins` counter. */
   constructor(public repo: GameRepository, readonly net: NetworkTransport, readonly wallet?: { balance(): number; spend(amount: number, memo: string): boolean }, readonly hooks: ControllerHooks = {}) {
     this.chat = new ChatStore(new LocalChatService(net));
-    this.chat.onMessage((m) => { if (m.local) say(this.store.get().activeChar, m.text); });
+    // every say() (chat and gameplay lines) goes through the bubble cap + neutral policy
+    this.bubbles = new BubbleDirector({
+      target: (id) => world.chars[id], selfId: () => this.store.get().activeChar,
+      locate: (id) => world.chars[id]?.pos ?? this.virtualSpeakers.get(id) ?? null,
+    });
+    setSayGate((id, text, ms) => { this.bubbles.request(id, text, ms); });
+    // a chat message shows above its sender's avatar (local or received); no avatar here = history only
+    this.chat.onMessage((m) => {
+      const id = m.local ? this.store.get().activeChar : m.from;
+      if (world.chars[id] || this.virtualSpeakers.has(id)) say(id, m.text, bubbleDurationMs(m.text));
+    });
   }
   get s() { return this.store.get(); }
 
@@ -199,7 +215,7 @@ export class GameController {
   // ---------- locations ----------
   /** Build the navigation + seat registry of a location and (optionally) put both local avatars at its entrance. */
   private enterWorld(id: string, spawn: boolean) {
-    world.location = id;
+    world.location = id; this.bubbles.reset();
     if (id === 'beach') { const b = beachWorld(); world.nav = b.nav; world.seats = b.seats; resolveApproaches(world.seats, b.nav); }
     else if (id === 'club') syncWorld(CLUB, this.cat); // fixed Games Club room (not saved), same nav + seat system
     else syncWorld(this.s.apartment!, this.cat);
