@@ -44,17 +44,38 @@ montée de version sous 48 h pour toute criticité haute/critique touchant le c�
   requêtes (règle Workers). Coût : 1 connexion TCP Postgres par requête d'auth → **Hyperdrive requis en Phase C**.
 - Base indisponible : les routes Better Auth répondent 503 + `Retry-After: 5` (testé, `resilience.test.ts`).
 
+## Milestone 3 — les 3 tests qui conditionnent l'adoption [MESURÉ, `test/e2e/account.test.ts` → `test-results/auth-gaps.json`]
+| Test | Résultat | Verdict |
+|---|---|---|
+| Codes de secours 2FA | 10 générés, stockés chiffrés (`storeBackupCodes: "encrypted"` par défaut, pas en clair en base) ; 1 usage → 9 restants ; réutilisation du même code → 401 ; code faux → 401 ; 2ᵉ code → 8. Route `/two-factor/verify-backup-code` limitée à 5/60 s. | PASS |
+| Révocation de session | Session révoquée → 401 dès la 1ʳᵉ requête (≈24 ms) ; émission de ticket WS → 401 ; sign-out → 401 ; reset de mot de passe → toutes les sessions révoquées (`revokeSessionsOnPasswordReset`) ; jeton de reset à usage unique (30 min). | PASS (HTTP) — limite ci-dessous |
+| Énumération de comptes | Corps de réponse identiques compte existant / inconnu pour sign-in, sign-up (vérification e-mail obligatoire → utilisateur synthétique) et request-password-reset. Temps, N = 50 essais entrelacés : sign-in p50 77,5 / 76,8 ms (p95 120 / 99), sign-up p50 72,8 / 73,4 ms (p95 93 / 88), reset p50 20,2 / 21,2 ms (p95 31 / 39) — écart de p50 ≤ 1 ms. | PASS |
+
+**Limite (révocation)** : un WebSocket déjà ouvert reste connecté après révocation (le ticket n'est vérifié qu'à
+l'ouverture). [PROPOSITION] Phase C : hook `databaseHooks.session.delete.after` (ou bannissement) → appel RPC
+`disconnect(player)` aux RoomDO où le joueur est présent (index de présence par joueur), ou durée de vie WS bornée
+(reconnexion forcée toutes les N minutes avec nouveau ticket). Non bloquant pour l'adoption.
+
+## Suppression / export de compte [MESURÉ]
+- `POST /api/me/delete` (session < 10 min + mot de passe) : `eco.close_account` (échanges ouverts annulés,
+  sauvegardes/blocages/confidentialité effacés, événements possédés annulés) + anonymisation auth
+  (`deleted+<id>@deleted.invalid`, sessions/comptes/2FA supprimés). Le grand livre reste append-only : +2 lignes
+  (annulation de l'échange), 0 ligne supprimée, réconciliation à 0, chaîne d'audit intacte ; l'e-mail est réutilisable.
+- `GET /api/me/export` : JSON (compte sans hash/jetons/secret 2FA + `eco.export_player`), `no-store`, pièce jointe.
+- **Solde et objets du compte supprimé** : actuellement GELÉS sur place (aucune écriture). Options [PROPOSITION,
+  décision Alessandro] : (a) délai de grâce 30 j puis transfert vers un portefeuille système par transaction de
+  grand livre ; (b) transfert immédiat ; (c) objets révoqués / retournés au stock. Recommandation : (a).
+
 ## Bloquants / points ouverts avant adoption
-1. **Fournisseur d'e-mail** absent (vérification d'adresse, reset) : `sendVerificationEmail` lève une erreur hors
-   local. Phase C : compte d'Alessandro (ex. Resend), domaine + SPF/DKIM.
+1. **Fournisseur d'e-mail** absent (vérification d'adresse, reset) : `sendVerificationEmail` / `sendResetPassword`
+   lèvent une erreur hors local. Phase C : compte d'Alessandro (ex. Resend), domaine + SPF/DKIM.
 2. **Hyperdrive / pooling** pour Neon (latence et nombre de connexions) — non testé (pas de compte).
-3. Codes de secours 2FA : stockage et usage [NON VÉRIFIÉ].
-4. Révocation de session immédiate (sign-out partout, bannissement) : attendue (sessions en base, cookieCache off)
-   mais [NON VÉRIFIÉ] en e2e.
-5. Énumération de comptes à l'inscription / reset : [NON VÉRIFIÉ].
-6. Fraîcheur de session admin : heuristique `session.createdAt ≥ user.updatedAt` (fail-closed) ; une vraie
+3. Déconnexion des WebSockets ouverts à la révocation — voir limite ci-dessus.
+4. Fraîcheur de session admin : heuristique `session.createdAt ≥ user.updatedAt` (fail-closed) ; une vraie
    « step-up » 2FA par action admin serait plus robuste (proposition).
+5. Turnstile : crochet prêt (`TURNSTILE_MODE`), clé réelle requise en uat/prod (Phase C).
 
 ## Recommandation technique [PROPOSITION]
-Adoptable pour le périmètre utilisé (cœur + TOTP) sous conditions : version épinglée + veille GHSA, Hyperdrive,
-fournisseur e-mail, et les points 3–5 testés en Phase C. Décision finale : Alessandro.
+Les 3 tests conditionnant l'adoption passent. Adoptable pour le périmètre utilisé (cœur + TOTP + codes de secours)
+sous conditions : version épinglée + veille GHSA, Hyperdrive, fournisseur e-mail, déconnexion WS à la révocation.
+Décision finale : Alessandro.

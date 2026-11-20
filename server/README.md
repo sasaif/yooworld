@@ -57,7 +57,8 @@ cp .dev.vars.example .dev.vars            # local placeholders only (git-ignored
 npm run dev                               # wrangler dev --local on 127.0.0.1:8787 (no account, no deploy)
 npm run db:stop
 ```
-Expected results at 9dedf8e [MESURÉ]: typecheck OK; `npm test` 11 files / 80 tests passed; `npm run test:e2e`
+Expected results at the M3 head [MESURÉ]: typecheck OK; `npm test` 18 files / 100 tests; `npm run test:e2e` 7 files /
+33 tests (≈125 s). Historical, at 9dedf8e [MESURÉ]: typecheck OK; `npm test` 11 files / 80 tests passed; `npm run test:e2e`
 4 files / 20 tests passed (≈80 s; the cost test alone ≈45 s).
 
 ## Rules enforced by the database
@@ -110,3 +111,14 @@ Counts incoming/outgoing WS messages, bytes and alarms for one 25-player room (m
   message is not delivered to the client (the room still drops the socket and stops sending to it). Real clients send
   moves; every server close is preceded by an explicit message (`kicked`, `error: alone`, …) so the client can close
   itself. To re-check on real Cloudflare in Phase C.
+
+## Milestone 3 notes
+- **Account deletion** = close + anonymise (`eco.close_account`, ledger untouched); wallet/items are frozen in place —
+  the sweep policy is Alessandro's decision (options in `docs/BETTER_AUTH_REVIEW.md`). Export: `GET /api/me/export`.
+- **Trades**: `TradeDO` (versioned offer / counter / accept; settles via `eco.trade_lock` + `eco.trade_settle`).
+- **Human check**: `TURNSTILE_MODE=off|fake|turnstile` (local default off; uat/prod must be `turnstile` + secret).
+- **Ops**: `ops.metrics` / `ops.alerts` (0012), `GET /dev/ops/check` locally, `scheduled()` for a Phase C cron.
+- **Client `?net=1`** (dev): `npm run dev:user -- <email> <password>` creates a verified local account; open the game
+  with `?net=1&lieu=beach` (APP_ORIGIN must equal the game origin). Off by default.
+- **Dominoes contract**: `test/unit/dominoes-contract.test.ts` breaks on client rule drift; re-pin with `PIN_CONTRACT=1`.
+- **B4 (pg_dump + real R2 restore)**: Phase C (needs Alessandro's accounts); the local backup/restore drill stays.
