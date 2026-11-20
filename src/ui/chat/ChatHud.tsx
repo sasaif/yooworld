@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
-import { Vector3, type Camera } from 'three';
+import { PerspectiveCamera, Vector3, type Camera } from 'three';
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
 import { chatUi } from '../../persistence/storage';
@@ -82,9 +82,14 @@ function controlZones(): Zone[] {
 /** Player-avatar safe area (feet to head + name tag), projected from the 3D position. Snapshotted when the panel is
  *  placed (open, drag, resize, viewport change), not every frame: the panel never chases the walking avatar. */
 const _pv = new Vector3();
+const _cam = new PerspectiveCamera();
 function avatarZone(): Zone | null {
-  const c = world.chars[game.s.activeChar]; const cam = (window as unknown as { __cam?: Camera }).__cam;
+  const c = world.chars[game.s.activeChar]; let cam = (window as unknown as { __cam?: Camera }).__cam;
   if (!c || !cam) return null;
+  // right after a resize / rotation the renderer has not updated the camera aspect yet (slow frames): project with the
+  // current one so the snapshot is not taken from the old screen shape (BUG-V2b)
+  const aspect = innerWidth / Math.max(1, innerHeight);
+  if (cam instanceof PerspectiveCamera && Math.abs(cam.aspect - aspect) > 0.01) { _cam.copy(cam); _cam.aspect = aspect; _cam.updateProjectionMatrix(); cam = _cam; }
   let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
   for (const [dx, y, dz] of [[-0.45, 0, -0.45], [0.45, 0, 0.45], [-0.45, 0, 0.45], [0.45, 0, -0.45], [-0.45, 1.35, 0], [0.45, 1.35, 0]] as const) {
     _pv.set(c.pos.x + dx, y, c.pos.z + dz).project(cam); if (_pv.z > 1) return null;
@@ -114,10 +119,10 @@ function measureVp(): Vp {
 const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && zonesKey(a.avoid) === zonesKey(b.avoid) && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
 /** Re-measured on resize / orientation / visual viewport / keyboard / focus and every 400 ms (state only changes when a
  *  value changed). BUG-V2b: after a viewport change the controls and the camera (hence the avatar safe area) keep moving
- *  for a while, so every viewport event also schedules settle passes (next frame, +250 ms, +700 ms, +1400 ms) that bump
+ *  for a while, so every viewport event also schedules settle passes (next frame, +250 ms, +700 ms, +1400 ms, +2400 ms) that bump
  *  `settle` -> the panel is re-placed against fresh zones + a fresh avatar snapshot even when nothing in `vp` changed.
  *  A ResizeObserver on the controls does the same when one of them changes size (wrap, font settle). */
-const SETTLE_MS = [250, 700, 1400];
+const SETTLE_MS = [250, 700, 1400, 2400];
 function useViewport(active: boolean) {
   const [vp, setVp] = useState<Vp | null>(null);
   const [settle, setSettle] = useState(0);
@@ -194,7 +199,9 @@ export function ChatHud() {
   const pinned = useRef(true);
   const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number; vp: PanelViewport; pending: boolean; el: HTMLElement } | null>(null);
   const eatClick = useRef(false);
+  const swallowUntil = useRef(0);
   const [placed, setPlaced] = useState<Rect | null>(null);
+  const [regest, setRegest] = useState(0); // bumped when a gesture ends -> re-place against the current zones
 
   // speech bubbles keep working whatever the panel does (director tick + de-overlap, ~8 Hz)
   useEffect(() => installBubbleLayer(), []);
@@ -228,9 +235,12 @@ export function ChatHud() {
   // re-clamped against the current viewport and forbidden zones (incl. the avatar at that moment); never saved here
   useLayoutEffect(() => {
     if (!open || !vp || vp.kb) { if (!open) setPlaced(null); return; }
-    if (gesture.current && !gesture.current.pending) return; // never yank the panel from under the finger
+    // never yank the panel from under the finger, including a finger still resting on ▾ Chat / − / + before the 6 px
+    // threshold (BUG-V7: a settle pass moved the panel +20,+32 under a pending gesture, which then started from a stale
+    // rect / the finger was no longer on the header): the skipped pass is replayed when the gesture ends (`regest`)
+    if (gesture.current) return;
     const r = rectFromPrefs(prefs, withAvatar(vp)); setPlaced((o) => (sameRect(o, r) ? o : r));
-  }, [open, vp, prefs, settle]);
+  }, [open, vp, prefs, settle, regest]);
 
   if (!ready || mode !== 'play') return null;
   if (!open) return <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
@@ -285,10 +295,12 @@ export function ChatHud() {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     gesture.current = null;
     if (!g.pending && drag && vp) { const p = prefsFromRect(drag, vp); setPrefs(p); setPlaced(drag); writePrefs(p); }
-    setDrag(null);
-    if (eatClick.current) setTimeout(() => { eatClick.current = false; }, 60);
+    setDrag(null); setRegest((k) => k + 1);
+    // the click that follows a drag / a retargeted header tap can come well after pointerup on slow touch devices (a
+    // fixed 60 ms timer let it through): swallow the next click for 400 ms instead
+    if (eatClick.current) { eatClick.current = false; swallowUntil.current = performance.now() + 400; }
   };
-  const swallowDragClick = (e: RMouseEvent<HTMLElement>) => { if (eatClick.current) { eatClick.current = false; e.preventDefault(); e.stopPropagation(); } };
+  const swallowDragClick = (e: RMouseEvent<HTMLElement>) => { if (eatClick.current || performance.now() < swallowUntil.current) { eatClick.current = false; swallowUntil.current = 0; e.preventDefault(); e.stopPropagation(); } };
   const step = (dir: -1 | 1) => { if (!base || !vp) return; const r = stepPanel(base, dir, withAvatar(vp)); const p = prefsFromRect(r, vp); setPrefs(p); setPlaced(r); writePrefs(p); };
   const resetPos = () => { setPrefs(null); writePrefs(null); };
   const gestureProps = { onPointerMove: onGesture, onPointerUp: endGesture, onPointerCancel: endGesture };

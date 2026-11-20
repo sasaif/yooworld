@@ -339,6 +339,27 @@ async function dragPanelTo(p, cdp, touch, tx, ty, { probeMid = false } = {}) {
   await p.waitForTimeout(500);
   return mid;
 }
+/** the panel rect read every 150 ms until 3 identical reads (layout settled); returns ms waited, or -1 on timeout */
+async function waitStable(p, max = 4000) {
+  const t0 = Date.now(); let last = '', same = 0;
+  while (Date.now() - t0 < max) {
+    const r = await p.evaluate(() => { const s = document.querySelector('.chat-sheet')?.getBoundingClientRect(); return s ? [s.left, s.top, s.width, s.height].map(Math.round).join(',') : 'none'; });
+    same = r === last ? same + 1 : 0; last = r; if (same >= 2) return Date.now() - t0;
+    await p.waitForTimeout(150);
+  }
+  return -1;
+}
+/** one header gesture from (x, y) by (dx, dy): touch (CDP) or mouse; returns { moved, note } */
+async function headerGesture(p, cdp, touch, x, y, dx, dy, steps = 8) {
+  const c0 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); return [s.left, s.top]; });
+  const isDragging = () => p.evaluate(() => !!document.querySelector('.chat-sheet.dragging'));
+  let dragging = false;
+  if (touch) { const T = (type, xx, yy) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(xx), y: Math.round(yy), id: 1 }] }); await T('touchStart', x, y); for (let i = 1; i <= steps; i++) { await T('touchMove', x + dx * i / steps, y + dy * i / steps); await p.waitForTimeout(16); } dragging = await isDragging(); await T('touchEnd'); }
+  else { await p.mouse.move(x, y); await p.mouse.down(); await p.mouse.move(x + dx, y + dy, { steps }); dragging = await isDragging(); await p.mouse.up(); }
+  await p.waitForTimeout(350);
+  // 'dragging' = the move gesture started (the drop spot itself may be snapped back by the forbidden zones)
+  return p.evaluate(([c0, dragging]) => { const e = document.querySelector('.chat-sheet'); if (!e) return { dragging, moved: false, closed: true }; const s = e.getBoundingClientRect(); return { dragging, moved: Math.abs(s.left - c0[0]) > 4 || Math.abs(s.top - c0[1]) > 4, note: !!e.querySelector('.chat-scope.open') }; }, [c0, dragging]);
+}
 if (want('drag')) for (const d of DRAG_DEVS) {
   const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: d.dpr, isMobile: d.touch, hasTouch: d.touch });
   await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch {} });
@@ -351,6 +372,32 @@ if (want('drag')) for (const d of DRAG_DEVS) {
   // BUG-V4: the drag handle is the whole header bar (≥ 44 px high), ▾ Chat tap still closes, − still shrinks
   const hd = await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect(); const x = document.querySelector('.chat-sheet h3 .x').getBoundingClientRect(); return { w: h.width, h: h.height, handle: h.width - x.width }; });
   ok(hd.h >= 44 && hd.handle >= 150, `${d.name}: drag handle = header bar ${Math.round(hd.handle)} x ${Math.round(hd.h)} px (≥ 44 px high, only ✕ excluded)`, hd);
+  // BUG-V4b: the bottom band of the 44 px header (where touch adjustment picks the 📍 line under it) starts a drag too,
+  // at every x except ✕ and the resize grip; a plain tap there does not toggle the 📍 note
+  {
+    const resetPos = async () => { await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag'); h.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); }); await p.waitForTimeout(250); };
+    await resetPos(); await waitStable(p, 3000);
+    const hb = await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect(); const x = document.querySelector('.chat-sheet h3 .x').getBoundingClientRect(); const g = document.querySelector('.chat-sheet .chat-grip').getBoundingClientRect(); return { l: h.left, t: h.top, w: h.width, h: h.height, xl: x.left - 2, xr: x.right + 2, gr: g.right, gb: g.bottom }; });
+    const miss = []; let n = 0;
+    for (const yy of [hb.h - 4, hb.h - 2]) for (let x = hb.l + 4; x < hb.l + hb.w - 2; x += Math.max(14, Math.round(hb.w / 14))) {
+      if (x >= hb.xl && x <= hb.xr) continue; if (x <= hb.gr && hb.t + yy <= hb.gb) continue;
+      await resetPos(); n++;
+      const now = await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect(); return { l: h.left, t: h.top }; }); // the spot may have been re-placed
+      const r = await headerGesture(p, cdp, d.touch, now.l + (x - hb.l), now.t + yy, -40, 30);
+      if (!r.dragging || r.note) miss.push([Math.round(x - hb.l), Math.round(yy), r.note ? 'note' : 'no drag']);
+      if (r.closed) await openChat(p);
+    }
+    ok(n >= 10 && miss.length === 0, `${d.name}: header bottom band (y = h-4 / h-2) starts a ${d.touch ? 'touch' : 'mouse'} drag at ${n - miss.length}/${n} points (BUG-V4b)`, miss);
+    await resetPos();
+    const hn = await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect(); return { l: h.left, t: h.top }; });
+    const tx = hn.l + Math.min(hb.w / 2, hb.xl - hb.l - 10), ty = hn.t + hb.h - 2;
+    if (d.touch) await p.touchscreen.tap(tx, ty); else await p.mouse.click(tx, ty);
+    await p.waitForTimeout(300);
+    const note = await p.evaluate(() => !!document.querySelector('.chat-sheet .chat-scope.open'));
+    ok(!note, `${d.name}: a tap on the header bottom band does not toggle the 📍 note`, { note });
+    if (note) await p.evaluate(() => document.querySelector('.chat-sheet .chat-scope').click());
+    await resetPos();
+  }
   const targets = await controlsAt(p);
   let worst = [], midBad = [];
   for (const t of targets) {
@@ -373,7 +420,11 @@ if (want('drag')) for (const d of DRAG_DEVS) {
   for (const [w, h] of [[568, 320], [667, 375], [d.w, d.h]]) {
     await p.setViewportSize({ width: w, height: h }); await p.waitForTimeout(1300);
     r = await coveredControls(p);
-    ok(r.open && r.covered.length === 0 && r.onScreen, `${d.name}: resized to ${w}x${h} with the panel open -> covers none, fully on screen`, r);
+    ok(r.open && !r.covered.some((c) => !c.startsWith('avatar')) && r.onScreen, `${d.name}: resized to ${w}x${h} with the panel open -> +1.3 s covers no control, fully on screen`, r);
+    // the avatar safe area is a soft zone re-checked by the settle passes (camera / avatar projection settle late in
+    // headless swiftshader): checked once the last pass (+2.4 s) has run
+    await p.waitForTimeout(1500); r = await coveredControls(p);
+    ok(r.open && r.covered.length === 0 && r.onScreen, `${d.name}: resized to ${w}x${h} -> after settle (+2.8 s) covers none (controls + avatar)`, r);
   }
   // BUG-V2: a forbidden position saved by an older build (bottom-left over the joystick, max size) is re-clamped at load
   await p.evaluate((d) => { const k = Object.keys(localStorage).find((k) => k.startsWith('ywchatui.')) || 'ywchatui.dev.panel'; localStorage.setItem(k, JSON.stringify({ dr: d.w - 6 - 300, top: d.h - 6 - 250, w: 300, h: 250 })); }, d);
@@ -386,16 +437,42 @@ if (want('drag')) for (const d of DRAG_DEVS) {
     ok(r.open && r.covered.length === 0 && r.onScreen, `${d.name}: forbidden saved position, reload at ${w}x${h} -> re-clamped, covers none`, r);
   }
   // taps on the header buttons still work (a tap is not a drag)
-  await p.setViewportSize({ width: d.w, height: d.h }); await p.waitForTimeout(800);
+  await p.setViewportSize({ width: d.w, height: d.h }); await p.waitForTimeout(300);
+  // BUG-V7 root cause: a settle pass re-placed the panel while a finger was still resting on '▾ Chat' (gesture pending,
+  // below the 6 px threshold). Press-and-hold '▾ Chat' right inside the settle window: the panel must not move under the
+  // held finger, the move must then start (dragging), and after release it is re-placed off every control.
+  {
+    const f0 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); const f = document.querySelector('.chat-sheet h3 .chat-fold').getBoundingClientRect(); return { x: s.left, y: s.top, cx: s.left + s.width / 2, cy: s.top + s.height / 2, fx: f.left + f.width / 2, fy: f.top + f.height / 2 }; });
+    const at = () => p.evaluate(() => { const s = document.querySelector('.chat-sheet')?.getBoundingClientRect(); return s ? { x: s.left, y: s.top } : null; });
+    const vx = Math.sign(d.w / 2 - f0.cx) * 7, vy = Math.sign(d.h / 2 - f0.cy) * 2; let held = [], dragging = false;
+    if (d.touch) {
+      const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1 }] });
+      await T('touchStart', f0.fx, f0.fy); await p.waitForTimeout(40); held.push(await at());
+      for (let i = 0; i < 6; i++) { await p.waitForTimeout(450); held.push(await at()); }
+      for (let i = 1; i <= 10; i++) { await T('touchMove', f0.fx + vx * i, f0.fy + vy * i); await p.waitForTimeout(16); }
+      dragging = await p.evaluate(() => !!document.querySelector('.chat-sheet.dragging')); await T('touchEnd');
+    } else {
+      await p.mouse.move(f0.fx, f0.fy); await p.mouse.down(); await p.waitForTimeout(40); held.push(await at());
+      for (let i = 0; i < 6; i++) { await p.waitForTimeout(450); held.push(await at()); }
+      await p.mouse.move(f0.fx + vx * 10, f0.fy + vy * 10, { steps: 10 }); dragging = await p.evaluate(() => !!document.querySelector('.chat-sheet.dragging')); await p.mouse.up();
+    }
+    // reference = the rect right after the finger went down (a pass may still land between reading f0 and touchStart)
+    const still = !!held[0] && held.every((h) => h && Math.abs(h.x - held[0].x) < 1 && Math.abs(h.y - held[0].y) < 1);
+    await p.waitForTimeout(2800); const r = await coveredControls(p);
+    ok(still && dragging && r.open && !r.covered.some((c) => !c.startsWith('avatar')) && r.onScreen, `${d.name}: finger held 2.7 s on '▾ Chat' during the settle window -> panel frozen under it, then a drag, then re-placed off the controls (BUG-V7)`, { f0, held, dragging, r });
+  }
+  // BUG-V7: the panel was still being re-placed when the old test grabbed '▾ Chat' 800 ms after the resize (moved +20,+32
+  // by itself, the touch landed above the panel): the layout must settle within 2.5 s, then the drag is measured
+  { const ms = await waitStable(p, 4000); ok(ms >= 0 && ms <= 2500, `${d.name}: panel settled ${ms} ms after the resize back to ${d.w}x${d.h} (≤ 2.5 s)`, { ms }); }
   // BUG-V4: a drag that starts on the '▾ Chat' button moves the panel (towards the screen centre) and does not close it
   {
-    const r0 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); const f = document.querySelector('.chat-sheet h3 .chat-fold').getBoundingClientRect(); return { x: s.left, y: s.top, cx: s.left + s.width / 2, cy: s.top + s.height / 2, fx: f.left + f.width / 2, fy: f.top + f.height / 2 }; });
+    const r0 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); const f = document.querySelector('.chat-sheet h3 .chat-fold').getBoundingClientRect(); const fx = f.left + f.width / 2, fy = f.top + f.height / 2; return { x: s.left, y: s.top, cx: s.left + s.width / 2, cy: s.top + s.height / 2, fx, fy, onFold: !!document.elementFromPoint(fx, fy)?.closest('.chat-fold') }; });
     const vx = Math.sign(d.w / 2 - r0.cx) * 7, vy = Math.sign(d.h / 2 - r0.cy) * 2; let dragging = false;
     if (d.touch) { const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1 }] }); await T('touchStart', r0.fx, r0.fy); for (let i = 1; i <= 10; i++) { await T('touchMove', r0.fx + vx * i, r0.fy + vy * i); await p.waitForTimeout(16); } dragging = await p.evaluate(() => !!document.querySelector('.chat-sheet.dragging')); await T('touchEnd'); }
     else { await p.mouse.move(r0.fx, r0.fy); await p.mouse.down(); await p.mouse.move(r0.fx + vx * 10, r0.fy + vy * 10, { steps: 10 }); dragging = await p.evaluate(() => !!document.querySelector('.chat-sheet.dragging')); await p.mouse.up(); }
     await p.waitForTimeout(500);
     const r1 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet')?.getBoundingClientRect(); return s ? { x: s.left, y: s.top } : null; });
-    ok(dragging && !!r1, `${d.name}: drag started on '▾ Chat' is a drag (moved ${r1 ? Math.round(r1.x - r0.x) + ',' + Math.round(r1.y - r0.y) : 'closed!'} px) and keeps the panel open`, { r0, r1, dragging });
+    ok(r0.onFold && dragging && !!r1, `${d.name}: drag started on '▾ Chat' (under the finger: ${r0.onFold}) is a drag (moved ${r1 ? Math.round(r1.x - r0.x) + ',' + Math.round(r1.y - r0.y) : 'closed!'} px) and keeps the panel open`, { r0, r1, dragging });
   }
   const before = await p.evaluate(() => document.querySelector('.chat-sheet').getBoundingClientRect().width);
   if (d.touch) await p.tap('.chat-sheet h3 .chat-size'); else await p.click('.chat-sheet h3 .chat-size');
@@ -405,6 +482,28 @@ if (want('drag')) for (const d of DRAG_DEVS) {
   await p.waitForTimeout(400);
   const closed = await p.evaluate(() => !document.querySelector('.chat-sheet'));
   ok(after !== null && after <= before && closed, `${d.name}: tap on − still shrinks (${Math.round(before)} -> ${after && Math.round(after)} px), tap on ▾ Chat still closes`, { before, after, closed });
+  await ctx.close();
+}
+// ---- 7b. BUG-V2b: saved position, portrait -> landscape -> live resize to 568x320: never on a control, at any time after
+//      the layout settles (+400 ms), and still clear later and after a tap (the old build stayed on the joystick 10 s+) ----
+if (want('v2b')) for (const [dev, rotate, rep] of [[DEVS[0], true, 1], [DEVS[0], true, 2], [DEVS[0], false, 1], [DEVS[1], true, 1]]) {
+  const ctx = await b.newContext({ viewport: { width: dev.w, height: dev.h }, deviceScaleFactor: dev.dpr, isMobile: true, hasTouch: true });
+  await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); if (!sessionStorage.getItem('v2bSeed')) { localStorage.setItem('ywchatui.dev.panel', JSON.stringify({ dr: 126, top: 88, w: 225, h: 243 })); sessionStorage.setItem('v2bSeed', '1'); } } catch {} });
+  const p = await ctx.newPage();
+  await p.goto(`${url}${url.includes('?') ? '&' : '?'}fresh=1&lieu=appart&q=low&chatSim=1`, { timeout: 120000 });
+  await p.waitForFunction(() => window.game?.s.ready && window.__metrics && window.__chatSim, null, { timeout: 180000 });
+  await p.waitForTimeout(2500);
+  if (await p.evaluate(() => !!document.querySelector('.perf-hud'))) await p.keyboard.press('F9');
+  await openChat(p);
+  const tag = `${dev.name} saved [126,88,225,243]${rotate ? ' portrait -> landscape' : ''} -> 568x320 #${rep}`;
+  if (rotate) { await p.setViewportSize({ width: dev.h, height: dev.w }); await p.waitForTimeout(1200); await p.setViewportSize({ width: dev.w, height: dev.h }); await p.waitForTimeout(1200); }
+  await p.setViewportSize({ width: 568, height: 320 });
+  const bad = []; let t = 0;
+  for (const at of [400, 900, 1600, 4000]) { await p.waitForTimeout(at - t); t = at; const r = await coveredControls(p); const ctl = r.covered.filter((c) => !c.startsWith('avatar')); if (!r.open || ctl.length || !r.onScreen) bad.push({ at, ...r }); }
+  if (QA_SHOTS) await p.screenshot({ path: `${QA_SHOTS}/v2b_${dev.name}_${rotate ? 'rot' : 'plain'}_${rep}_568x320.png` });
+  await p.touchscreen.tap(284, 120); await p.waitForTimeout(600);
+  { const r = await coveredControls(p); const ctl = r.covered.filter((c) => !c.startsWith('avatar')); if (!r.open || ctl.length || !r.onScreen) bad.push({ at: 'tap', ...r }); }
+  ok(bad.length === 0, `${tag}: covers no control at +0.4 / 0.9 / 1.6 / 4 s and after a tap (BUG-V2b)`, bad);
   await ctx.close();
 }
 // ---- 8. BroadcastChannel: 2 tabs of the same browser (same-browser simulation, NOT network multiplayer) ----
