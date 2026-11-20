@@ -60,6 +60,13 @@ describe('vertical chat panel layout', () => {
     }
   });
 
+  it('keyboard with a panned visual viewport (iOS scrolls the page): the whole card stays inside the visible band', () => {
+    for (const [vvH, top] of [[140, 60], [203, 40], [120, 90]] as const) {
+      const k = keyboardPanel(defaultPanel(IP15), IP15, vvH, 150, top);
+      expect(k.y).toBeGreaterThanOrEqual(top); expect(k.y + k.h).toBeLessThanOrEqual(top + vvH);
+    }
+  });
+
   it('persists only under its own ywchatui.<env>. key, outside every save keyspace', () => {
     const k = chatUiKey('panel');
     expect(k.startsWith(CHAT_UI_PREFIX)).toBe(true); expect(CHAT_UI_PREFIX).toBe('ywchatui.');

@@ -65,7 +65,7 @@ function useOpaque() {
   return opaque;
 }
 
-interface Vp extends PanelViewport { kb: boolean; vvH: number }
+interface Vp extends PanelViewport { kb: boolean; vvH: number; vvTop: number }
 const typingNow = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
 function measureVp(): Vp {
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -77,9 +77,9 @@ function measureVp(): Vp {
   const d = document.querySelector('.dock')?.getBoundingClientRect();
   const sar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sar')) || 0;
   const kb = keyboardInset(window, typingNow());
-  return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh };
+  return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh, vvTop: kb.open ? Math.round(window.visualViewport?.offsetTop ?? 0) : 0 };
 }
-const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
+const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
 /** Re-measured on resize / keyboard / focus and every 400 ms (state only changes when a value changed). */
 function useViewport(active: boolean) {
   const [vp, setVp] = useState<Vp | null>(null);
@@ -182,7 +182,7 @@ export function ChatHud() {
 
   // geometry: user rect (persisted) clamped to the viewport; keyboard: docked right above it
   const base: Rect | null = vp ? (drag ?? rectFromPrefs(prefs, vp)) : null;
-  const rect: Rect | null = base && vp ? (vp.kb ? keyboardPanel(base, vp, vp.vvH, 150) : base) : null;
+  const rect: Rect | null = base && vp ? (vp.kb ? keyboardPanel(base, vp, vp.vvH, 150, vp.vvTop) : base) : null;
   const style = rect ? { left: rect.x, top: rect.y, width: rect.w, height: rect.h, right: 'auto', bottom: 'auto', maxHeight: 'none', margin: 0 } : { visibility: 'hidden' as const };
   const startGesture = (kind: 'move' | 'size') => (e: RPointerEvent<HTMLElement>) => {
     if (!base || vp?.kb) return;

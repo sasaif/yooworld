@@ -65,16 +65,17 @@ export function resizePanel(r: Rect, dx: number, dy: number, vp: Pick<PanelViewp
   return clampPanel({ x: right - w, y: bottom - h, w, h }, vp);
 }
 
-/** Keyboard up: the card sits right above the keyboard inside the visual viewport (height `vvH`), keeps the user's
- *  column (x), shrinks if needed, and stays under the top HUD chips when there is room for it. */
-export function keyboardPanel(r: Rect, vp: Pick<PanelViewport, 'vw' | 'topMin'>, vvH: number, contentH: number): Rect {
-  const m = 4;
+/** Keyboard up: the card sits right above the keyboard inside the visual viewport (top `vvTop`, height `vvH`, both in
+ *  layout-viewport px: iOS may pan the page when the field gets the focus), keeps the user's column (x), shrinks if
+ *  needed, and stays under the top HUD chips when there is room for it. */
+export function keyboardPanel(r: Rect, vp: Pick<PanelViewport, 'vw' | 'topMin'>, vvH: number, contentH: number, vvTop = 0): Rect {
+  const m = 4; const bottom = vvTop + vvH - m;
   let h = Math.min(r.h, contentH > 0 ? contentH : r.h, vvH - 2 * m);
-  const roomUnderHud = vvH - m - vp.topMin;
+  const roomUnderHud = bottom - Math.max(vp.topMin, vvTop + m);
   if (roomUnderHud >= PANEL_KB_MIN_H) h = Math.min(h, roomUnderHud);
   h = Math.max(Math.min(PANEL_KB_MIN_H, vvH - 2 * m), Math.round(h));
   const x = Math.round(Math.min(Math.max(r.x, m), vp.vw - r.w - m));
-  return { x, y: Math.round(vvH - m - h), w: r.w, h };
+  return { x, y: Math.round(bottom - h), w: r.w, h };
 }
 
 export function parsePrefs(raw: string | null): PanelPrefs | null {

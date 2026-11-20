@@ -51,7 +51,7 @@ describe('neutral speech-bubble policy (no friend priority)', () => {
 
   it('bubble duration scales with text length and is clamped; ?bubbles=n parses 1..20 only', () => {
     expect(bubbleDurationMs('ok')).toBe(CHAT_CONFIG.bubbleMinMs + 2 * CHAT_CONFIG.bubblePerCharMs);
-    expect(bubbleDurationMs('x'.repeat(80))).toBe(CHAT_CONFIG.bubbleMaxMs);
+    expect(bubbleDurationMs('x'.repeat(140))).toBe(CHAT_CONFIG.bubbleMaxMs);
     expect(bubbleDurationMs('court')).toBeLessThan(bubbleDurationMs('un message nettement plus long'));
     expect(bubbleCapFromSearch('?bubbles=3')).toBe(3);
     expect(bubbleCapFromSearch('?bubbles=0')).toBeNull();
