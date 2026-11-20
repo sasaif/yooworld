@@ -1,12 +1,12 @@
 import { createRequire } from 'module'; import fs from 'fs'; const { chromium } = createRequire(import.meta.url)(process.env.PW ?? 'playwright-core');
 // Yoo Games Club end-to-end on a phone-landscape TOUCH viewport, real localStorage, real taps:
-//  A. home → Lieux → "Yoo Games Club" (fade) → table menu → setup → sit → FULL game vs bots → results
+//  A. home → Carte → Yoo Games Club → Visiter (fade) → table menu → setup → sit → FULL game vs bots → results
 //     (bots = seated YooWorld avatars, no floating bot labels; active turn ring / chip / "À toi de jouer" / thinking dots)
 //  B. "Rejouer": same table, same setup, the same bot avatars stay seated
 //  C. leave during a bot turn: confirm dialog pauses the bots, "Rester" resumes, "Quitter" tears everything down
 //  D. 3 players, match in 100 points: leave BETWEEN ROUNDS (confirm) → clean
 //  E. "Changer de partie" from the results → setup sheet (still seated) → new game → leave FROM THE RESULTS (no confirm)
-//  F. travel away mid-game (Lieux fade) → table closed, bots gone; back to the club via the dock → a new game starts
+//  F. travel away mid-game (map fade) → table closed, bots gone; back to the club via the dock → a new game starts
 //  G. long chain (fixed deal ?clubseed=2, 2 players → 27 tiles): readable tile size, snake rows, nothing clipped
 // Also: badge, never "multijoueur", no Gold earned, club never saved, draw calls / triangles of the MAIN pass (≤ 40 / < 100k; window.__info.calls is the total incl. shadow pass, counted since UAT), avatar
 // size, no table timer left after leaving, 0 console errors.
@@ -35,9 +35,14 @@ const gold0 = await ev(() => window.economy.goldBalance());
 const homePx = await ev(() => window.__metrics?.()[window.game.s.activeChar]?.screenH ?? 0);
 const perfRows = [];
 async function gotoClubByDock() {
-  await p.tap('.dock button:first-child'); await p.waitForTimeout(500);
-  const card = p.locator('.sheet .card', { hasText: 'Yoo Games Club' }); ok(await card.count() === 1 && await card.isEnabled(), 'Lieux lists "Yoo Games Club" (enabled)');
-  await card.tap();
+  await p.tap('.dock button[data-map="dock"]');
+  await p.waitForSelector('[data-map="root"].visible', { timeout: 10000 });
+  await p.tap('[data-map-place="club"]');
+  await p.waitForSelector('[data-map="card"]', { timeout: 5000 });
+  ok(await p.locator('[data-map="card"]').innerText().then((t) => t.includes('Yoo Games Club') && t.includes('Ouvert')), 'Carte lists Yoo Games Club as Ouvert');
+  const go = p.locator('[data-map="go"]');
+  ok(await go.isEnabled(), 'Visiter is enabled for the Games Club');
+  await go.tap();
   await p.waitForFunction(() => window.game.s.location === 'club' && !window.game.s.transition, null, { timeout: 30000 }).then(() => ok(true, 'arrived at the Games Club after the fade'), () => ok(false, 'arrived at the Games Club'));
   await p.waitForTimeout(3500);
 }

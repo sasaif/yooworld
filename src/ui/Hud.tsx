@@ -9,7 +9,7 @@ import { Wallet } from './fashion/Studio';
 import { AVATARS } from '../data/avatars';
 import { FURNITURE, CATEGORY_LABEL, RARITY_COLOR, type Category } from '../data/furniture';
 import { FLOORS, WALLS } from '../data/finishes';
-import { LOCATIONS, locationById } from '../data/locations';
+import { locationById } from '../data/locations';
 import { count } from '../game/inventory/Inventory';
 import { world } from '../game/world';
 import { enterLandscape } from '../app/screen';
@@ -17,6 +17,7 @@ import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
 import { MoodMenu, ExpressionChatBridge } from './mood/MoodMenu';
+import { PlayerMap } from './map/PlayerMap';
 const isChar = (id: string) => !!world.chars[id];
 
 const REASON: Record<string, string> = { bounds: 'Hors de la pièce', collision: 'Place occupée', door: 'Laisse la porte libre', noSurface: 'À poser sur un meuble', unknown: '?' };
@@ -34,7 +35,7 @@ export function Hud() {
       {s.panel === 'finishes' && <FinishesSheet />}
       {s.panel === 'chat' && <ChatSheet />}
       {s.panel === 'profile' && <ProfileSheet />}
-      {s.panel === 'places' && <PlacesSheet />}
+      {(s.panel === 'places' || s.transition) && <PlayerMap />}
       {s.panel === 'settings' && <SettingsSheet />}
       {s.mode === 'edit' && (s.placing ? <PlacingBar /> : s.selItem ? <SelectionBar /> : null)}
     </>
@@ -108,7 +109,7 @@ function PlayDock() {
   if (atTable) return null; // seated at a Games Club table: the table overlay owns the bottom of the screen
   return (
     <nav className="dock">
-      <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Lieux : Mon appart, Yoo Plage">🗺️<span>Lieux</span></button>
+      <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Carte : Mon appart, Yoo Plage, Yoo Games Club" data-map="dock">🗺️<span>Carte</span></button>
       {loc === 'home' ? <>
         <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
         <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>
@@ -252,18 +253,6 @@ function ProfileSheet() {
       <div className="row">{Object.values(AVATARS).map((a) => <button key={a.id} className={'btn' + (active === a.id ? ' primary' : '')} onClick={() => game.setBody(a.id as 'f' | 'm')}>{a.label}</button>)}</div>
       <p className="muted">L’autre avatar est un personnage local de test (pas un joueur en ligne). Garde-robe et coiffures : phase 3.</p>
       <button className="btn danger" onClick={() => { if (confirm('Réinitialiser l’appartement et le sac ?')) game.resetSave(); }}>Réinitialiser la sauvegarde</button>
-    </div>
-  );
-}
-function PlacesSheet() {
-  const loc = useStore(game.store, (s) => s.location);
-  return (
-    <div className="sheet">
-      <h3>Lieux <button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
-      <div className="grid">{LOCATIONS.map((l) => { const here = l.id === loc;
-        return <button key={l.id} className={'card' + (here ? ' here' : '')} disabled={l.status !== 'playable'} onClick={() => (here ? game.setPanel(null) : game.travelWithFade(l.id))}>
-          <span className="big">{l.icon}</span><b>{l.name}</b><small>{l.status !== 'playable' ? 'Bientôt' : here ? 'Tu y es' : <span className="places-card-go">Y aller →</span>}</small></button>; })}</div>
-      <p className="muted">Lieux publics hors ligne : seuls tes deux avatars locaux y sont (pas de faux joueurs).</p>
     </div>
   );
 }
