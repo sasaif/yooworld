@@ -10,7 +10,7 @@ const reduced = () => typeof matchMedia === 'function' && matchMedia('(prefers-r
 
 /**
  * Full-city player map (Alessandro's illustration). Replaces the Lieux list when panel === 'places'.
- * Visiter calls game.travelWithFade for open, built places only (Mon appart, Yoo Plage).
+ * Visiter calls game.travelWithFade for open, built places only (Mon appart, Yoo Plage, Yoo Games Club).
  */
 export function PlayerMap() {
   const loc = useStore(game.store, (s) => s.location);

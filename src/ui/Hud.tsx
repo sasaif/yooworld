@@ -109,7 +109,7 @@ function PlayDock() {
   if (atTable) return null; // seated at a Games Club table: the table overlay owns the bottom of the screen
   return (
     <nav className="dock">
-      <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Carte : Mon appart, Yoo Plage" data-map="dock">🗺️<span>Carte</span></button>
+      <button onClick={() => { markPlacesSeen(); game.setPanel('places'); }} className={(panel === 'places' ? 'on' : '') + (placesNew() && loc === 'home' ? ' new' : '')} aria-label="Carte : Mon appart, Yoo Plage, Yoo Games Club" data-map="dock">🗺️<span>Carte</span></button>
       {loc === 'home' ? <>
         <button onClick={() => game.setMode('edit')}>🛋️<span>Décorer</span></button>
         <button onClick={() => game.setPanel('catalog')} className={panel === 'catalog' ? 'on' : ''}>🎒<span>Sac</span></button>

@@ -375,9 +375,10 @@
       "kind": "place",
       "name": "Yoo Games Club",
       "icon": "🎲",
-      "status": "jalon",
+      "status": "open",
+      "travel": "club",
       "thumb": "/playermap/thumbs/club.jpg",
-      "blurb": "Salon de jeux multijoueur. Jalon 1 : Dominos. Le bâtiment 3D n’est pas encore construit — pas encore visitable.",
+      "blurb": "Salon de jeux. Dominos en mode local contre des bots. Lieu déjà en ligne.",
       "anchor": {
         "x": 62.0,
         "y": 44.0

@@ -15,27 +15,32 @@ describe('player map data', () => {
     }
   });
 
-  it('only Mon appart and Yoo Plage are open and visitable', () => {
+  it('Mon appart, Yoo Plage and the Games Club are open and visitable', () => {
     const open = PLAYER_MAP_PLACES.filter((p) => p.status === 'open');
-    expect(open.map((p) => p.id).sort()).toEqual(['beach', 'home']);
+    expect(open.map((p) => p.id).sort()).toEqual(['beach', 'club', 'home']);
     expect(canVisit(mapPlaceById('home')!, 'beach')).toBe(true);
     expect(canVisit(mapPlaceById('beach')!, 'home')).toBe(true);
+    expect(canVisit(mapPlaceById('club')!, 'home')).toBe(true);
     expect(canVisit(mapPlaceById('home')!, 'home')).toBe(false);
     expect(canVisit(mapPlaceById('beach')!, 'beach')).toBe(false);
+    expect(canVisit(mapPlaceById('club')!, 'club')).toBe(false);
     expect(visitLabel(mapPlaceById('home')!, 'home')).toBe('Tu y es');
     expect(visitLabel(mapPlaceById('beach')!, 'home')).toBe('Visiter');
+    expect(visitLabel(mapPlaceById('club')!, 'home')).toBe('Visiter');
+    expect(visitLabel(mapPlaceById('club')!, 'club')).toBe('Tu y es');
     for (const p of open) {
       expect(p.travel).toBeTruthy();
       expect(isPlayable(p.travel!)).toBe(true);
     }
   });
 
-  it('keeps Games Club as Jalon 1 (not visitable from the map)', () => {
+  it('marks the Games Club as Ouvert and visitable via travelWithFade', () => {
     const club = mapPlaceById('club')!;
-    expect(club.status).toBe('jalon');
-    expect(club.travel).toBeUndefined();
-    expect(canVisit(club, 'home')).toBe(false);
-    expect(visitLabel(club, 'home')).toBe('Bientôt');
+    expect(club.status).toBe('open');
+    expect(club.travel).toBe('club');
+    expect(canVisit(club, 'home')).toBe(true);
+    expect(visitLabel(club, 'home')).toBe('Visiter');
+    expect(isPlayable(club.travel!)).toBe(true);
   });
 
   it('does not offer Visiter for Bientôt places, even if a scene id exists later', () => {

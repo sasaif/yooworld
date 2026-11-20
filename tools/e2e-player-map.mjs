@@ -66,8 +66,8 @@ ok(await p.locator('[data-map="card"]').count() === 0, 'card close button works'
 
 await p.tap('[data-map-place="club"]');
 await p.waitForSelector('[data-map="card"]');
-ok(await p.locator('[data-map="card"]').innerText().then((t) => t.includes('Yoo Games Club') && t.includes('Jalon 1')), 'Games Club card is Jalon 1');
-ok(await p.locator('[data-map="go"]').isDisabled(), 'Visiter is disabled for Games Club');
+ok(await p.locator('[data-map="card"]').innerText().then((t) => t.includes('Yoo Games Club') && t.includes('Ouvert')), 'Games Club card is Ouvert');
+ok(await p.locator('[data-map="go"]').isEnabled(), 'Visiter is enabled for Games Club');
 await p.locator('[data-map="card-x"]').tap();
 
 const s0 = await p.evaluate(() => getComputedStyle(document.querySelector('.pmap-world')).transform);
@@ -89,6 +89,15 @@ await shot('04_transition');
 await p.waitForFunction(() => window.game.s.location === 'beach' && !window.game.s.transition, null, { timeout: 30000 })
   .then(() => ok(true, 'Visiter travels to Yoo Plage with the fade'), () => ok(false, 'Visiter travels to Yoo Plage'));
 ok(await p.evaluate(() => window.game.s.panel) !== 'places', 'map closes after travel');
+
+await p.tap('.dock button[data-map="dock"]');
+await p.waitForSelector('[data-map="root"].visible');
+await p.tap('[data-map-place="club"]');
+await p.waitForSelector('[data-map="go"]:not([disabled])');
+await p.tap('[data-map="go"]');
+await p.waitForFunction(() => window.game.s.location === 'club' && !window.game.s.transition, null, { timeout: 30000 })
+  .then(() => ok(true, 'Visiter travels to the Games Club with the fade'), () => ok(false, 'Visiter travels to the Games Club'));
+ok(await p.evaluate(() => window.game.s.panel) !== 'places', 'map closes after travel to the club');
 
 ok(errs.length === 0, 'no console/page errors ' + errs.join(' | '));
 ok(bad.length === 0, 'no HTTP errors ' + bad.join(' '));
