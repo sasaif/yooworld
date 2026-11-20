@@ -81,6 +81,12 @@ describe('beach persistence & interactions', () => {
   });
   it('sitting on a bench reuses the seat system; two avatars get two slots', async () => {
     const { g } = await boot(); g.travel('beach');
+    // Ambient PNJs may already claim a public seat; this assertion is about the two player avatars.
+    for (const c of Object.values(world.chars)) {
+      if (!c.id.startsWith('npc_')) continue;
+      c.pendingSeat = undefined; c.sitOn = undefined; c.path = [];
+      if (c.mode === 'sitting' || c.mode === 'standing') c.mode = 'idle';
+    }
     g.interactProp('bench1', 'sit'); const f = world.chars.f; expect(f.pendingSeat?.id.startsWith('bench1:')).toBe(true);
     const other = freeSeat('bench1', world.chars.m.pos, 'm')!; expect(other.id).not.toBe(f.pendingSeat!.id);
     g.interactProp('towel2', 'sit'); expect(f.pendingSeat?.id).toBe('lounger2:0'); // tapping a towel sits on its transat
