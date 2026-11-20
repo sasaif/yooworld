@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import { Vector3, type Camera } from 'three';
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
 import { chatUi } from '../../persistence/storage';
@@ -12,7 +13,7 @@ import { chatGlassFallback, setChatGlassFallback } from './chatGlass';
 import { installBubbleLayer } from './bubbleLayer';
 import {
   keyboardPanel, movePanel, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
-  type PanelPrefs, type PanelViewport, type Rect,
+  type PanelPrefs, type PanelViewport, type Rect, type Zone,
 } from './panelLayout';
 import type { ChatMessage } from '../../game/social/social';
 import './chat-glass.css';
@@ -66,6 +67,37 @@ function useOpaque() {
 }
 
 interface Vp extends PanelViewport { kb: boolean; vvH: number; vvTop: number }
+/** Controls the panel must never cover (BUG-V1/V2): measured from the live DOM, visible ones only. */
+const CONTROL_SEL = '.joy, .run-btn, .dock, .mood-wrap, .hud-top > *';
+function controlZones(): Zone[] {
+  const out: Zone[] = [];
+  document.querySelectorAll<HTMLElement>(CONTROL_SEL).forEach((e) => {
+    if (e.closest('.chat-sheet')) return;
+    const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return;
+    const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity < 0.05) return;
+    out.push({ l: Math.floor(r.left), t: Math.floor(r.top), r: Math.ceil(r.right), b: Math.ceil(r.bottom) });
+  });
+  return out;
+}
+/** Player-avatar safe area (feet to head + name tag), projected from the 3D position. Snapshotted when the panel is
+ *  placed (open, drag, resize, viewport change), not every frame: the panel never chases the walking avatar. */
+const _pv = new Vector3();
+function avatarZone(): Zone | null {
+  const c = world.chars[game.s.activeChar]; const cam = (window as unknown as { __cam?: Camera }).__cam;
+  if (!c || !cam) return null;
+  let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+  for (const [dx, y, dz] of [[-0.45, 0, -0.45], [0.45, 0, 0.45], [-0.45, 0, 0.45], [0.45, 0, -0.45], [-0.45, 1.35, 0], [0.45, 1.35, 0]] as const) {
+    _pv.set(c.pos.x + dx, y, c.pos.z + dz).project(cam); if (_pv.z > 1) return null;
+    const x = (_pv.x + 1) / 2 * innerWidth, yy = (1 - _pv.y) / 2 * innerHeight;
+    l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, yy); b = Math.max(b, yy);
+  }
+  const tag = document.querySelector(`.tagwrap[data-char="${game.s.activeChar}"] .nametag`)?.getBoundingClientRect();
+  if (tag && tag.width) { l = Math.min(l, tag.left); r = Math.max(r, tag.right); t = Math.min(t, tag.top); b = Math.max(b, tag.bottom); }
+  if (r < 0 || b < 0 || l > innerWidth || t > innerHeight) return null;
+  return { l: Math.floor(l - 8), t: Math.floor(t - 8), r: Math.ceil(r + 8), b: Math.ceil(b + 8) };
+}
+const withAvatar = (v: PanelViewport): PanelViewport => { const a = avatarZone(); return a ? { ...v, avoid: [...(v.avoid ?? []), a] } : v; };
+const zonesKey = (z?: Zone[]) => (z ?? []).map((q) => `${q.l},${q.t},${q.r},${q.b}`).join(';');
 const typingNow = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
 function measureVp(): Vp {
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -77,9 +109,9 @@ function measureVp(): Vp {
   const d = document.querySelector('.dock')?.getBoundingClientRect();
   const sar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sar')) || 0;
   const kb = keyboardInsetNow(typingNow());
-  return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh, vvTop: kb.open ? Math.round(window.visualViewport?.offsetTop ?? 0) : 0 };
+  return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh, vvTop: kb.open ? Math.round(window.visualViewport?.offsetTop ?? 0) : 0, avoid: kb.open ? [] : controlZones() };
 }
-const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
+const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && zonesKey(a.avoid) === zonesKey(b.avoid) && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
 /** Re-measured on resize / keyboard / focus and every 400 ms (state only changes when a value changed). */
 function useViewport(active: boolean) {
   const [vp, setVp] = useState<Vp | null>(null);
@@ -137,7 +169,9 @@ export function ChatHud() {
   const log = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
-  const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number } | null>(null);
+  const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number; vp: PanelViewport; pending: boolean; el: HTMLElement } | null>(null);
+  const eatClick = useRef(false);
+  const [placed, setPlaced] = useState<Rect | null>(null);
 
   // speech bubbles keep working whatever the panel does (director tick + de-overlap, ~8 Hz)
   useEffect(() => installBubbleLayer(), []);
@@ -167,6 +201,10 @@ export function ChatHud() {
     ro.observe(el); return () => ro.disconnect();
   }, [open]);
 
+  // (re)place on open, load, resize / rotation, control changes and after each saved gesture (BUG-V2): the saved rect is
+  // re-clamped against the current viewport and forbidden zones (incl. the avatar at that moment); never saved here
+  useLayoutEffect(() => { if (!open || !vp || vp.kb) { if (!open) setPlaced(null); return; } setPlaced(rectFromPrefs(prefs, withAvatar(vp))); }, [open, vp, prefs]);
+
   if (!ready || mode !== 'play') return null;
   if (!open) return <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
 
@@ -180,29 +218,36 @@ export function ChatHud() {
   const send = (text: string) => { const t = text.trim(); if (!t) return; game.sendChat(t); setMsg(''); setTray(false); pinned.current = true; };
   const roomLog = history;
 
-  // geometry: user rect (persisted) clamped to the viewport; keyboard: docked right above it
-  const base: Rect | null = vp ? (drag ?? rectFromPrefs(prefs, vp)) : null;
+  // geometry: user rect (persisted) clamped to the viewport and kept off the controls + avatar; keyboard: docked above it
+  const base: Rect | null = vp ? (drag ?? placed ?? rectFromPrefs(prefs, vp)) : null;
   const rect: Rect | null = base && vp ? (vp.kb ? keyboardPanel(base, vp, vp.vvH, 150, vp.vvTop) : base) : null;
   const style = rect ? { left: rect.x, top: rect.y, width: rect.w, height: rect.h, right: 'auto', bottom: 'auto', maxHeight: 'none', margin: 0 } : { visibility: 'hidden' as const };
+  // drag handle = the whole header bar except ✕ (BUG-V4); on its buttons (▾ Chat, − +) a drag starts after 6 px, a
+  // plain tap stays a tap. Every intermediate and final rect goes through fitPanel (never over a control / avatar).
   const startGesture = (kind: 'move' | 'size') => (e: RPointerEvent<HTMLElement>) => {
-    if (!base || vp?.kb) return;
-    if (kind === 'move' && (e.target as HTMLElement).closest('button')) return;
-    e.preventDefault(); e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    gesture.current = { kind, x: e.clientX, y: e.clientY, start: base, id: e.pointerId };
+    if (!base || !vp || vp.kb || gesture.current) return;
+    const t = e.target as HTMLElement;
+    if (kind === 'move' && t.closest('.x')) return;
+    const onButton = kind === 'move' && !!t.closest('button');
+    if (!onButton) { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); }
+    e.stopPropagation();
+    gesture.current = { kind, x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: onButton, el: e.currentTarget as HTMLElement };
   };
   const onGesture = (e: RPointerEvent<HTMLElement>) => {
-    const g = gesture.current; if (!g || g.id !== e.pointerId || !vp) return;
+    const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     const dx = e.clientX - g.x, dy = e.clientY - g.y;
-    setDrag(g.kind === 'move' ? movePanel(g.start, dx, dy, vp) : resizePanel(g.start, dx, dy, vp));
+    if (g.pending) { if (dx * dx + dy * dy < 36) return; g.pending = false; eatClick.current = true; try { g.el.setPointerCapture?.(e.pointerId); } catch { /* touch: implicit capture */ } }
+    setDrag(g.kind === 'move' ? movePanel(g.start, dx, dy, g.vp) : resizePanel(g.start, dx, dy, g.vp));
   };
   const endGesture = (e: RPointerEvent<HTMLElement>) => {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     gesture.current = null;
-    if (drag && vp) { const p = prefsFromRect(drag, vp); setPrefs(p); writePrefs(p); }
+    if (!g.pending && drag && vp) { const p = prefsFromRect(drag, vp); setPrefs(p); setPlaced(drag); writePrefs(p); }
     setDrag(null);
+    if (eatClick.current) setTimeout(() => { eatClick.current = false; }, 60);
   };
-  const step = (dir: -1 | 1) => { if (!base || !vp) return; const r = stepPanel(base, dir, vp); const p = prefsFromRect(r, vp); setPrefs(p); writePrefs(p); };
+  const swallowDragClick = (e: RMouseEvent<HTMLElement>) => { if (eatClick.current) { eatClick.current = false; e.preventDefault(); e.stopPropagation(); } };
+  const step = (dir: -1 | 1) => { if (!base || !vp) return; const r = stepPanel(base, dir, withAvatar(vp)); const p = prefsFromRect(r, vp); setPrefs(p); setPlaced(r); writePrefs(p); };
   const resetPos = () => { setPrefs(null); writePrefs(null); };
   const gestureProps = { onPointerMove: onGesture, onPointerUp: endGesture, onPointerCancel: endGesture };
 
@@ -211,7 +256,7 @@ export function ChatHud() {
       data-kb={vp?.kb ? '1' : '0'} style={style} role="dialog" aria-label="Chat">
       <span className="chat-grip" role="separator" aria-label="Redimensionner le chat (glisser)" title="Glisser pour agrandir ou réduire"
         onPointerDown={startGesture('size')} {...gestureProps} />
-      <h3 className="chat-drag" onPointerDown={startGesture('move')} {...gestureProps} onDoubleClick={resetPos} title="Glisser pour déplacer · double-clic : position d’origine">
+      <h3 className="chat-drag" onPointerDown={startGesture('move')} {...gestureProps} onClickCapture={swallowDragClick} onDoubleClick={resetPos} title="Glisser pour déplacer · double-clic : position d’origine">
         <button type="button" className="chat-fold" onClick={close} aria-expanded="true" aria-label="Réduire le chat">▾ Chat</button>
         <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? (sim ? 'Mode local · simulation' : 'Mode local · hors ligne') : netBadge(game.net.status).short}</span>
         <button type="button" className="chat-size" aria-label="Réduire la taille du chat" onClick={() => step(-1)}>−</button>

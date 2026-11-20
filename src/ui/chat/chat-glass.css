@@ -193,7 +193,9 @@
 @keyframes chat-panel-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .sheet.chat-sheet.chat-glass.chat-vertical { animation: none; } }
 
-.chat-vertical h3.chat-drag { cursor: grab; flex: none; margin: 0 0 3px; font-size: 13px; min-height: 28px; gap: 3px; user-select: none; -webkit-user-select: none; }
+.chat-vertical h3.chat-drag { cursor: grab; flex: none; margin: -6px -8px 0; padding: 0 8px; box-sizing: border-box; font-size: 13px; min-height: 44px; gap: 3px; user-select: none; -webkit-user-select: none; }
+/* BUG-V4: the whole 44 px header bar is the drag handle (▾ Chat, − + start a drag after 6 px; only ✕ is excluded) */
+.chat-vertical h3.chat-drag > button:not(.x) { cursor: inherit; }
 .chat-vertical.dragging h3.chat-drag { cursor: grabbing; }
 .chat-vertical .chat-fold { min-height: 28px; font-weight: 800; }
 .chat-vertical .chat-mode { font-size: 9.5px; padding: 2px 6px; margin-left: 2px; }
@@ -263,7 +265,7 @@
 .kb-open .chat-vertical .chat-scope, .kb-open .chat-vertical .chat-tabs, .kb-open .chat-vertical .chat-tray, .kb-open .chat-vertical .chat-grip,
 .kb-open .chat-vertical .chat-size { display: none; }
 .kb-open .sheet.chat-sheet.chat-glass.chat-vertical { padding: 4px 7px 5px; animation: none; }
-.kb-open .chat-vertical h3.chat-drag { min-height: 24px; margin: 0 0 2px; cursor: default; }
+.kb-open .chat-vertical h3.chat-drag { min-height: 24px; margin: 0 0 2px; padding: 0; cursor: default; }
 .kb-open .chat-vertical .chat-nm { display: none; }
 .kb-open .sheet.chat-sheet.chat-glass.chat-vertical .chatlog { margin-bottom: 3px; }
 .kb-open .sheet.chat-sheet.chat-glass.chat-vertical .chatbar input { min-height: 32px; }

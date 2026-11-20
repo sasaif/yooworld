@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PANEL_MIN, clampPanel, defaultPanel, keyboardPanel, movePanel, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
-  type PanelViewport, type Rect,
+  PANEL_MIN, clampPanel, defaultPanel, fitPanel, keyboardPanel, movePanel, panelFree, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
+  type PanelViewport, type Rect, type Zone,
 } from '../src/ui/chat/panelLayout';
 import { CHAT_UI_PREFIX, chatUi, chatUiKey } from '../src/persistence/storage';
 import { isProdKey, looksLikeFullKey } from '../src/persistence/saveEnv';
@@ -75,5 +75,35 @@ describe('vertical chat panel layout', () => {
     chatUi.setItem('panel', '{"dr":1,"top":2,"w":240,"h":260}');
     expect(parsePrefs(chatUi.getItem('panel'))).toEqual({ dr: 1, top: 2, w: 240, h: 260 });
     chatUi.removeItem('panel'); expect(chatUi.getItem('panel')).toBeNull();
+  });
+
+  describe('forbidden zones (BUG-V1 / V2)', () => {
+    // SE 667x375 controls: joystick, Run/Walk, dock, Mood, top chips, avatar
+    const Z: Zone[] = [{ l: 14, t: 237, r: 138, b: 361 }, { l: 143, t: 300, r: 191, b: 348 }, { l: 165, t: 322, r: 503, b: 372 }, { l: 452, t: 322, r: 503, b: 366 },
+      { l: 8, t: 8, r: 300, b: 40 }, { l: 400, t: 8, r: 660, b: 40 }, { l: 240, t: 120, r: 330, b: 260 }];
+    const vp: PanelViewport = { ...SE, avoid: Z };
+    it('a drag onto any control ends on a free spot, same size when one exists', () => {
+      const start = defaultPanel(vp);
+      for (const z of Z) {
+        const r = movePanel(start, (z.l + z.r) / 2 - (start.x + start.w / 2), (z.t + z.b) / 2 - (start.y + start.h / 2), vp);
+        expect(panelFree(r, Z)).toBe(true); expect(inside(r, vp)).toBe(true);
+      }
+    });
+    it('a saved forbidden rect is re-placed (and shrunk when nothing fits) on load / resize', () => {
+      const r = rectFromPrefs({ dr: 667 - 6 - 300, top: 375 - 6 - 250, w: 300, h: 250 }, vp);
+      expect(panelFree(r, Z)).toBe(true);
+      const small: PanelViewport = { vw: 568, vh: 320, topMin: 44, avoid: [{ l: 14, t: 190, r: 138, b: 314 }, { l: 150, t: 268, r: 520, b: 316 }, { l: 8, t: 8, r: 560, b: 40 }, { l: 230, t: 90, r: 310, b: 220 }] };
+      const f = fitPanel({ x: 0, y: 0, w: 340, h: 300 }, small);
+      expect(panelFree(f, small.avoid)).toBe(true); expect(f.w).toBeLessThan(340); expect(f.w).toBeGreaterThanOrEqual(PANEL_MIN.w);
+    });
+    it('no zones -> unchanged behaviour (plain clamp)', () => {
+      const r = { x: -50, y: 500, w: 250, h: 260 };
+      expect(fitPanel(r, SE)).toEqual(clampPanel(r, SE));
+    });
+    it('resizing into a control stops at the previous size instead of jumping', () => {
+      const start = { x: 400, y: 60, w: 228, h: 235 };
+      const r = resizePanel(start, -200, 0, vp); // grow left into the avatar zone
+      expect(panelFree(r, Z)).toBe(true);
+    });
   });
 });

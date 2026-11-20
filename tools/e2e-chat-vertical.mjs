@@ -4,7 +4,9 @@
  *  open + typing) at 852x393 / 667x375 / 1440x900, drag + resize clamped and persisted (ywchatui.*), no overlap with
  *  the top-right HUD, player avatar not covered at the default spot, controls restored after typing, neutral bubble
  *  cap (20 simulated senders, 120-message burst, replay without duplicates), BroadcastChannel same-browser
- *  simulation, Android resizes-content keyboard (layout viewport shrinks), 0 extra draws, no idle DOM churn in the panel.
+ *  simulation, Android resizes-content keyboard (layout viewport shrinks), forbidden zones (drag onto every control /
+ *  avatar at 667x375, 852x393, 1440x900, 568x320, mid-drag, reload, resize, re-clamp of a forbidden saved rect),
+ *  0 extra draws, no idle DOM churn in the panel.
  *  Everything "remote" here is a LOCAL SIMULATION (?chatSim): there is no network transport in the codebase.
  *  usage: node tools/e2e-chat-vertical.mjs [url] ; SHOTS=dir */
 import { createRequire } from 'module';
@@ -19,7 +21,7 @@ const DEVS = [
   { name: 'desktop', w: 1440, h: 900, dpr: 1, touch: false, kb: 280 },
 ];
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-/** CV_ONLY=main,burst,beach,android,bc,drag (comma list) runs only those sections; BEACH_RUNS=n repeats the beach check. */
+/** CV_ONLY=main,burst,beach,android,drag,bc (comma list) runs only those sections; BEACH_RUNS=n repeats the beach check. */
 const ONLY = (process.env.CV_ONLY ?? '').split(',').filter(Boolean); const want = (k) => !ONLY.length || ONLY.includes(k);
 const BEACH_RUNS = Math.max(1, Number(process.env.BEACH_RUNS ?? 3));
 const results = [];
@@ -283,6 +285,120 @@ for (const [d, small] of want('android') ? [[DEVS[0], 200], [DEVS[1], 190]] : []
   await p.waitForTimeout(900);
   const st = await state(p); const c2 = await composer(p);
   ok(!st.kb && fullyVisible(c2) && st.vis.joy && st.vis.dock, `${d.name}: Android keyboard closed → full height, composer visible, joystick + dock back`, { kb: st.kb, vis: st.vis, c2 });
+  await ctx.close();
+}
+// ---- 10. forbidden zones (BUG-V1 / V2 / V4): try to drag the panel onto every control (joystick, Run/Walk, dock, Mood,
+//          top HUD chips, player avatar) with REAL touch events (CDP) on phones, the mouse on desktop; after each drag,
+//          mid-drag, after a reload and after resizes, elementFromPoint at each control's centre must return the control. ----
+const DRAG_DEVS = [DEVS[1], DEVS[0], DEVS[2], { name: 'small568', w: 568, h: 320, dpr: 2, touch: true }];
+const QA_SHOTS = process.env.QA_SHOTS; // optional: before/after shots for the QA board
+if (QA_SHOTS) fs.mkdirSync(QA_SHOTS, { recursive: true });
+const controlsAt = (p) => p.evaluate(() => {
+  const vis = (e) => { if (!e) return null; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return null; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1 ? r : null; };
+  const out = [];
+  for (const [name, sel] of [['joystick', '.joy'], ['run', '.run-btn'], ['dock', '.dock'], ['mood', '.mood-wrap']]) { const e = document.querySelector(sel); const r = vis(e); if (r) out.push({ name, sel, c: [r.left + r.width / 2, r.top + r.height / 2], r: [r.left, r.top, r.right, r.bottom] }); }
+  document.querySelectorAll('.hud-top > *').forEach((e, i) => { const r = vis(e); if (r) out.push({ name: 'hud' + i + ':' + (e.textContent || '').trim().slice(0, 12), sel: null, idx: i, c: [r.left + r.width / 2, r.top + r.height / 2], r: [r.left, r.top, r.right, r.bottom] }); });
+  const bb = window.__metrics?.()?.[window.game.s.activeChar]?.bboxPx; if (bb) out.push({ name: 'avatar', sel: 'canvas', c: [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2], r: bb });
+  return out; });
+const coveredControls = (p) => p.evaluate(() => {
+  const sheet = document.querySelector('.chat-sheet'); if (!sheet) return { open: false, covered: [] };
+  const s = sheet.getBoundingClientRect(); const covered = [];
+  const check = (name, el, r) => { const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2; const hit = document.elementFromPoint(cx, cy); if (hit && sheet.contains(hit)) covered.push(name); else if (el && hit && !(el === hit || el.contains(hit)) && name !== 'avatar') covered.push(name + '(other:' + (hit.className?.baseVal ?? hit.className) + ')'); };
+  const vis = (e) => { if (!e) return null; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.05) return null; const r = e.getBoundingClientRect(); return r.width > 1 && r.height > 1 ? r : null; };
+  for (const [name, sel] of [['joystick', '.joy'], ['run', '.run-btn'], ['dock', '.dock'], ['mood', '.mood-wrap']]) { const e = document.querySelector(sel); const r = vis(e); if (r) check(name, e, r); }
+  document.querySelectorAll('.hud-top > *').forEach((e, i) => { const r = vis(e); if (r) check('hud' + i, e, r); });
+  const bb = window.__metrics?.()?.[window.game.s.activeChar]?.bboxPx; if (bb) { const r = { left: bb[0], top: bb[1], right: bb[2], bottom: bb[3] }; const ix = Math.min(s.right, r.right) - Math.max(s.left, r.left), iy = Math.min(s.bottom, r.bottom) - Math.max(s.top, r.top); if (ix > 2 && iy > 2) covered.push(`avatar ${Math.round(ix)}x${Math.round(iy)}`); }
+  const onScreen = s.left >= -0.5 && s.top >= -0.5 && s.right <= innerWidth + 0.5 && s.bottom <= innerHeight + 0.5;
+  return { open: true, covered, rect: [s.left, s.top, s.width, s.height].map(Math.round), onScreen }; });
+const openChat = async (p) => {
+  await p.evaluate(() => { if (window.game.s.panel !== 'chat') window.game.setPanel('chat'); });
+  await p.waitForFunction(() => { const e = document.querySelector('.chat-sheet'); return e && getComputedStyle(e).visibility !== 'hidden' && e.getAnimations().length === 0; }, null, { timeout: 30000 });
+  await p.waitForTimeout(500);
+};
+/** drag the header from a point (the '▾ Chat' fold button: BUG-V4 makes it a handle) so that the panel centre lands on (tx, ty) */
+async function dragPanelTo(p, cdp, touch, tx, ty, { probeMid = false } = {}) {
+  const h = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); const m = document.querySelector('.chat-sheet h3.chat-drag .chat-mode').getBoundingClientRect(); return { sx: s.left + s.width / 2, sy: s.top + s.height / 2, hx: m.left + m.width / 2, hy: m.top + m.height / 2 }; });
+  const fx = h.hx, fy = h.hy, ex = fx + (tx - h.sx), ey = fy + (ty - h.sy); let mid = null;
+  if (touch) {
+    const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1 }] });
+    await T('touchStart', fx, fy);
+    for (let i = 1; i <= 14; i++) { await T('touchMove', fx + (ex - fx) * i / 14, fy + (ey - fy) * i / 14); await p.waitForTimeout(16); }
+    if (probeMid) { await p.waitForTimeout(150); mid = await coveredControls(p); }
+    await T('touchEnd');
+  } else {
+    await p.mouse.move(fx, fy); await p.mouse.down(); await p.mouse.move(ex, ey, { steps: 14 });
+    if (probeMid) { await p.waitForTimeout(150); mid = await coveredControls(p); }
+    await p.mouse.up();
+  }
+  await p.waitForTimeout(500);
+  return mid;
+}
+if (want('drag')) for (const d of DRAG_DEVS) {
+  const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: d.dpr, isMobile: d.touch, hasTouch: d.touch });
+  await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch {} });
+  const p = await ctx.newPage(); const cdp = await ctx.newCDPSession(p);
+  await p.goto(`${url}${url.includes('?') ? '&' : '?'}fresh=1&lieu=appart&q=low&chatSim=1`, { timeout: 120000 });
+  await p.waitForFunction(() => window.game?.s.ready && window.__metrics && window.__chatSim, null, { timeout: 180000 });
+  await p.waitForTimeout(2500);
+  if (await p.evaluate(() => !!document.querySelector('.perf-hud'))) await p.keyboard.press('F9');
+  await openChat(p);
+  // BUG-V4: the drag handle is the whole header bar (≥ 44 px high), ▾ Chat tap still closes, − still shrinks
+  const hd = await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect(); const x = document.querySelector('.chat-sheet h3 .x').getBoundingClientRect(); return { w: h.width, h: h.height, handle: h.width - x.width }; });
+  ok(hd.h >= 44 && hd.handle >= 150, `${d.name}: drag handle = header bar ${Math.round(hd.handle)} x ${Math.round(hd.h)} px (≥ 44 px high, only ✕ excluded)`, hd);
+  const targets = await controlsAt(p);
+  let worst = [], midBad = [];
+  for (const t of targets) {
+    const mid = await dragPanelTo(p, cdp, d.touch, t.c[0], t.c[1], { probeMid: true });
+    const r = await coveredControls(p);
+    if (mid && mid.covered.length) midBad.push(`${t.name}: ${mid.covered.join(',')}`);
+    if (r.covered.length || !r.onScreen) worst.push(`${t.name} -> ${r.covered.join(',') || 'off-screen'} @${r.rect}`);
+    if (QA_SHOTS && ['joystick', 'dock'].includes(t.name)) await p.screenshot({ path: `${QA_SHOTS}/${d.name}_drag_onto_${t.name}.png` });
+  }
+  ok(targets.length >= 5 && worst.length === 0, `${d.name}: panel dragged onto each of ${targets.length} controls (${targets.map((t) => t.name.split(':')[0]).join(', ')}) -> covers none after release`, worst);
+  ok(midBad.length === 0, `${d.name}: … and none during the drag (clamped / snapped live)`, midBad);
+  const saved = await p.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith('ywchatui.'))) || 'null'));
+  // the saved rect, re-applied at this size, must also be clear: reload
+  await p.reload(); await p.waitForFunction(() => window.game?.s.ready && window.__metrics && window.__chatSim, null, { timeout: 180000 }); await p.waitForTimeout(2500);
+  if (await p.evaluate(() => !!document.querySelector('.perf-hud'))) await p.keyboard.press('F9');
+  await openChat(p);
+  let r = await coveredControls(p);
+  ok(!!saved && r.open && r.covered.length === 0 && r.onScreen, `${d.name}: reload with the saved position (${saved && [saved.dr, saved.top, saved.w, saved.h]}) -> covers none`, r);
+  // resizes / rotation-like changes to small viewports, then back
+  for (const [w, h] of [[568, 320], [667, 375], [d.w, d.h]]) {
+    await p.setViewportSize({ width: w, height: h }); await p.waitForTimeout(1300);
+    r = await coveredControls(p);
+    ok(r.open && r.covered.length === 0 && r.onScreen, `${d.name}: resized to ${w}x${h} with the panel open -> covers none, fully on screen`, r);
+  }
+  // BUG-V2: a forbidden position saved by an older build (bottom-left over the joystick, max size) is re-clamped at load
+  await p.evaluate((d) => { const k = Object.keys(localStorage).find((k) => k.startsWith('ywchatui.')) || 'ywchatui.dev.panel'; localStorage.setItem(k, JSON.stringify({ dr: d.w - 6 - 300, top: d.h - 6 - 250, w: 300, h: 250 })); }, d);
+  for (const [w, h] of [[d.w, d.h], [568, 320]]) {
+    await p.setViewportSize({ width: w, height: h });
+    await p.reload(); await p.waitForFunction(() => window.game?.s.ready && window.__metrics && window.__chatSim, null, { timeout: 180000 }); await p.waitForTimeout(2500);
+    if (await p.evaluate(() => !!document.querySelector('.perf-hud'))) await p.keyboard.press('F9');
+    await openChat(p); r = await coveredControls(p);
+    if (QA_SHOTS && w === 568) await p.screenshot({ path: `${QA_SHOTS}/${d.name}_reload_568_forbidden_saved.png` });
+    ok(r.open && r.covered.length === 0 && r.onScreen, `${d.name}: forbidden saved position, reload at ${w}x${h} -> re-clamped, covers none`, r);
+  }
+  // taps on the header buttons still work (a tap is not a drag)
+  await p.setViewportSize({ width: d.w, height: d.h }); await p.waitForTimeout(800);
+  // BUG-V4: a drag that starts on the '▾ Chat' button moves the panel (towards the screen centre) and does not close it
+  {
+    const r0 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); const f = document.querySelector('.chat-sheet h3 .chat-fold').getBoundingClientRect(); return { x: s.left, y: s.top, cx: s.left + s.width / 2, cy: s.top + s.height / 2, fx: f.left + f.width / 2, fy: f.top + f.height / 2 }; });
+    const vx = Math.sign(d.w / 2 - r0.cx) * 7, vy = Math.sign(d.h / 2 - r0.cy) * 2; let dragging = false;
+    if (d.touch) { const T = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y: Math.round(y), id: 1 }] }); await T('touchStart', r0.fx, r0.fy); for (let i = 1; i <= 10; i++) { await T('touchMove', r0.fx + vx * i, r0.fy + vy * i); await p.waitForTimeout(16); } dragging = await p.evaluate(() => !!document.querySelector('.chat-sheet.dragging')); await T('touchEnd'); }
+    else { await p.mouse.move(r0.fx, r0.fy); await p.mouse.down(); await p.mouse.move(r0.fx + vx * 10, r0.fy + vy * 10, { steps: 10 }); dragging = await p.evaluate(() => !!document.querySelector('.chat-sheet.dragging')); await p.mouse.up(); }
+    await p.waitForTimeout(500);
+    const r1 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet')?.getBoundingClientRect(); return s ? { x: s.left, y: s.top } : null; });
+    ok(dragging && !!r1, `${d.name}: drag started on '▾ Chat' is a drag (moved ${r1 ? Math.round(r1.x - r0.x) + ',' + Math.round(r1.y - r0.y) : 'closed!'} px) and keeps the panel open`, { r0, r1, dragging });
+  }
+  const before = await p.evaluate(() => document.querySelector('.chat-sheet').getBoundingClientRect().width);
+  if (d.touch) await p.tap('.chat-sheet h3 .chat-size'); else await p.click('.chat-sheet h3 .chat-size');
+  await p.waitForTimeout(400);
+  const after = await p.evaluate(() => document.querySelector('.chat-sheet')?.getBoundingClientRect().width ?? null);
+  if (d.touch) await p.tap('.chat-sheet h3 .chat-fold'); else await p.click('.chat-sheet h3 .chat-fold');
+  await p.waitForTimeout(400);
+  const closed = await p.evaluate(() => !document.querySelector('.chat-sheet'));
+  ok(after !== null && after <= before && closed, `${d.name}: tap on − still shrinks (${Math.round(before)} -> ${after && Math.round(after)} px), tap on ▾ Chat still closes`, { before, after, closed });
   await ctx.close();
 }
 // ---- 8. BroadcastChannel: 2 tabs of the same browser (same-browser simulation, NOT network multiplayer) ----
