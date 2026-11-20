@@ -11,7 +11,9 @@ export interface PanelViewport {
   /** forbidden zones (live DOM rects of the joystick, Run/Walk, dock, Mood, top HUD chips + the player-avatar safe
    *  area): the panel never covers them while the keyboard is closed (see fitPanel) */ avoid?: Zone[];
 }
-export interface Zone { l: number; t: number; r: number; b: number }
+/** `soft`: a zone the panel avoids when it can (the player-avatar safe area) but never at the price of a control.
+ *  Hard zones (joystick, Run/Walk, dock, Mood, top chips) always win (BUG-V2b). */
+export interface Zone { l: number; t: number; r: number; b: number; soft?: boolean }
 export const PANEL_MARGIN = 6;
 /** composer + header + one message: below this the panel would clip its input */
 export const PANEL_MIN = { w: 208, h: 168 };
@@ -73,21 +75,31 @@ export function nearestFree(w: number, h: number, x0: number, y0: number, vp: Pi
   return best;
 }
 /** Keep the panel on screen AND off the forbidden zones: same size at the nearest allowed spot; if none fits, shrink
- *  step by step down to PANEL_MIN; if even the minimum cannot be placed, the minimum size at the least-covering spot. */
+ *  step by step down to PANEL_MIN. Soft zones (avatar) are dropped before the controls are ever covered (BUG-V2b: at
+ *  568x320 the avatar safe area + controls can leave no spot clear of all of them; the old least-covering fallback then
+ *  weighted the avatar like a control and parked the panel on the joystick). If even the minimum cannot be placed
+ *  clear of the hard zones, the minimum size at the spot covering the least control area (avatar as tie-break). */
 export function fitPanel(r: Rect, vp: PanelViewport, gap = ZONE_GAP): Rect {
   const c = clampPanel(r, vp); const zones = vp.avoid ?? [];
   if (!zones.length || panelFree(c, zones, gap)) return c;
-  for (let i = 0; i <= 6; i++) {
-    const k = i / 6; const w = Math.round(c.w + (PANEL_MIN.w - c.w) * k), h = Math.round(c.h + (PANEL_MIN.h - c.h) * k);
-    // keep the composer corner (bottom-right) near where it was when shrinking
-    const f = nearestFree(w, h, c.x + c.w - w, c.y + c.h - h, vp, zones, gap);
-    if (f) return f;
-    if (c.w === PANEL_MIN.w && c.h === PANEL_MIN.h) break;
+  const hard = zones.filter((z) => !z.soft);
+  const passes = hard.length < zones.length ? [zones, hard] : [zones];
+  for (const zs of passes) {
+    if (zs !== zones && panelFree(c, zs, gap)) return c;
+    for (let i = 0; i <= 6; i++) {
+      const k = i / 6; const w = Math.round(c.w + (PANEL_MIN.w - c.w) * k), h = Math.round(c.h + (PANEL_MIN.h - c.h) * k);
+      // keep the composer corner (bottom-right) near where it was when shrinking
+      const f = nearestFree(w, h, c.x + c.w - w, c.y + c.h - h, vp, zs, gap);
+      if (f) return f;
+      if (c.w === PANEL_MIN.w && c.h === PANEL_MIN.h) break;
+    }
   }
+  const soft = zones.filter((z) => z.soft);
+  const cost = (t: Rect) => overlapArea(t, hard) * 1000 + overlapArea(t, soft);
   const w = Math.min(PANEL_MIN.w, vp.vw - 2 * PANEL_MARGIN), h = Math.min(PANEL_MIN.h, vp.vh - 2 * PANEL_MARGIN);
-  let best = clampPanel({ x: c.x, y: c.y, w, h }, vp), ba = overlapArea(best, zones);
+  let best = clampPanel({ x: c.x, y: c.y, w, h }, vp), ba = cost(best);
   for (let x = PANEL_MARGIN; x <= vp.vw - w - PANEL_MARGIN; x += 8) for (let y = PANEL_MARGIN; y <= vp.vh - h - PANEL_MARGIN; y += 8) {
-    const t = { x, y, w, h }; const a = overlapArea(t, zones); if (a < ba) { best = t; ba = a; }
+    const t = { x, y, w, h }; const a = cost(t); if (a < ba) { best = t; ba = a; }
   }
   return best;
 }

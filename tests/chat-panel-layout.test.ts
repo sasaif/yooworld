@@ -106,4 +106,27 @@ describe('vertical chat panel layout', () => {
       expect(panelFree(r, Z)).toBe(true);
     });
   });
+  it('BUG-V2b: at 568x320 the controls always win over the avatar safe area (soft zone)', () => {
+    // live rects measured on iPhone 15 -> 568x320 (QA v2b_case0): joystick, Marche, dock, Mood + an avatar snapshot taken
+    // while the camera was still settling, which left no spot clear of all zones for the saved 225x243 panel
+    const ctl: Zone[] = [
+      { l: 10, t: 14, r: 92, b: 36 }, { l: 97, t: 11, r: 265, b: 39 }, { l: 276, t: 7, r: 357, b: 43 }, { l: 362, t: 7, r: 438, b: 43 },
+      { l: 443, t: 11, r: 478, b: 39 }, { l: 483, t: 6, r: 515, b: 44 }, { l: 520, t: 10, r: 579, b: 40 }, // top chips
+      { l: 214, t: 264, r: 502, b: 314 }, { l: 508, t: 270, r: 560, b: 314 }, { l: 14, t: 184, r: 138, b: 308 }, { l: 158, t: 250, r: 206, b: 298 },
+    ];
+    // avatar snapshot taken in the first frame after the resize (camera aspect not settled yet): far too wide
+    const vp: PanelViewport = { vw: 568, vh: 320, topMin: 50, dock: { l: 214, r: 502, t: 264 }, avoid: [...ctl, { l: 205, t: 67, r: 456, b: 222, soft: true }] };
+    const r = rectFromPrefs({ dr: 126, top: 88, w: 225, h: 243 }, vp);
+    expect(panelFree(r, ctl, 2)).toBe(true);
+    expect(inside(r, vp)).toBe(true);
+    // with a reachable avatar-free spot the avatar is still avoided
+    const vp2: PanelViewport = { ...vp, avoid: [...ctl, { l: 228, t: 82, r: 333, b: 212, soft: true }] }; // settled snapshot
+    const r2 = rectFromPrefs({ dr: 126, top: 88, w: 225, h: 243 }, vp2);
+    expect(panelFree(r2, vp2.avoid, 2)).toBe(true);
+    // nothing fits clear of the controls: least control area wins, not least total area
+    const tiny: PanelViewport = { vw: 300, vh: 200, topMin: 8, avoid: [{ l: 0, t: 0, r: 150, b: 200 }, { l: 150, t: 0, r: 300, b: 100, soft: true }] };
+    const r3 = fitPanel({ x: 6, y: 6, w: 208, h: 168 }, tiny);
+    const hardArea = Math.max(0, Math.min(r3.x + r3.w, 150) - r3.x) * r3.h;
+    expect(hardArea).toBeLessThanOrEqual(Math.max(0, 150 - (300 - 6 - r3.w)) * r3.h);
+  });
 });

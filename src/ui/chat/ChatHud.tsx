@@ -94,7 +94,7 @@ function avatarZone(): Zone | null {
   const tag = document.querySelector(`.tagwrap[data-char="${game.s.activeChar}"] .nametag`)?.getBoundingClientRect();
   if (tag && tag.width) { l = Math.min(l, tag.left); r = Math.max(r, tag.right); t = Math.min(t, tag.top); b = Math.max(b, tag.bottom); }
   if (r < 0 || b < 0 || l > innerWidth || t > innerHeight) return null;
-  return { l: Math.floor(l - 8), t: Math.floor(t - 8), r: Math.ceil(r + 8), b: Math.ceil(b + 8) };
+  return { l: Math.floor(l - 8), t: Math.floor(t - 8), r: Math.ceil(r + 8), b: Math.ceil(b + 8), soft: true };
 }
 const withAvatar = (v: PanelViewport): PanelViewport => { const a = avatarZone(); return a ? { ...v, avoid: [...(v.avoid ?? []), a] } : v; };
 const zonesKey = (z?: Zone[]) => (z ?? []).map((q) => `${q.l},${q.t},${q.r},${q.b}`).join(';');
@@ -112,22 +112,44 @@ function measureVp(): Vp {
   return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh, vvTop: kb.open ? Math.round(window.visualViewport?.offsetTop ?? 0) : 0, avoid: kb.open ? [] : controlZones() };
 }
 const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && zonesKey(a.avoid) === zonesKey(b.avoid) && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
-/** Re-measured on resize / keyboard / focus and every 400 ms (state only changes when a value changed). */
+/** Re-measured on resize / orientation / visual viewport / keyboard / focus and every 400 ms (state only changes when a
+ *  value changed). BUG-V2b: after a viewport change the controls and the camera (hence the avatar safe area) keep moving
+ *  for a while, so every viewport event also schedules settle passes (next frame, +250 ms, +700 ms, +1400 ms) that bump
+ *  `settle` -> the panel is re-placed against fresh zones + a fresh avatar snapshot even when nothing in `vp` changed.
+ *  A ResizeObserver on the controls does the same when one of them changes size (wrap, font settle). */
+const SETTLE_MS = [250, 700, 1400];
 function useViewport(active: boolean) {
   const [vp, setVp] = useState<Vp | null>(null);
+  const [settle, setSettle] = useState(0);
   useEffect(() => {
     if (!active) return;
-    let raf = 0;
+    let raf = 0, sraf = 0; let timers: number[] = [];
     const run = () => { raf = 0; const n = measureVp(); setVp((o) => (o && sameVp(o, n) ? o : n)); };
     const on = () => { if (!raf) raf = requestAnimationFrame(run); };
+    const pass = () => { const n = measureVp(); setVp((o) => (o && sameVp(o, n) ? o : n)); setSettle((k) => k + 1); };
+    const onViewport = () => {
+      on();
+      if (!sraf) sraf = requestAnimationFrame(() => { sraf = 0; pass(); });
+      timers.forEach(clearTimeout); timers = SETTLE_MS.map((ms) => window.setTimeout(pass, ms));
+    };
     run();
     const t = setInterval(on, 400);
-    addEventListener('resize', on); window.visualViewport?.addEventListener('resize', on); window.visualViewport?.addEventListener('scroll', on);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => onViewport()) : null;
+    if (ro) document.querySelectorAll<HTMLElement>(CONTROL_SEL + ', .hud-top').forEach((e) => { if (!e.closest('.chat-sheet')) ro.observe(e); });
+    const vv = window.visualViewport;
+    addEventListener('resize', onViewport); addEventListener('orientationchange', onViewport);
+    vv?.addEventListener('resize', onViewport); vv?.addEventListener('scroll', onViewport);
     document.addEventListener('focusin', on); document.addEventListener('focusout', on);
-    return () => { clearInterval(t); if (raf) cancelAnimationFrame(raf); removeEventListener('resize', on); window.visualViewport?.removeEventListener('resize', on); window.visualViewport?.removeEventListener('scroll', on); document.removeEventListener('focusin', on); document.removeEventListener('focusout', on); };
+    return () => {
+      clearInterval(t); if (raf) cancelAnimationFrame(raf); if (sraf) cancelAnimationFrame(sraf); timers.forEach(clearTimeout); ro?.disconnect();
+      removeEventListener('resize', onViewport); removeEventListener('orientationchange', onViewport);
+      vv?.removeEventListener('resize', onViewport); vv?.removeEventListener('scroll', onViewport);
+      document.removeEventListener('focusin', on); document.removeEventListener('focusout', on);
+    };
   }, [active]);
-  return vp;
+  return { vp, settle };
 }
+const sameRect = (a: Rect | null, b: Rect | null) => !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
 function ChatButton({ opaque, unread, last }: { opaque: boolean; unread: number; last: ChatMessage | undefined }) {
   const name = last ? speakerName(last.from) : '';
@@ -154,7 +176,7 @@ export function ChatHud() {
   const history = useHistory();
   const opaque = useOpaque();
   const open = panel === 'chat';
-  const vp = useViewport(open && ready && mode === 'play');
+  const { vp, settle } = useViewport(open && ready && mode === 'play');
   const [unread, setUnread] = useState(0);
   const [missedFrom, setMissedFrom] = useState<{ id: string; n: number } | null>(null);
   const [msg, setMsg] = useState('');
@@ -168,6 +190,7 @@ export function ChatHud() {
   const unreadRef = useRef(0); unreadRef.current = unread;
   const log = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
+  const head = useRef<HTMLHeadingElement>(null);
   const pinned = useRef(true);
   const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number; vp: PanelViewport; pending: boolean; el: HTMLElement } | null>(null);
   const eatClick = useRef(false);
@@ -203,7 +226,11 @@ export function ChatHud() {
 
   // (re)place on open, load, resize / rotation, control changes and after each saved gesture (BUG-V2): the saved rect is
   // re-clamped against the current viewport and forbidden zones (incl. the avatar at that moment); never saved here
-  useLayoutEffect(() => { if (!open || !vp || vp.kb) { if (!open) setPlaced(null); return; } setPlaced(rectFromPrefs(prefs, withAvatar(vp))); }, [open, vp, prefs]);
+  useLayoutEffect(() => {
+    if (!open || !vp || vp.kb) { if (!open) setPlaced(null); return; }
+    if (gesture.current && !gesture.current.pending) return; // never yank the panel from under the finger
+    const r = rectFromPrefs(prefs, withAvatar(vp)); setPlaced((o) => (sameRect(o, r) ? o : r));
+  }, [open, vp, prefs, settle]);
 
   if (!ready || mode !== 'play') return null;
   if (!open) return <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
@@ -233,6 +260,21 @@ export function ChatHud() {
     e.stopPropagation();
     gesture.current = { kind, x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: onButton, el: e.currentTarget as HTMLElement };
   };
+  // BUG-V4b: with touch, the bottom ~4 px of the 44 px header is retargeted (touch adjustment) to the 📍 line under
+  // it, so the header's own handler never sees it. Route every pointerdown that lands geometrically inside the header
+  // (except ✕ and the resize grip) to the move gesture, whatever element the browser picked as the target.
+  const routeHeader = (e: RPointerEvent<HTMLElement>) => {
+    const h = head.current; const t = e.target as HTMLElement;
+    if (!h || h.contains(t) || t.closest('.chat-grip')) return;
+    const r = h.getBoundingClientRect(); const x = h.querySelector('.x')?.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+    if (x && e.clientX >= x.left && e.clientX <= x.right) return;
+    if (!base || !vp || vp.kb || gesture.current) return;
+    e.preventDefault(); e.stopPropagation();
+    try { h.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
+    eatClick.current = true; // the retargeted element (📍 line toggles the note) must not get the click
+    gesture.current = { kind: 'move', x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: false, el: h };
+  };
   const onGesture = (e: RPointerEvent<HTMLElement>) => {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     const dx = e.clientX - g.x, dy = e.clientY - g.y;
@@ -253,10 +295,10 @@ export function ChatHud() {
 
   return (
     <div ref={sheet} className={'sheet chat-sheet chat-glass chat-vertical' + skin + (drag ? ' dragging' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
-      data-kb={vp?.kb ? '1' : '0'} style={style} role="dialog" aria-label="Chat">
+      data-kb={vp?.kb ? '1' : '0'} style={style} role="dialog" aria-label="Chat" onPointerDownCapture={routeHeader} onClickCapture={swallowDragClick}>
       <span className="chat-grip" role="separator" aria-label="Redimensionner le chat (glisser)" title="Glisser pour agrandir ou réduire"
         onPointerDown={startGesture('size')} {...gestureProps} />
-      <h3 className="chat-drag" onPointerDown={startGesture('move')} {...gestureProps} onClickCapture={swallowDragClick} onDoubleClick={resetPos} title="Glisser pour déplacer · double-clic : position d’origine">
+      <h3 ref={head} className="chat-drag" onPointerDown={startGesture('move')} {...gestureProps} onDoubleClick={resetPos} title="Glisser pour déplacer · double-clic : position d’origine">
         <button type="button" className="chat-fold" onClick={close} aria-expanded="true" aria-label="Réduire le chat">▾ Chat</button>
         <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? (sim ? 'Mode local · simulation' : 'Mode local · hors ligne') : netBadge(game.net.status).short}</span>
         <button type="button" className="chat-size" aria-label="Réduire la taille du chat" onClick={() => step(-1)}>−</button>
