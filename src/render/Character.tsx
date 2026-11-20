@@ -183,7 +183,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       const next = F.shift + (want - F.shift) * Math.min(1, dt * 14);
       if (Math.abs(next - F.shift) > 0.3 || (want === 0 && F.shift !== 0 && Math.abs(next) < 0.3)) { F.shift = Math.abs(next) < 0.3 ? 0 : next; el.style.transform = F.shift ? `translateY(${F.shift.toFixed(1)}px)` : ''; }
     }
-    if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
+    if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on && bubble.current.textContent !== s.say!.text) bubble.current.textContent = s.say!.text; }
   });
 
   return (

@@ -282,7 +282,7 @@
   white-space: normal; max-width: 190px; width: max-content; text-align: center; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   transform-origin: 50% 100%; transform: scale(.86) translateY(4px);
-  transition: opacity .22s ease, transform .24s cubic-bezier(.2,1.4,.4,1), translate .22s ease;
+  transition: opacity .22s ease, transform .24s cubic-bezier(.2,1.4,.4,1); /* no translate slide: de-overlap moves are instant (a slide could cross a neighbour) */
 }
 .tagwrap .bubble.on { transform: none; }
 /* moved off its speaker by the de-overlap: name prefix in the speaker's tag colour */

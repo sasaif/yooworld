@@ -19,6 +19,9 @@ const DEVS = [
   { name: 'desktop', w: 1440, h: 900, dpr: 1, touch: false, kb: 280 },
 ];
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+/** CV_ONLY=main,burst,beach,android,bc,drag (comma list) runs only those sections; BEACH_RUNS=n repeats the beach check. */
+const ONLY = (process.env.CV_ONLY ?? '').split(',').filter(Boolean); const want = (k) => !ONLY.length || ONLY.includes(k);
+const BEACH_RUNS = Math.max(1, Number(process.env.BEACH_RUNS ?? 3));
 const results = [];
 const ok = (c, m, extra) => { results.push({ ok: !!c, m, extra }); console.log((c ? 'PASS ' : 'FAIL ') + m + (extra !== undefined && !c ? ' ' + JSON.stringify(extra) : '')); if (!c) process.exitCode = 1; };
 const ov = (a, c) => !!a && !!c && Math.min(a.r, c.r) - Math.max(a.l, c.l) > 0.5 && Math.min(a.b, c.b) - Math.max(a.t, c.t) > 0.5;
@@ -90,7 +93,7 @@ const openPanel = async (p) => {
 const inside = (r, d) => !!r && r.l >= -0.5 && r.t >= -0.5 && r.r <= d.w + 0.5 && r.b <= d.h + 0.5;
 
 const draws = {};
-for (const d of DEVS) {
+for (const d of want('main') ? DEVS : []) {
   const { ctx, p } = await boot(d);
   // ---- 1. closed by default, compact Chat button, bubbles while closed, unread ----
   let s = await state(p);
@@ -196,7 +199,7 @@ for (const d of DEVS) {
 }
 
 // ---- 6. neutral cap: 20 simulated senders, 120-message burst, replay (reconnect) ----
-{
+if (want('burst')) {
   const d = DEVS[0];
   const { ctx, p } = await boot(d, 'fresh=1&lieu=appart&q=low&chatSim=1');
   const pre = await p.evaluate(() => window.__info?.calls);
@@ -224,7 +227,8 @@ for (const d of DEVS) {
   await ctx.close();
 }
 // ---- 7. several speakers at the beach (Juanita, Juan, 2 PNJ): no overlap, cap ?bubbles=2 keeps the rest in history ----
-{
+const beachStats = [];
+for (let run = 0; run < (want('beach') ? BEACH_RUNS : 0); run++) {
   const d = DEVS[0];
   for (const cap of [6, 2]) {
     const { ctx, p } = await boot(d, `fresh=1&lieu=plage&q=low&chatSim=1${cap === 2 ? '&bubbles=2' : ''}`);
@@ -234,8 +238,18 @@ for (const d of DEVS) {
     const s = await state(p);
     const n = Math.min(cap, ids.length);
     ok(s.bubbles.length === n, `beach cap ${cap}: ${s.bubbles.length} bubbles for ${ids.length} speakers`, s.bubbles.map((x) => x.id));
-    let any = false; for (let i = 0; i < s.bubbles.length; i++) for (let j = i + 1; j < s.bubbles.length; j++) any ||= ov(s.bubbles[i].r, s.bubbles[j].r);
-    ok(!any, `beach cap ${cap}: visible bubbles do not overlap`, s.bubbles.map((x) => x.r));
+    // the beach PNJ keep walking, so a bubble can brush a neighbour for one 8 Hz re-layout (moves are instant, no slide); sample
+    // 14 times over ~2 s: settled = no pair overlapping in 3 consecutive samples (~0.4 s), and report the worst moment
+    const ovs = [];
+    for (let k = 0; k < 14; k++) {
+      const bs = (await state(p)).bubbles; const pairs = [];
+      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) if (ov(bs[i].r, bs[j].r)) pairs.push(`${bs[i].id}|${bs[j].id}:${Math.round(Math.min(bs[i].r.r, bs[j].r.r) - Math.max(bs[i].r.l, bs[j].r.l))}x${Math.round(Math.min(bs[i].r.b, bs[j].r.b) - Math.max(bs[i].r.t, bs[j].r.t))}`);
+      ovs.push(pairs); await p.waitForTimeout(110);
+    }
+    let lasting = null; for (let k = 2; k < ovs.length && !lasting; k++) for (const pr of ovs[k]) { const key = pr.split(':')[0]; if (ovs[k - 1].some((x) => x.startsWith(key + ':')) && ovs[k - 2].some((x) => x.startsWith(key + ':'))) { lasting = pr; break; } }
+    const transient = ovs.filter((x) => x.length).length;
+    ok(!lasting, `beach cap ${cap} (run ${run + 1}): visible bubbles do not overlap (settled; transient brushes in ${transient}/14 samples)`, { lasting, ovs });
+    beachStats.push({ cap, run, transient, lasting });
     const st = await p.evaluate(() => window.__chatSim.stats());
     ok(st.history === ids.length, `beach cap ${cap}: all ${ids.length} messages in history (${st.queued.length} waiting for a slot)`, st);
     await p.screenshot({ path: `${SHOTS}/beach_cap${cap}.png` });
@@ -244,7 +258,7 @@ for (const d of DEVS) {
 }
 // ---- 9. Android "resizes-content" keyboard: the LAYOUT viewport shrinks (innerHeight drops, visualViewport.height ≈
 //         innerHeight, so keyboardInset() alone sees no keyboard). Emulated with page.setViewportSize while focused. ----
-for (const [d, small] of [[DEVS[0], 200], [DEVS[1], 190]]) {
+for (const [d, small] of want('android') ? [[DEVS[0], 200], [DEVS[1], 190]] : []) {
   const { ctx, p } = await boot(d);
   await p.evaluate(() => { window.game.sendChat('Salut ! 👋'); window.__chatSim.receive('m', 'Coucou, ça va ?'); window.game.setPanel('chat'); });
   await p.waitForFunction(() => { const e = document.querySelector('.chat-sheet'); return e && getComputedStyle(e).visibility !== 'hidden'; }, null, { timeout: 15000 });
@@ -272,7 +286,7 @@ for (const [d, small] of [[DEVS[0], 200], [DEVS[1], 190]]) {
   await ctx.close();
 }
 // ---- 8. BroadcastChannel: 2 tabs of the same browser (same-browser simulation, NOT network multiplayer) ----
-{
+if (want('bc')) {
   const d = DEVS[0];
   const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
   const A = await boot(d, 'fresh=1&lieu=appart&q=low&chatSim=bc', ctx);

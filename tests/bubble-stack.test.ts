@@ -31,4 +31,14 @@ describe('speech-bubble de-overlap', () => {
     const o = stackOffsets([{ id: 'a', self: false, box: box(0, 100) }, { id: 'b', self: false, box: box(400, 100) }]);
     expect(o.get('a')).toMatchObject({ dx: 0, dy: 0 }); expect(o.get('b')).toMatchObject({ dx: 0, dy: 0 });
   });
+
+  it('sticky: a still-free previous offset is kept (no jumping between equal solutions), home spot wins when free', () => {
+    const items: StackItem[] = [{ id: 'me', self: true, box: box(300, 100) }, { id: 'x', self: false, box: box(310, 102) }];
+    const first = stackOffsets(items).get('x')!;
+    const side = { dx: 260, dy: 0 }; // another valid (free) spot
+    expect(stackOffsets(items, [], undefined, 4, 400, new Map([['x', side]])).get('x')).toMatchObject(side);
+    expect(first.dx !== side.dx || first.dy !== side.dy).toBe(true);
+    const alone: StackItem[] = [{ id: 'x', self: false, box: box(310, 102) }];
+    expect(stackOffsets(alone, [], undefined, 4, 150, new Map([['x', side]])).get('x')).toMatchObject({ dx: 0, dy: 0 });
+  });
 });
