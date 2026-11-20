@@ -18,6 +18,7 @@ import { makeVerifier, HUMAN_CHECKED, type HumanVerifier } from '../core/humanCh
 import type { Env } from './env';
 import { metricsFor, runOpsCheck } from './ops';
 import { outboxAccess, presentedToken } from '../core/qaOutbox';
+import { verifyHs256, alreadyVerifiedRedirect } from '../core/verifyLink';
 export { RoomDO } from './room-do';
 export { DirectoryDO } from './directory-do';
 export { TableDO } from './table-do';
@@ -107,7 +108,14 @@ async function kickSessions(env: Env, cfg: AppConfig, userId: string, sid: strin
   return { rooms: rooms.length, closed: r.reduce((n, x) => n + x.closed, 0) };
 }
 const outbox = (env: Env, cfg: AppConfig) => env.OUTBOX.get(env.OUTBOX.idFromName(`${cfg.env}:qa-outbox`));
-const authFor = (c: C) => makeAuth(c.var.cfg, (userId, sid) => kickSessions(c.env, c.var.cfg, userId, sid),
+/** Revocation fan-out stats of the current auth request (the Better Auth session-delete hook awaits kickSessions
+ *  INSIDE the sign-out / revoke request, before the response: no poll, no cron). Exposed as `x-ws-revoked`. */
+type KickStats = { calls: number; rooms: number; closed: number; ms: number };
+const authFor = (c: C, stats?: KickStats) => makeAuth(c.var.cfg, async (userId, sid) => {
+    const t0 = Date.now(); const r = await kickSessions(c.env, c.var.cfg, userId, sid);
+    if (stats) { stats.calls++; stats.rooms += r.rooms; stats.closed += r.closed; stats.ms += Date.now() - t0; }
+    return r;
+  },
   c.var.cfg.emailMode === 'capture' ? (m) => outbox(c.env, c.var.cfg).put(m) : undefined);
 
 // ---------- human check (Turnstile hook) on bot-attractive unauthenticated routes ----------
@@ -121,13 +129,25 @@ app.use('/api/auth/*', async (c, next) => {
   await next();
 });
 // ---------- auth ----------
+// U7: a reused verification link -> plain 'already verified' redirect (no session, no cookie). See core/verifyLink.ts.
+app.get('/api/auth/verify-email', async (c, next) => {
+  const claims = await verifyHs256(c.req.query('token') ?? '', c.var.cfg.authSecret);
+  if (!claims || claims.updateTo) return next();
+  const verified = await withClient(c.var.cfg.authDatabaseUrl, async (cl) =>
+    (await cl.query('select "emailVerified" v, id from auth."user" where email = $1', [claims.email])).rows[0] as { v: boolean; id: string } | undefined);
+  if (!verified?.v || (claims.userId && claims.userId !== verified.id)) return next();
+  c.header('cache-control', 'no-store');
+  return c.redirect(alreadyVerifiedRedirect(c.req.query('callbackURL'), [c.var.cfg.appOrigin, new URL(c.var.cfg.authUrl).origin]), 302);
+});
 app.all('/api/auth/*', async (c) => {
-  const { auth, close } = authFor(c);
+  const stats: KickStats = { calls: 0, rooms: 0, closed: 0, ms: 0 };
+  const { auth, close } = authFor(c, stats);
   try {
     let res: Response;
     try { res = await auth.handler(c.req.raw); }
     catch (e) { await db(c, async () => null); throw e; }          // DB down -> DbDown -> 503, else the original error
     if (res.status >= 500) await db(c, async () => null);
+    if (stats.calls) { res = new Response(res.body, res); res.headers.set('x-ws-revoked', `sessions=${stats.calls};rooms=${stats.rooms};closed=${stats.closed};ms=${stats.ms}`); }
     return res;
   } finally { c.executionCtx.waitUntil(close()); }
 });

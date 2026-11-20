@@ -223,3 +223,49 @@ describe('self-service deletion + export', () => {
       old_ledger_rows_unchanged: true, recon_nonzero: 0, audit_chain_broken: 0, auth_anonymised: true, email_reusable: true };
   });
 });
+
+describe('BUG-U5: revocation closes the open WebSocket inside the sign-out / revoke request (workerd, < 2 s)', () => {
+  it('sign-out, revoke-sessions, revoke-other-sessions: 4401 well under 2 s, x-ws-revoked reports the fan-out', async () => {
+    const u = await signUp(pool, 'u5');
+    const lat: Record<string, number[]> = { 'sign-out': [], 'revoke-sessions': [], 'revoke-other-sessions': [] };
+    for (let rep = 0; rep < 3; rep++) {
+      for (const path of Object.keys(lat)) {
+        const victim = await signIn(u.email, u.password);                     // session whose socket must close
+        const keeper = path === 'revoke-other-sessions' ? await signIn(u.email, u.password) : victim;
+        const j = await http('POST', '/api/rooms/beach/join', { cookie: victim.cookie, body: {} });
+        const ws = await openWs(j.json.room, j.json.ticket); await ready(ws);
+        const t0 = performance.now();
+        const r = await post(`/api/auth/${path}`, {}, { cookie: keeper.cookie, ip: keeper.ip });
+        expect(r.status).toBe(200);
+        expect(r.headers.get('x-ws-revoked')).toMatch(/closed=[1-9]/);          // the DO fan-out ran before the response
+        const closed = await waitClosed(ws, 3000);
+        expect(closed).toMatchObject({ code: 4401 });
+        lat[path].push(+(performance.now() - t0).toFixed(1));
+        if (path === 'revoke-other-sessions') await post('/api/auth/sign-out', {}, { cookie: keeper.cookie, ip: keeper.ip });
+      }
+    }
+    for (const [p, a] of Object.entries(lat)) expect(Math.max(...a), p).toBeLessThan(2000);
+    results.revocation_latency_ms = Object.fromEntries(Object.entries(lat).map(([p, a]) => [p, { min: Math.min(...a), median: pct(a, 50), max: Math.max(...a) }]));
+  });
+});
+
+describe('U7: verification link reuse', () => {
+  it('a used link answers a plain already-verified redirect: no session, no cookie; forged tokens still go to Better Auth', async () => {
+    const u = await signUp(pool, 'u7');                                            // signUp already used the link once
+    const url = (await pool.query(`select url from auth.dev_mail where email = $1 and kind = 'verify' order by id desc limit 1`, [u.email])).rows[0].url as string;
+    const sessionsBefore = Number((await pool.query('select count(*) n from auth.session where "userId" = $1', [u.id])).rows[0].n);
+    for (let i = 0; i < 2; i++) {
+      const r = await fetch(url, { redirect: 'manual' });
+      expect(r.status).toBe(302);
+      expect(r.headers.get('location')).toMatch(/[?&]status=already_verified$/);
+      expect(r.headers.getSetCookie()).toEqual([]);
+    }
+    expect(Number((await pool.query('select count(*) n from auth.session where "userId" = $1', [u.id])).rows[0].n)).toBe(sessionsBefore);
+    const t = new URL(url); const tok = t.searchParams.get('token')!;
+    t.searchParams.set('token', tok.slice(0, -4) + (tok.endsWith('AAAA') ? 'BBBB' : 'AAAA'));   // bad signature: no shortcut, Better Auth refuses
+    const f = await fetch(t, { redirect: 'manual' });
+    expect(f.headers.get('location') ?? '').not.toMatch(/already_verified/);
+    expect(f.headers.get('location') ?? '').toMatch(/error=INVALID_TOKEN/);
+    results.verify_link_reuse = { status: 302, marker: 'status=already_verified', set_cookie: 0, new_sessions: 0, forged_token: 'INVALID_TOKEN' };
+  });
+});
