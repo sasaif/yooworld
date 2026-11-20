@@ -10,6 +10,7 @@ export interface RawEnv { [k: string]: unknown }
 export interface AppConfig {
   env: EnvTag; databaseUrl: string; authDatabaseUrl: string; adminDatabaseUrl?: string;
   authSecret: string; ticketSecret: string; resultSecret: string; authUrl: string; appOrigin: string;
+  humanMode: 'off' | 'fake' | 'turnstile'; turnstileSecret?: string;
 }
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 
@@ -41,7 +42,12 @@ export function validateEnv(e: RawEnv): { ok: true; cfg: AppConfig } | { ok: fal
     try { const u = new URL(s(k)); if (env !== 'local' && u.protocol !== 'https:') errors.push(`${k} must be https in ${env}`); }
     catch { errors.push(`${k} is not a URL`); }
   }
+  const hm = s('TURNSTILE_MODE') || (env === 'local' ? 'off' : '');
+  if (!['off', 'fake', 'turnstile'].includes(hm)) errors.push('TURNSTILE_MODE must be off|fake|turnstile (required outside local)');
+  if (env !== 'local' && hm !== 'turnstile') errors.push(`TURNSTILE_MODE must be turnstile in ${env}`);
+  if (hm === 'turnstile' && (s('TURNSTILE_SECRET').length < 20 || (env !== 'local' && /local|example|changeme|dev|test/i.test(s('TURNSTILE_SECRET'))))) errors.push('TURNSTILE_SECRET missing or placeholder');
   if (errors.length) return { ok: false, errors };
   return { ok: true, cfg: { env, databaseUrl: s('DATABASE_URL'), authDatabaseUrl: s('AUTH_DATABASE_URL'), adminDatabaseUrl: s('ADMIN_DATABASE_URL') || undefined,
-    authSecret: s('BETTER_AUTH_SECRET'), ticketSecret: s('TICKET_SECRET'), resultSecret: s('RESULT_SECRET'), authUrl: s('BETTER_AUTH_URL'), appOrigin: s('APP_ORIGIN') } };
+    authSecret: s('BETTER_AUTH_SECRET'), ticketSecret: s('TICKET_SECRET'), resultSecret: s('RESULT_SECRET'), authUrl: s('BETTER_AUTH_URL'), appOrigin: s('APP_ORIGIN'),
+    humanMode: hm as AppConfig['humanMode'], turnstileSecret: s('TURNSTILE_SECRET') || undefined } };
 }

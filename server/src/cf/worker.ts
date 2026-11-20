@@ -13,6 +13,7 @@ import { parseRoom, LOCATIONS } from '../core/rooms';
 import { canonicalResult, type TableResult } from '../core/tableGame';
 import { DbDown, withClient } from './db';
 import { makeAuth } from './auth';
+import { makeVerifier, HUMAN_CHECKED, type HumanVerifier } from '../core/humanCheck';
 import type { Env } from './env';
 export { RoomDO } from './room-do';
 export { DirectoryDO } from './directory-do';
@@ -86,6 +87,16 @@ const idem = (c: C) => {
 };
 async function body<T = Record<string, any>>(c: C): Promise<T> { try { return await c.req.json(); } catch { throw new HttpErr(400, 'bad_json'); } }
 
+// ---------- human check (Turnstile hook) on bot-attractive unauthenticated routes ----------
+let verifierCache: { cfg: AppConfig; v: HumanVerifier } | null = null;
+app.use('/api/auth/*', async (c, next) => {
+  if (c.req.method === 'POST' && (HUMAN_CHECKED as readonly string[]).includes(new URL(c.req.url).pathname)) {
+    if (!verifierCache || verifierCache.cfg !== c.var.cfg) verifierCache = { cfg: c.var.cfg, v: makeVerifier(c.var.cfg.humanMode, c.var.cfg.turnstileSecret) };
+    const r = await verifierCache.v.verify(c.req.header('x-turnstile-token'), c.req.header('cf-connecting-ip'));
+    if (!r.ok) return c.json({ ok: false, code: 'human_check_failed', codes: r.codes }, 403);
+  }
+  await next();
+});
 // ---------- auth ----------
 app.all('/api/auth/*', async (c) => {
   const { auth, close } = makeAuth(c.var.cfg);

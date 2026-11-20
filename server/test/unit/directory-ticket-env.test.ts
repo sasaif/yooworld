@@ -59,7 +59,7 @@ describe('env schema (refuses mixed environments)', () => {
   it('refuses: local with remote DB, uat with loopback / no TLS / placeholder secrets, wrong role, reused secrets, prod-looking DB in uat', () => {
     const errs = (e: Record<string, unknown>) => { const r = validateEnv(e); return r.ok ? [] : r.errors; };
     expect(errs({ ...base, DATABASE_URL: 'postgres://app_api:x@db.example.com/yoland' }).join()).toMatch(/loopback/);
-    const uat = { ...base, ENV_TAG: 'uat', BETTER_AUTH_URL: 'https://uat.example', APP_ORIGIN: 'https://uat.example' };
+    const uat = { ...base, ENV_TAG: 'uat', BETTER_AUTH_URL: 'https://uat.example', APP_ORIGIN: 'https://uat.example', TURNSTILE_MODE: 'turnstile', TURNSTILE_SECRET: '0x4AAAAAAA' + 'Q'.repeat(20) };
     expect(errs(uat).join()).toMatch(/cannot use a loopback/);
     expect(errs({ ...uat, DATABASE_URL: 'postgres://app_api:x@uat-db.example/yoland', AUTH_DATABASE_URL: 'postgres://app_auth:x@uat-db.example/yoland' }).join()).toMatch(/sslmode=require/);
     expect(errs({ ...uat, DATABASE_URL: 'postgres://app_api:x@prod-db.example/yoland?sslmode=require', AUTH_DATABASE_URL: 'postgres://app_auth:x@uat-db.example/y?sslmode=require' }).join()).toMatch(/production database/);

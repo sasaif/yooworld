@@ -14,3 +14,14 @@ it('reused secret (ticket = session secret) -> refused', async () => {
   await startWrangler({ TICKET_SECRET: VARS.BETTER_AUTH_SECRET }, 500);
   expect((await http('GET', '/api/health')).json.errors.join(' ')).toMatch(/must differ/);
 });
+it('human check (Turnstile hook, fake verifier): sign-up and password reset need a valid token; other routes untouched', async () => {
+  await startWrangler({ TURNSTILE_MODE: 'fake' });
+  const email = `hc-${Date.now()}@e2e.local`; const body = { email, password: 'correct-horse-battery-9', name: 'h' };
+  const no = await http('POST', '/api/auth/sign-up/email', { body, ip: '198.19.9.1' });
+  expect(no.status).toBe(403); expect(no.json.code).toBe('human_check_failed');
+  expect((await http('POST', '/api/auth/sign-up/email', { body, ip: '198.19.9.1', headers: { 'x-turnstile-token': 'forged' } })).status).toBe(403);
+  expect((await http('POST', '/api/auth/sign-up/email', { body, ip: '198.19.9.1', headers: { 'x-turnstile-token': 'local-fake-pass' } })).status).toBe(200);
+  expect((await http('POST', '/api/auth/request-password-reset', { body: { email }, ip: '198.19.9.2' })).json.code).toBe('human_check_failed');
+  expect((await http('POST', '/api/auth/request-password-reset', { body: { email }, ip: '198.19.9.2', headers: { 'x-turnstile-token': 'local-fake-pass' } })).status).toBe(200);
+  expect((await http('POST', '/api/auth/sign-in/email', { body: { email, password: 'wrong-password-zz' }, ip: '198.19.9.3' })).status).toBe(401);   // not gated
+});

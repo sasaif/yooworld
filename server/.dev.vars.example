@@ -9,3 +9,5 @@ TICKET_SECRET=local-only-ticket-secret-change-me-000000000
 RESULT_SECRET=local-only-result-secret-change-me-000000000
 BETTER_AUTH_URL=http://127.0.0.1:8787
 APP_ORIGIN=http://127.0.0.1:5173
+# Human check: off (default) | fake (local tests: token "local-fake-pass") | turnstile (uat/prod, real secret via wrangler secret)
+TURNSTILE_MODE=off
