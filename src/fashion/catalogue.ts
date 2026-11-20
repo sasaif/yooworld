@@ -95,7 +95,7 @@ export const CATALOGUE: I[] = [
   it('tee_heart', 'Tee cœur', 'tshirt', 'top', { color: '#ffd1e3', print: 'heart', sleeve: 'short' }, G(200)),
   it('tee_star', 'Tee étoile', 'tshirt', 'top', { color: '#26233a', print: 'star', sleeve: 'short' }, G(220)),
   it('tee_tank', 'Débardeur corail', 'tshirt', 'top', { color: '#ff7a5c', print: 'none', sleeve: 'tank' }, G(150)),
-  it('tee_yoo', 'Tee YooWorld', 'tshirt', 'top', { color: '#ffcf3f', print: 'yoo', sleeve: 'short' }, G(260), 'rare'),
+  it('tee_yoo', 'Tee YoLand', 'tshirt', 'top', { color: '#ffcf3f', print: 'yoo', sleeve: 'short' }, G(260), 'rare'),
   it('tee_tiedye', 'Tie & dye', 'tshirt', 'top', { color: '#ff6fb5', color2: '#5fd3ff', pattern: 'tiedye', sleeve: 'short' }, D(20), 'epic'),
   it('tee_galaxy', 'Tee Galaxie', 'tshirt', 'top', { color: '#1b1446', color2: '#b17bff', pattern: 'galaxy', print: 'star', sleeve: 'long' }, D(30), 'legendary'),
   // ---------- Vestes ----------
