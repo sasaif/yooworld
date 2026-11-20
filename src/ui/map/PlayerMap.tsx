@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState }
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
 import {
-  PLAYER_MAP, PLAYER_MAP_DISTRICTS, MAP_STATUS, canVisit, districtById, featuredPlaces, placeForLocation, placesIn, visitLabel,
-  type DistrictId, type MapPlace, type Pct,
+  PLAYER_MAP, PLAYER_MAP_DISTRICTS, MAP_STATUS, canVisit, districtById, featuredPlaces, hdTilesFor, placeForLocation, placesIn, visitLabel,
+  type DistrictId, type HdTile, type MapPlace, type Pct,
 } from '../../data/playerMap';
 import { camToRect, clampCam, fitCam, L2_TOP, l2Strip, type Cam } from './mapCamera';
 import { CITY_NAV, mapNavigation } from './mapNavigation';
@@ -34,6 +34,7 @@ export function PlayerMap() {
   const leaving = useRef(false);
   const root = useRef<HTMLDivElement>(null);
   const [nudge, setNudge] = useState<Record<string, Nudge>>({});
+  const [hd, setHd] = useState<Record<string, HdTile>>({}); // 2x art tiles, fetched on demand and kept for the session
 
   const measure = useCallback(() => {
     const el = view.current; if (!el) return;
@@ -114,6 +115,14 @@ export function PlayerMap() {
     els.forEach((el, i) => { const k = el.dataset.mapDistrict ?? el.dataset.mapPin ?? el.dataset.mapPlace ?? 'here'; if (ns[i].dx || ns[i].dy) next[(el.dataset.mapDistrict ? 'd:' : el.dataset.mapPin ? 'p:' : el.dataset.mapPlace ? 'l:' : '') + k] = ns[i]; });
     setNudge((old) => (JSON.stringify(old) === JSON.stringify(next) ? old : next));
   }, [layoutKey]);
+  // Level 2 on a high-DPR screen would upscale the 1x art (blurry at DPR 3): lazily add the 2x tiles under the view.
+  const dpr = typeof devicePixelRatio === 'number' ? devicePixelRatio : 1;
+  const wantHd = !baked && !!d && vw > 0 && dpr * cam.s > 1.15;
+  useEffect(() => {
+    if (!wantHd) return;
+    const need = hdTilesFor({ x0: -cam.x / cam.s, y0: -cam.y / cam.s, x1: (vw - cam.x) / cam.s, y1: (vh - cam.y) / cam.s });
+    setHd((o) => (need.every((t) => o[t.id]) ? o : { ...o, ...Object.fromEntries(need.map((t) => [t.id, t])) }));
+  }, [wantHd, district, vw, vh]); // eslint-disable-line react-hooks/exhaustive-deps
   const nv = (k: string) => { const n = nudge[k]; return n ? ({ '--dx': `${n.dx}px`, '--dy': `${n.dy}px` } as React.CSSProperties) : undefined; };
   if (!shown && !visible) return null;
 
@@ -124,6 +133,14 @@ export function PlayerMap() {
         <div className="pmap-world" style={{ width: MW, height: MH, transform: `translate(${cam.x}px,${cam.y}px) scale(${cam.s})` }}>
           <img className="map" src={baked ? PLAYER_MAP.fallback : PLAYER_MAP.src} width={MW} height={MH} alt="Carte illustrée de YoLand" draggable={false}
             onError={() => { if (!baked) setBaked(true); }} />
+          {!baked && Object.keys(hd).length > 0 && (
+            <div className="pmap-hd" data-map="hd" aria-hidden="true">
+              {Object.values(hd).map((t) => (
+                <img key={t.id} data-map-hd={t.id} src={t.src} alt="" decoding="async" draggable={false} style={{ left: t.x, top: t.y, width: t.w, height: t.h }}
+                  onLoad={(e) => e.currentTarget.classList.add('ok')} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              ))}
+            </div>
+          )}
         </div>
         <div className="pmap-layer" key={d ? 'l2-' + d.id : 'l1'}>
           {!d && PLAYER_MAP_DISTRICTS.map((x) => x.zones.map((z, i) => (

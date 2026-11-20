@@ -3,7 +3,8 @@
     "width": 1672,
     "height": 941,
     "src": "/playermap/map_clean.webp",
-    "fallback": "/playermap/map.webp"
+    "fallback": "/playermap/map.webp",
+    "hd": { "src": "/playermap/hd/map_clean_{r}{c}.webp", "cols": [0, 836, 1672], "rows": [0, 470, 941] }
   },
   "districts": [
     {
