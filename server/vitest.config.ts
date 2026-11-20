@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
+    exclude: ['test/e2e/**', 'node_modules/**'],
     globalSetup: ['test/globalSetup.ts'],
     fileParallelism: false,          // suites share one local Postgres; attacks are parallel INSIDE a test
     testTimeout: 120_000,

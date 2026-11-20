@@ -19,6 +19,7 @@
     "test:unit": "vitest run test/unit",
     "test:db": "vitest run test/db",
     "test:security": "vitest run test/security",
+    "test:e2e": "vitest run -c vitest.e2e.config.ts",
     "dev": "wrangler dev --local"
   },
   "dependencies": {
@@ -30,10 +31,12 @@
     "@cloudflare/workers-types": "^5.20261120.1",
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
+    "@types/ws": "^8.18.2",
     "@vitest/coverage-v8": "^5.1.1",
     "embedded-postgres": "^18.7.0-beta.19",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1",
-    "wrangler": "^4.165.0"
+    "wrangler": "^4.165.0",
+    "ws": "^8.23.0"
   }
 }

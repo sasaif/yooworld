@@ -10,9 +10,9 @@ const su = superPool();
 afterAll(() => su.end());
 
 describe('migrations', () => {
-  it('applies the 6 Phase B migrations in order with checksums', async () => {
+  it('applies the 9 Phase B migrations in order with checksums', async () => {
     const rows = (await su.query('select version, name, checksum, env from migrations.applied order by version')).rows;
-    expect(rows.map((r) => r.name)).toEqual(['0001_roles.sql', '0002_auth.sql', '0003_eco.sql', '0004_social.sql', '0005_prog.sql', '0006_mod_audit.sql']);
+    expect(rows.map((r) => r.name)).toEqual(['0001_roles.sql', '0002_auth.sql', '0003_eco.sql', '0004_social.sql', '0005_prog.sql', '0006_mod_audit.sql', '0007_rooms_saves.sql', '0008_games_admin.sql', '0009_owner_rules_purchase_hooks.sql']);
     expect(rows.every((r) => r.env === 'local')).toBe(true);
     const files = listMigrations();
     expect(rows.map((r) => r.checksum)).toEqual(files.map((f: { checksum: string }) => f.checksum));
@@ -39,9 +39,10 @@ describe('migrations', () => {
   it('every product limit marked with an approval status; undecided ones are pending_approval', async () => {
     const rows = (await su.query('select key, status from eco.config')).rows as { key: string; status: string }[];
     const st = Object.fromEntries(rows.map((r) => [r.key, r.status]));
-    for (const k of ['gift.min_account_age_days', 'gift.gold_max_per_gift', 'gift.gold_sent_per_day', 'gift.gold_received_per_day', 'gift.count_per_day', 'item.diamond_hold_days', 'event.vip_per_day', 'event.vip_active_max'])
+    for (const k of ['gift.min_account_age_days', 'gift.gold_max_per_gift', 'gift.gold_sent_per_day', 'gift.gold_received_per_day', 'gift.count_per_day', 'event.vip_per_day', 'event.vip_active_max'])
       expect(st[k], k).toBe('pending_approval');
-    for (const k of ['event.normal_per_hour', 'event.capacity_default', 'event.kick_ban_minutes']) expect(st[k], k).toBe('owner_rule');
+    for (const k of ['event.normal_per_hour', 'event.capacity_default', 'event.kick_ban_minutes', 'item.diamond_hold_days']) expect(st[k], k).toBe('owner_rule');
+    expect((await su.query(`select value from eco.config where key='item.diamond_hold_days'`)).rows[0].value).toBe(0);
     const rr = (await su.query('select id, approved_by from eco.reward_rules')).rows;
     expect(rr.every((r) => r.approved_by === 'pending_approval')).toBe(true);
   });

@@ -46,28 +46,34 @@ describe('shop_buy', () => {
     const mv = (await su.query('select reason, from_id, to_id from eco.item_moves where item_id=$1', [r.item])).rows;
     expect(mv).toEqual([{ reason: 'shop', from_id: null, to_id: p }]);
   });
-  it('Diamond purchase is TRADABLE by default (not bound) and gets the configurable hold', async () => {
-    const p = await newPlayer(su); await dev(p, 'DIAMOND', 50);
+  it('owner rule: Diamond purchase is TRADABLE immediately (hold default 0), records a purchase event with account age', async () => {
+    const p = await newPlayer(su, 30); const q = await newPlayer(su); await dev(p, 'DIAMOND', 50);
     const def = await defItem(su, { diamond: 10 });
     const r: any = await gate.shopBuy(p, def, 'DIAMOND', key());
-    expect(r).toMatchObject({ ok: true, tradable: true, currency: 'DIAMOND_TEST' });
-    const days = (new Date(r.hold_until).getTime() - Date.now()) / 86_400_000;
-    expect(days).toBeGreaterThan(13.9); expect(days).toBeLessThan(14.1);
+    expect(r).toMatchObject({ ok: true, tradable: true, currency: 'DIAMOND_TEST', hold_until: null });
     expect(await diamonds(su, p)).toBe(40);
+    const ev = (await su.query('select kind, currency, amount, item_def, account_age_days from eco.purchase_events where item_id = $1', [r.item])).rows;
+    expect(ev).toHaveLength(1);
+    expect(ev[0]).toMatchObject({ kind: 'shop', currency: 'DIAMOND_TEST', amount: 10, item_def: def });
+    expect(Number(ev[0].account_age_days)).toBeGreaterThan(29.99); expect(Number(ev[0].account_age_days)).toBeLessThan(30.01);
+    expect(Number((await api.query('select eco.account_age_days($1) r', [p])).rows[0].r)).toBeCloseTo(30, 1);
+    await expect(api.query('select * from eco.purchase_events')).rejects.toMatchObject({ code: '42501' });
+    await expect(su.query('update eco.purchase_events set amount = 1 where item_id = $1', [r.item])).rejects.toMatchObject({ hint: 'append_only' });
+    expect(await gate.giftItem(p, q, r.item, key())).toMatchObject({ ok: true });            // tradable immediately
+    const nt = await defItem(su, { diamond: 10, tradable: false });
+    const r2: any = await gate.shopBuy(p, nt, 'DIAMOND', key());
+    expect(r2.tradable).toBe(false);
+    expect(await gate.giftItem(p, q, r2.item, key())).toMatchObject({ ok: false, code: 'not_tradable' });
   });
-  it('hold = 0 days means no hold; explicitly non-tradable definitions stay non-tradable', async () => {
-    const p = await newPlayer(su); const q = await newPlayer(su); await dev(p, 'DIAMOND', 50);
-    await setCfg(su, 'item.diamond_hold_days', 0);
+  it('the hold mechanism is kept: with item.diamond_hold_days > 0 the item gets a hold', async () => {
+    const p = await newPlayer(su); await dev(p, 'DIAMOND', 50);
+    await setCfg(su, 'item.diamond_hold_days', 14);
     try {
       const def = await defItem(su, { diamond: 10 });
       const r: any = await gate.shopBuy(p, def, 'DIAMOND', key());
-      expect(r.hold_until).toBeNull();
-      expect(await gate.giftItem(p, q, r.item, key())).toMatchObject({ ok: true });
-      const nt = await defItem(su, { diamond: 10, tradable: false });
-      const r2: any = await gate.shopBuy(p, nt, 'DIAMOND', key());
-      expect(r2.tradable).toBe(false);
-      expect(await gate.giftItem(p, q, r2.item, key())).toMatchObject({ ok: false, code: 'not_tradable' });
-    } finally { await setCfg(su, 'item.diamond_hold_days', 14); }
+      const days = (new Date(r.hold_until).getTime() - Date.now()) / 86_400_000;
+      expect(days).toBeGreaterThan(13.9); expect(days).toBeLessThan(14.1);
+    } finally { await setCfg(su, 'item.diamond_hold_days', 0); }
   });
   it('refuses unknown / unpriced items, wrong currency and insufficient funds', async () => {
     const p = await newPlayer(su); await gate.testGrantGold(p, 50, key());
@@ -156,10 +162,12 @@ describe('gifts (foundation, limits pending approval)', () => {
     const ev = (await su.query(`select type_id from prog.player_events where player_id in ($1,$2) and type_id like 'gift%' order by id`, [a, b])).rows.map((r) => r.type_id);
     expect(ev).toEqual(['gift_sent', 'gift_received']);
   });
-  it('Diamond item: refused during the hold, accepted after it', async () => {
+  it('Diamond item: when a hold is configured, refused during the hold and accepted after it', async () => {
     const a = await newPlayer(su); const b = await newPlayer(su); await dev(a, 'DIAMOND', 10);
     const def = await defItem(su, { diamond: 10 });
-    const r: any = await gate.shopBuy(a, def, 'DIAMOND', key());
+    await setCfg(su, 'item.diamond_hold_days', 14);
+    let r: any;
+    try { r = await gate.shopBuy(a, def, 'DIAMOND', key()); } finally { await setCfg(su, 'item.diamond_hold_days', 0); }
     expect(await gate.giftItem(a, b, r.item, key())).toMatchObject({ code: 'on_hold' });
     await su.query(`update eco.item_instances set hold_until = now() - interval '1 second' where id = $1`, [r.item]);
     expect(await gate.giftItem(a, b, r.item, key())).toMatchObject({ ok: true });
@@ -279,7 +287,7 @@ describe('read functions', () => {
     const items = (await api.query('select * from eco.list_items($1)', [p])).rows;
     expect(items).toEqual([expect.objectContaining({ id: b.item, def_id: def, state: 'owned', origin: 'gold', tradable: true })]);
     const cfg = (await api.query('select * from eco.get_config()')).rows;
-    expect(cfg.find((r) => r.key === 'item.diamond_hold_days')).toMatchObject({ value: 14, status: 'pending_approval' });
+    expect(cfg.find((r) => r.key === 'item.diamond_hold_days')).toMatchObject({ value: 0, status: 'owner_rule' });
     const s: any = await gate.activityStart(p, 'factory', 'local:factory:9', key());
     expect((await api.query('select eco.activity_end($1,$2) r', [p, s.session])).rows[0].r).toEqual({ ok: true, ended: true });
     expect((await api.query('select eco.activity_end($1,$2) r', [p, s.session])).rows[0].r).toEqual({ ok: true, ended: false });

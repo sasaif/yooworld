@@ -1,6 +1,6 @@
 # YoLand backend — `server/` (Phase B, LOCAL ONLY)
 
-Backend foundation for YoLand: one API Worker (Hono) + Durable Objects for rooms (later milestone) +
+Backend foundation for YoLand: one API Worker (Hono) + Durable Objects for rooms, room directory and game tables +
 Postgres as the single source of truth, with every economy write going through the **EconomyGate**
 (SECURITY DEFINER functions in schema `eco`). Nothing here is deployed; no cloud account is used.
 
@@ -13,9 +13,19 @@ Postgres as the single source of truth, with every economy write going through t
 | `db/migrations/0004_social.sql` | Player-created events (foundation). |
 | `db/migrations/0005_prog.sql` | Progression hooks; Prestige-cannot-be-bought trigger. |
 | `db/migrations/0006_mod_audit.sql` | Moderation, blocks, hash-chained audit log, admin approvals, `app.saves`. |
+| `db/migrations/0007_rooms_saves.sql` | Room caps as config (pending approval), server saves (`app.save_put/load`), `eco.item_set_state` (equip/place), farm activity, local-only `auth.dev_mail`. |
+| `db/migrations/0008_games_admin.sql` | `eco.env_check`, `eco.activity_room`, `prog.match_results` + `prog.record_match`, `audit.admins`, `audit.admin_request/approve` (2FA + second admin). |
+| `db/migrations/0009_owner_rules_purchase_hooks.sql` | Owner rule: Diamond hold = 0; `eco.purchase_events` (account age at purchase) + `eco.account_age_days()`. |
+| `src/core/roomcore.ts` | Portable room logic (movement budget, chat, caps, tickets, kick ban, rate limits, interest management). |
+| `src/core/directory.ts` / `ticket.ts` / `rooms.ts` | Shard placement (friend, then fill-first) / HMAC single-use 30 s tickets / room catalogue. |
+| `src/core/tableGame.ts` | Server-authoritative Dominoes using the client's own pure rules (`src/minigames`). |
+| `src/core/envSchema.ts` | Env validation: refuses mixed environments (loopback vs remote DB, TLS, roles, secrets). |
+| `src/cf/room-do.ts`, `directory-do.ts`, `table-do.ts` | Durable Object adapters (hibernatable WebSockets, SQLite). |
 | `src/core/economy.ts` | `EconomyGate` interface + Postgres implementation (1 SQL call per operation). |
 | `src/core/productRules.ts` | Product rules and their approval status (source of truth: `eco.config`). |
-| `src/cf/worker.ts` | API Worker entry (health only in milestone 1). |
+| `src/cf/worker.ts` | API Worker: auth, saves, items, rooms/tickets, WebSocket upgrade, events, economy, tables, admin. |
+| `.dev.vars.example` | Local variables template (copy to `.dev.vars`, git-ignored). No real secret anywhere in git. |
+| `test/e2e/` | End-to-end tests against `wrangler dev --local` + local Postgres (`npm run test:e2e`). |
 | `../shared/` | Types shared with the client (protocol, economy). |
 | `scripts/pg-local.mjs` | Private local Postgres 18 (embedded binaries), `server/.local/pgdata`, port 54339. |
 | `scripts/migrate.mjs` | Migration runner (checksums, env tag, refuses prod and non-loopback hosts). |
@@ -28,6 +38,7 @@ npm run db:reset          # recreate yoland_local and apply all migrations (env=
 npm test                  # unit + db + security suites (creates yoland_test; stops Postgres at the end if it started it)
 npm run test:security     # 1000-parallel attack suite only (ATTACK_N=... to change)
 npm run test:coverage     # + TS coverage (v8) and SQL function coverage -> test-results/
+npm run test:e2e          # wrangler dev --local (port 18791) + yoland_e2e: slice, resilience, storm
 npm run typecheck
 npm run dev               # wrangler dev --local (no account, no deploy)
 npm run db:stop
@@ -42,9 +53,24 @@ npm run db:stop
   different payload is refused (`key_reuse`).
 - TEST isolation: outside prod every currency is `GOLD_TEST` / `DIAMOND_TEST`; a prod database refuses `*_TEST`
   wallets and TEST grants, a non-prod database refuses real-currency wallets. `eco.env` is immutable.
-- Diamond-bought items are **tradable by default**; only `item_definitions.tradable = false` makes an item
-  non-tradable. The 14-day hold is `eco.config['item.diamond_hold_days']` (pending approval, 0 disables).
+- Diamond-bought items are **tradable by default and immediately**; only `item_definitions.tradable = false` makes
+  an item non-tradable. **Owner rule (Alessandro, 2026-11-20): no hold** — `eco.config['item.diamond_hold_days'] = 0`
+  (status `owner_rule`). The key and the hold mechanism are kept (a value > 0 re-enables it; tested).
+- Every shop purchase writes `eco.purchase_events` (append-only) with the buyer's account age at purchase time;
+  `eco.account_age_days(player)` is the accessor. These are hooks for a future chargeback handler (see below).
 - Prestige cannot be bought (monetary event types refused); VIP is not read by any economy function.
 
 > Note: the current client (`src/economy/purchase.ts`) marks Diamond purchases `bound: true`. Phase B does not
 > change the client economy; this mismatch must be resolved when the client switches to the server economy.
+
+## Before real payments (BACKLOG — not built in Phase B)
+- Chargeback / refund handler: claw back the Diamonds and the items bought with them, freeze items already given
+  away or traded, flag repeat offenders (uses `eco.purchase_events`, `item_moves`, `eco.account_age_days`).
+- Stored purchase evidence: 3DS result, IP, device, ToS acceptance, Diamond spend log.
+- After launch: fraud-monitoring bots for first-time accounts doing mass purchases.
+
+## Known local-runtime behaviour
+- [MESURÉ] Under `wrangler dev --local`, a server-initiated WebSocket close on a socket that has never sent a single
+  message is not delivered to the client (the room still drops the socket and stops sending to it). Real clients send
+  moves; every server close is preceded by an explicit message (`kicked`, `error: alone`, …) so the client can close
+  itself. To re-check on real Cloudflare in Phase C.

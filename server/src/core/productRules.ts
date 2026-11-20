@@ -9,7 +9,11 @@ export interface ProductRule { key: string; status: RuleStatus; summary: string 
 export const PRODUCT_RULES: readonly ProductRule[] = [
   { key: 'diamonds.never_transferable', status: 'owner_rule', summary: 'Diamonds never move between two players (enforced by a deferred DB trigger).' },
   { key: 'items.diamond_tradable_by_default', status: 'owner_rule', summary: 'Diamond-bought items are TRADABLE unless item_definitions.tradable = false. Never bound silently.' },
-  { key: 'item.diamond_hold_days', status: 'pending_approval', summary: 'Security hold (default 14 days, 0 disables) before a Diamond-bought item can be traded or gifted.' },
+  { key: 'item.diamond_hold_days', status: 'owner_rule', summary: 'Owner rule 2026-11-20: NO hold (0). Diamond-bought items are tradable immediately; the hold mechanism is kept (value > 0 re-enables it).' },
+  { key: 'room.public_soft_cap / hard_cap', status: 'pending_approval', summary: 'Public shard 25 soft / 30 hard (configurable 20–30, pending iPhone measurements).' },
+  { key: 'room.apartment_visitors', status: 'pending_approval', summary: 'Apartment visitors 10 (+ owner); no realtime room for a player alone.' },
+  { key: 'reward_rules.farm_task', status: 'pending_approval', summary: 'Farm task 15 Gold / 45 s min / 30 per day.' },
+  { key: 'admin.adjust_max_gold', status: 'pending_approval', summary: 'Max 100000 per admin_adjust (two admins).' },
   { key: 'prestige.not_buyable', status: 'owner_rule', summary: 'Prestige grants from monetary event types are refused by the DB.' },
   { key: 'vip.no_prestige_no_economic_edge', status: 'owner_rule', summary: 'No economy function reads VIP; VIP events are monetary (no Prestige).' },
   { key: 'test_gold.isolated', status: 'owner_rule', summary: 'Outside prod every currency is *_TEST; prod refuses *_TEST wallets and test grants.' },

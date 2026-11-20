@@ -38,7 +38,7 @@ describe('product rules registry', () => {
     const byKey = Object.fromEntries(PRODUCT_RULES.map((r) => [r.key, r.status]));
     expect(byKey['items.diamond_tradable_by_default']).toBe('owner_rule');
     expect(byKey['diamonds.never_transferable']).toBe('owner_rule');
-    expect(byKey['item.diamond_hold_days']).toBe('pending_approval');
+    expect(byKey['item.diamond_hold_days']).toBe('owner_rule');
     expect(byKey['gift.*']).toBe('pending_approval');
   });
 });
