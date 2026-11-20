@@ -76,6 +76,61 @@ const overlapsOf = (m, keys) => {
   return out;
 };
 
+const composerVisible = (p, vvH, vvTop = 0) => p.evaluate(({ vvH, vvTop }) => {
+  const input = document.querySelector('.chat-sheet input');
+  const send = document.querySelector('.chat-sheet .chatbar .btn');
+  const bar = document.querySelector('.chat-sheet .chatbar');
+  const sheet = document.querySelector('.chat-sheet');
+  const vvBot = vvTop + (vvH ?? innerHeight);
+  const check = (el) => {
+    if (!el || !sheet) return { ok: false };
+    const r = el.getBoundingClientRect();
+    const sr = sheet.getBoundingClientRect();
+    const inVp = r.top >= vvTop - 0.5 && r.bottom <= vvBot + 0.5 && r.left >= -0.5 && r.right <= innerWidth + 0.5;
+    const inSheet = r.top >= sr.top - 0.5 && r.bottom <= sr.bottom + 0.5 && r.left >= sr.left - 0.5 && r.right <= sr.right + 0.5;
+    const visPct = r.height ? 100 * Math.max(0, Math.min(r.bottom, sr.bottom) - Math.max(r.top, sr.top)) / r.height : 0;
+    const ix = Math.min(8, r.width * 0.2), iy = Math.min(8, r.height * 0.2);
+    const pts = [
+      [r.left + ix, r.top + iy], [r.right - ix, r.top + iy],
+      [r.left + r.width / 2, r.top + r.height / 2],
+      [r.left + ix, r.bottom - iy], [r.right - ix, r.bottom - iy],
+    ];
+    const hits = pts.map(([x, y]) => {
+      const stack = document.elementsFromPoint(x, y) || [];
+      return stack.some((n) => n === el || el.contains(n) || (bar && (n === bar || bar.contains(n))));
+    });
+    const mid = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2) || [];
+    const midOk = mid.some((n) => n === el || el.contains(n));
+    return { ok: inVp && inSheet && visPct >= 99.5 && hits.every(Boolean) && midOk, inVp, inSheet, visPct: +visPct.toFixed(1), hits, midOk };
+  };
+  return { input: check(input), send: check(send) };
+}, { vvH, vvTop });
+
+const headerLines = (p) => p.evaluate(() => {
+  const h3 = document.querySelector('.chat-sheet h3');
+  const mode = h3?.querySelector('.chat-mode');
+  const fold = h3?.querySelector('.chat-fold');
+  return {
+    h3: h3 ? h3.getClientRects().length : 0,
+    mode: mode ? mode.getClientRects().length : 0,
+    fold: fold ? fold.getClientRects().length : 0,
+    h: h3 ? +h3.getBoundingClientRect().height.toFixed(1) : 0,
+  };
+});
+
+const hudOverlap = (p) => p.evaluate(() => {
+  const sheet = document.querySelector('.chat-sheet');
+  if (!sheet) return { overlaps: false, hits: [] };
+  const sr = sheet.getBoundingClientRect();
+  const inter = (c) => Math.min(sr.right, c.right) > Math.max(sr.left, c.left) && Math.min(sr.bottom, c.bottom) > Math.max(sr.top, c.top);
+  const hits = [...document.querySelectorAll('.hud-top .chip, .hud-top button')].map((e) => {
+    const cs = getComputedStyle(e); const b = e.getBoundingClientRect();
+    if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0 || b.width < 1) return null;
+    return { label: (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 40), overlaps: inter(b), t: +b.top.toFixed(1), b: +b.bottom.toFixed(1), l: +b.left.toFixed(1), r: +b.right.toFixed(1) };
+  }).filter(Boolean);
+  return { overlaps: hits.some((h) => h.overlaps), hits };
+});
+
 const boot = async (d, query = 'fresh=1&lieu=appart&q=low') => {
   const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: Math.min(d.dpr, 2), isMobile: d.touch, hasTouch: d.touch });
   await ctx.addInitScript(() => { try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch {} });
@@ -119,6 +174,12 @@ for (const d of DEVS) {
   if (d.h < 500) ok(histSheet.area <= 22, `${d.name} history: area ≤ 22 % (${histSheet.area})`, { area: histSheet.area });
   ok(histBad.length === 0, `${d.name} history: 0 px vs ${histKeys.join(', ')}`, histOv);
   ok(histSheet.glass === 'filter', `${d.name} history: q=low defaults to glass`, { glass: histSheet.glass });
+  const histComp = await composerVisible(p, d.h, 0);
+  ok(histComp.input.ok && histComp.send.ok, `${d.name} history: input + Envoyer 100 % visible (in viewport, not covered)`, histComp);
+  if (d.name === 'iphoneSE') {
+    const lines = await headerLines(p);
+    ok(lines.h3 === 1 && lines.mode === 1 && lines.fold === 1 && lines.h <= 34, 'iphoneSE history: header is 1 line', lines);
+  }
   if (d.name === 'iphone15') drawsHistory = histSheet.calls;
   if (d.name === 'iphone15') ok(histSheet.vis.run === true, 'iphone15 history: Run stays visible while compact chat is open');
   await p.screenshot({ path: `${SHOTS}/${d.name}_history.png` });
@@ -146,6 +207,10 @@ for (const d of DEVS) {
     return { input: vis(q('.chat-sheet input')), send: vis(q('.chat-sheet .chatbar .btn')), x: vis(q('.chat-sheet .x')), vh };
   }, d.h - d.kb);
   ok(inV.input && inV.send, `${d.name} typing: input + Envoyer in visual viewport`, inV);
+  const typComp = await composerVisible(p, d.h - d.kb, 0);
+  ok(typComp.input.ok && typComp.send.ok, `${d.name} typing: input + Envoyer 100 % visible (in visual viewport, not covered)`, typComp);
+  const typHud = await hudOverlap(p);
+  ok(!typHud.overlaps, `${d.name} typing: no overlap with top-right HUD buttons`, typHud);
   if (d.h - d.kb >= 125) ok(inV.x, `${d.name} typing: header ✕ in visual viewport`, inV);
   await p.screenshot({ path: `${SHOTS}/${d.name}_typing.png` });
   await ctx.close();
