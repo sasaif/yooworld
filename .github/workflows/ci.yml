@@ -2,15 +2,26 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  # The headless e2e suite (SwiftShader WebGL, ~3-5 fps on a 4-vCPU runner) took ~53 min serially, against a 60 min job
+  # limit and step limits set from local timings (walk-run 15 min for ~13 min of work, perf 4 min for ~6 min). It now
+  # runs as parallel groups, one runner each, so every script keeps the whole machine and its own preview server.
+  # Same scripts, same arguments, same assertions; only the grouping and the step time limits changed.
   test:
+    name: test (${{ matrix.group }})
     runs-on: ubuntu-latest
+    # job ceiling kept at 90 min (backend-foundation, run 76 hit 60 min serially); groups normally finish far below it
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [checks, gameplay, joystick, walk-run, world, perf]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -20,78 +31,82 @@ jobs:
       - run: npm ci
         timeout-minutes: 5
       - name: Type check
+        if: ${{ matrix.group == 'checks' }}
         timeout-minutes: 5
         run: npx tsc --noEmit
       - name: Unit tests
+        if: ${{ matrix.group == 'checks' }}
         timeout-minutes: 5
         run: npx vitest run
       - name: Build
         timeout-minutes: 5
         run: npx vite build
       - name: Chrome
+        if: ${{ matrix.group != 'checks' }}
         run: google-chrome --version
       - name: Start preview server
+        if: ${{ matrix.group != 'checks' }}
         id: preview
         timeout-minutes: 2
         run: |
           nohup npx vite preview --port 5230 --strictPort --host 127.0.0.1 > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5230/ > /dev/null && exit 0; sleep 1; done; cat preview.log; exit 1
-      # every e2e step runs even when an earlier one failed (each still fails the job); only a missing preview server skips them
+      # inside a group every e2e step runs even when an earlier one failed (each still fails the job); only a missing preview server skips them
       # headless e2e on the real game (SwiftShader WebGL, iPhone 15 landscape touch)
       - name: e2e gameplay (movement profiles, foot sync, name tag vs chip, chat + keyboard)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'gameplay' }}
         timeout-minutes: 20
         run: SHOTS=ci-shots/gameplay node tools/e2e-gameplay.mjs http://127.0.0.1:5230/
       - name: e2e layout (dock vs joystick / Run / Mood room, 667-932 px)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'gameplay' }}
         timeout-minutes: 8
         run: SHOTS=ci-shots/layout node tools/e2e-layout.mjs http://127.0.0.1:5230/
       - name: e2e tap-to-move (step 2)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
         timeout-minutes: 8
         run: SHOTS=ci-shots/step2 node tools/e2e-step2.mjs http://127.0.0.1:5230/
       - name: e2e joystick (new movement model, default)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
-        timeout-minutes: 8
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
+        timeout-minutes: 10
         run: SHOTS=ci-shots/joystick-new node tools/e2e-joystick.mjs http://127.0.0.1:5230/
-      - name: e2e walk / run separation (iPhone 15 + SE landscape)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
-        timeout-minutes: 15
-        run: OUT=ci-shots/walk-run node tools/e2e-walk-run.mjs http://127.0.0.1:5230/
       - name: e2e joystick (former controller, ?move=classic)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
-        timeout-minutes: 8
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
+        timeout-minutes: 10
         run: SHOTS=ci-shots/joystick node tools/e2e-joystick.mjs "http://127.0.0.1:5230/?move=classic"
+      - name: e2e walk / run separation (iPhone 15 + SE landscape)
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'walk-run' }}
+        timeout-minutes: 25
+        run: OUT=ci-shots/walk-run node tools/e2e-walk-run.mjs http://127.0.0.1:5230/
       - name: e2e experience (iPhone 15)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'world' }}
         timeout-minutes: 10
         run: SHOTS=ci-shots/experience node tools/e2e-experience.mjs http://127.0.0.1:5230/
       - name: e2e player map, 2 levels (iPhone SE landscape)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'world' }}
         timeout-minutes: 8
         run: DEV=se SHOTS=ci-shots/player-map node tools/e2e-player-map.mjs http://127.0.0.1:5230/
       - name: e2e player map, 2 levels (iPhone 15 landscape)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'world' }}
         timeout-minutes: 8
         run: DEV=iphone15 SHOTS=ci-shots/player-map node tools/e2e-player-map.mjs http://127.0.0.1:5230/
       - name: e2e player map, 2 levels (desktop 1440x900)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'world' }}
         timeout-minutes: 8
         run: DEV=desktop SHOTS=ci-shots/player-map node tools/e2e-player-map.mjs http://127.0.0.1:5230/
       - name: e2e Yoo Games Club via the map (4 players, iPhone 15)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'world' }}
         timeout-minutes: 20
         run: DEV=iphone15 PLAYERS=4 node tools/e2e-club.mjs http://127.0.0.1:5230/
       # Step time only: under SwiftShader the 12 fresh runs (2 scenes x 2 devices x RUNS=3) take ~3.5-4.2 min on a busy
       # runner (run 75: 3m32 pass, then 4m13 timed out). Same RUNS / FRAMES, same --check (+20 % guard, apartment < 120).
       - name: Perf baseline (draw calls)
-        if: ${{ always() && steps.preview.outcome == 'success' }}
-        timeout-minutes: 10
+        if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'perf' }}
+        timeout-minutes: 12
         run: node tools/perf-baseline.mjs http://127.0.0.1:5230/ --check
       - uses: actions/upload-artifact@v5
-        if: always()
+        if: ${{ always() && matrix.group != 'checks' }}
         with:
-          name: e2e-shots
+          name: e2e-shots-${{ matrix.group }}
           path: |
             ci-shots/**/*.json
             ci-shots/**/*.png

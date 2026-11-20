@@ -62,6 +62,13 @@ async function tapFloor(x, z) {
 }
 /** tap the first spot of `spots` that the floor actually receives (a spot under a lamp shade / tall plant goes to the furniture instead) */
 async function tapSomeFloor(spots) { for (const s of spots) { const r = await tapFloor(s.x, s.z); if (r.hit) return { ...r, spot: s }; await closeMenu(); } return null; }
+/** failure diagnostics (test-only, no assertion): screenshot + what covers the joystick / screen centre + open UI */
+async function diag(name, extra) {
+  const info = await p.evaluate(() => { const j = document.querySelector('.joy')?.getBoundingClientRect(); const at = (x, y) => { const e = document.elementFromPoint(x, y); return e ? e.tagName.toLowerCase() + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).join('.') : '') : null; };
+    return { joyHit: j ? at(j.x + j.width / 2, j.y + j.height / 2) : null, centreHit: at(innerWidth / 2, innerHeight / 2), joyCls: document.querySelector('.joy')?.className ?? null,
+      open: [...document.querySelectorAll('.sheet, .imenu, .toast, .editbar, .joy-hint, [role=dialog]')].map((e) => e.className), menuItem: window.game.s.menuItem ?? null, panel: window.game.s.panel ?? null, mode: window.game.s.mode ?? null }; });
+  console.log(`  DIAG ${name} ${JSON.stringify({ ...extra, ...info })}`); await p.screenshot({ path: `${SHOTS}/${tag}${devName}_diag_${name}.png` }).catch(() => {});
+}
 const closeMenu = () => p.evaluate(() => { if (window.game.s.menuItem) window.game.store.set({ menuItem: null }); if (window.game.s.panel) window.game.setPanel(null); });
 const place = (x, z, yaw = 0) => p.evaluate(([x, z, yaw]) => { const c = window.__world.chars[window.game.s.activeChar]; c.pos.set(x, 0, z); c.yaw = yaw; c.path = []; c.mode = 'idle'; c.sitOn = undefined; c.emote = false; c.speed = 0; c.pendingSeat = undefined; }, [x, z, yaw]);
 const sampler = () => p.evaluate(() => { window.__samples = []; if (window.__sampling) return; window.__sampling = true; const f = () => { const m = window.__move(); window.__samples.push({ t: performance.now(), x: m.pos[0], z: m.pos[1], speed: m.speed, path: m.path, mode: m.mode, mk: m.marker.phase, a: m.marker.alpha, run: m.running }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
@@ -211,6 +218,10 @@ if (TOUCH) {
   // Waits on real game state, not wall-clock sleeps (QA saw 2/3 headless failures): the stick direction is picked
   // toward open floor from where the avatar actually is (a fixed "up" pushed it into the back wall: blocked, 0 m), and
   // the 0.9 s drive window is measured in game time (motion.simTime), so a 3-fps renderer still simulates 0.9 s.
+  // CI saw this block fail once (run 44677528870): no floor spot took a tap and the stick never went active, while the
+  // same checks pass before and after. Start from a settled state (previous double-tap walk finished, no menu / panel,
+  // fresh frames drawn) and, on failure, save what was on screen so the next occurrence can be diagnosed.
+  await waitArrive(0, 0, 10000); await closeMenu(); await p.waitForTimeout(300);
   { const far = await floorSpots({ minDist: 2.2, maxDist: 4 }); const r = await tapSomeFloor(far);
     await p.waitForFunction(() => { const m = window.__move(); return m.path > 0 && m.speed > 0.4; }, null, { timeout: 8000, polling: 40 }).catch(() => {});
     const m0 = await mv();
@@ -228,10 +239,11 @@ if (TOUCH) {
     const m2 = await mv(); await up(1);
     await p.waitForFunction(() => { const m = window.__move(); return !m.stick.active && m.speed < 0.02 && !m.driving; }, null, { timeout: 3000, polling: 40 }).catch(() => {}); const m3 = await mv();
     const drove = Math.hypot(m2.pos[0] - m1.pos[0], m2.pos[1] - m1.pos[1]);
+    if (!(r && m0.path > 0 && m1.path === 0 && m1.engaged)) await diag('interrupt', { spots: far.length, tap: r && { hit: r.hit, last: r.last }, m0path: m0.path, stick: m2.stick });
     ok(r && m0.path > 0 && m1.path === 0 && m1.engaged && m1.marker.phase !== 'active' && drove > 0.2 && m3.path === 0 && m3.speed < 0.02,
       `joystick interrupts the tap path (path ${m0.path} → ${m1.path}, marker ${m1.marker.phase}), stick at ${ang[0]}° toward open floor (${(ang[1] / 10).toFixed(1)} m clear) drives ${drove.toFixed(2)} m in ${(m2.simTime - m1.simTime).toFixed(2)} s game time, stops on release`, { m0path: m0.path, m1: { path: m1.path, engaged: m1.engaged, mk: m1.marker.phase }, m3: { path: m3.path, speed: +m3.speed.toFixed(3), mode: m3.mode }, m2: { stick: m2.stick, speed: m2.speed, blocked: m2.blocked, pos: m2.pos, p1: m1.pos, frames: [m1.frames, m2.frames], input: m2.input, mode: m2.mode } }); }
   // --- furniture menu still opens with tap-to-move ON, and does not walk to the floor behind
-  { await closeMenu(); const c0 = await mv(); const f = await tapFurniture(); ok(!!f && f.el && f.floorTaps === 0, `ON: tapping furniture still opens its menu (${f?.it.name ?? 'none found'}), no floor walk triggered`);
+  { await closeMenu(); const c0 = await mv(); const f = await tapFurniture(); if (!f) await diag('furniture_on', {}); ok(!!f && f.el && f.floorTaps === 0, `ON: tapping furniture still opens its menu (${f?.it.name ?? 'none found'}), no floor walk triggered`);
     if (f) await p.screenshot({ path: `${SHOTS}/${tag}${devName}_furniture_menu_on.png` }); await closeMenu(); }
 }
 
