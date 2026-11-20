@@ -8,12 +8,13 @@
   display: flex; align-items: center; gap: 6px;
   max-width: min(220px, 42vw);
   padding: 4px 8px 4px 4px;
-  border: 1.5px solid rgba(255,255,255,.75);
+  border: 1.5px solid rgba(255,255,255,.88);
   border-radius: 999px;
-  background: linear-gradient(165deg, rgba(255,255,255,.7), rgba(255,130,200,.55) 50%, rgba(180,140,255,.5));
-  box-shadow: inset 0 1px 0 #fff, 0 4px 12px rgba(120,40,120,.22);
-  backdrop-filter: blur(8px) saturate(1.2);
-  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  /* Translucent rose glass (dirC): scene shows through; slightly stronger wash under the label. */
+  background: linear-gradient(165deg, rgba(255,255,255,.36), rgba(255,160,215,.26) 55%, rgba(220,180,255,.24));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(255,200,230,.30), 0 4px 12px rgba(120,40,120,.18);
+  backdrop-filter: blur(8px) saturate(1.15);
+  -webkit-backdrop-filter: blur(8px) saturate(1.15);
   color: #3a2450;
   font: 700 11px system-ui, -apple-system, sans-serif;
   cursor: pointer;
@@ -27,12 +28,13 @@
 }
 
 .sheet.chat-sheet.chat-glass {
-  background: linear-gradient(165deg, rgba(255,255,255,.55) 0%, rgba(255,170,220,.38) 42%, rgba(180,150,255,.40) 100%);
-  border: 2px solid rgba(255,255,255,.7);
+  /* dirC pink candy glass: cheap 10px blur, low alpha so the room stays readable behind. */
+  background: linear-gradient(165deg, rgba(255,246,252,.28) 0%, rgba(255,170,220,.20) 48%, rgba(220,180,255,.22) 100%);
+  border: 2px solid rgba(255,255,255,.86);
   border-radius: 28px 32px 24px 28px;
-  box-shadow: inset 0 1px 0 #fff, inset 0 -14px 24px rgba(160,80,200,.12), 0 10px 24px rgba(90,20,110,.22);
-  backdrop-filter: blur(10px) saturate(1.25);
-  -webkit-backdrop-filter: blur(10px) saturate(1.25);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(255,200,230,.28), 0 10px 22px rgba(90,20,110,.16);
+  backdrop-filter: blur(10px) saturate(1.15);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
   color: #3a2450;
   overflow: hidden;
 }
@@ -61,9 +63,18 @@
 }
 .chat-preview .chat-av { width: 22px; height: 22px; font-size: 11px; }
 
+.sheet.chat-sheet.chat-glass h3,
+.sheet.chat-sheet.chat-glass .chat-head,
+.sheet.chat-sheet.chat-glass .chat-scope {
+  text-shadow: 0 0 10px rgba(255,236,248,.95), 0 1px 0 rgba(255,255,255,.55);
+}
+.sheet.chat-sheet.chat-glass .chatlog {
+  background: rgba(255,240,248,.12);
+  border-radius: 14px;
+}
 .chat-head { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
 .chat-loc { font-size: 12px; font-weight: 800; line-height: 1.1; }
-.chat-players { margin-left: auto; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px; background: rgba(255,255,255,.45); border: 1px solid #fff8; }
+.chat-players { margin-left: auto; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px; background: rgba(255,255,255,.55); border: 1px solid #fff8; }
 
 .chat-tabs { display: flex; gap: 4px; margin: 0 0 5px; }
 .chat-tab {
@@ -85,12 +96,12 @@
   padding: 3px 8px; font-size: 12px; font-weight: 700; line-height: 1.25;
   border-radius: 16px 18px 16px 8px; border: 1px solid #fff8;
   box-shadow: inset 0 1px 0 #fff8, 0 2px 6px rgba(80,20,80,.08);
-  background: linear-gradient(165deg, rgba(255,255,255,.75), rgba(190,150,255,.45));
+  background: linear-gradient(165deg, rgba(255,255,255,.82), rgba(190,150,255,.58));
   overflow-wrap: anywhere;
 }
-.chat-msg.mine .chat-bub { border-radius: 18px 16px 8px 18px; background: linear-gradient(165deg, rgba(255,255,255,.8), rgba(255,140,200,.5)); }
-.chat-msg.c-pink .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.75), rgba(255,140,200,.5)); }
-.chat-msg.c-lav .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.75), rgba(190,150,255,.5)); }
+.chat-msg.mine .chat-bub { border-radius: 18px 16px 8px 18px; background: linear-gradient(165deg, rgba(255,255,255,.92), rgba(255,140,200,.78)); }
+.chat-msg.c-pink .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.90), rgba(255,140,200,.78)); }
+.chat-msg.c-lav .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.90), rgba(190,150,255,.75)); }
 .chat-msg.c-mint .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.75), rgba(80,230,190,.45)); }
 .chat-msg.c-sun .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.8), rgba(255,220,90,.5)); }
 .chat-msg.c-blue .chat-bub { background: linear-gradient(165deg, rgba(255,255,255,.75), rgba(150,190,255,.5)); }

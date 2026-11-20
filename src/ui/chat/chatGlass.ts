@@ -1,5 +1,7 @@
-/** Candy-glass material: backdrop-filter when it is safe, otherwise an opaque pastel fallback.
- *  Default fallback: quality=low, no backdrop-filter support, or prefers-reduced-transparency.
+/** Candy-glass material: translucent backdrop-filter by default (including q=low / iPhone).
+ *  Opaque fallback ONLY when backdrop-filter / -webkit-backdrop-filter is unsupported,
+ *  when prefers-reduced-transparency: reduce is set, or when forced for tests
+ *  (?chatGlass=opaque or setChatGlassFallback(true)).
  *  Test flags: ?chatGlass=opaque | ?chatGlass=filter, or setChatGlassFallback(true / false / null). */
 
 export type ChatGlassMode = 'filter' | 'opaque';
@@ -40,7 +42,8 @@ export function qualityFromSearch(search: string): 'low' | 'high' | undefined {
   return undefined;
 }
 
-/** Pure decision used by the UI and unit tests. Inject quality, search and win — no implicit renderer imports. */
+/** Pure decision used by the UI and unit tests. Quality does not trigger the opaque fallback.
+ *  When `win` is omitted, support is assumed (glass stays the default, including q=low). */
 export function chatGlassFallback(opts: {
   quality?: 'low' | 'high';
   search?: string;
@@ -53,7 +56,6 @@ export function chatGlassFallback(opts: {
   const flag = parseChatGlassFlag(opts.search ?? '');
   if (flag === 'opaque') return true;
   if (flag === 'filter') return false;
-  if ((opts.quality ?? qualityFromSearch(opts.search ?? '')) === 'low') return true;
   if (prefersReducedTransparency(opts.win ?? null)) return true;
   if (opts.win && !supportsBackdropFilter(opts.win)) return true;
   return false;

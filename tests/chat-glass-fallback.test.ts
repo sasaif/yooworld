@@ -4,15 +4,16 @@ import { chatGlassFallback, parseChatGlassFlag, setChatGlassFallback, supportsBa
 afterEach(() => setChatGlassFallback(null));
 
 describe('candy-glass opaque fallback flag', () => {
-  it('falls back on quality low, and not on high when support is unknown (no win)', () => {
-    expect(chatGlassFallback({ quality: 'low', search: '' })).toBe(true);
+  it('defaults to glass at q=low and q=high when support is unknown (no win)', () => {
+    expect(chatGlassFallback({ quality: 'low', search: '' })).toBe(false);
     expect(chatGlassFallback({ quality: 'high', search: '' })).toBe(false);
   });
 
-  it('honours ?chatGlass=opaque and ?chatGlass=filter (filter wins over quality low)', () => {
+  it('honours ?chatGlass=opaque and ?chatGlass=filter (opaque wins even at q=high)', () => {
     expect(parseChatGlassFlag('?q=low&chatGlass=opaque')).toBe('opaque');
     expect(chatGlassFallback({ quality: 'high', search: '?chatGlass=opaque' })).toBe(true);
     expect(chatGlassFallback({ quality: 'low', search: '?chatGlass=filter' })).toBe(false);
+    expect(chatGlassFallback({ quality: 'low', search: '' })).toBe(false);
   });
 
   it('setChatGlassFallback forces the mode until reset', () => {
@@ -21,12 +22,12 @@ describe('candy-glass opaque fallback flag', () => {
     setChatGlassFallback(false);
     expect(chatGlassFallback({ quality: 'low' })).toBe(false);
     setChatGlassFallback(null);
-    expect(chatGlassFallback({ quality: 'low' })).toBe(true);
+    expect(chatGlassFallback({ quality: 'low' })).toBe(false);
   });
 
-  it('falls back when backdrop-filter is missing or reduced transparency is requested', () => {
+  it('falls back only when backdrop-filter is missing or reduced transparency is requested', () => {
     const noCss = { matchMedia: () => ({ matches: false }), CSS: undefined };
-    expect(chatGlassFallback({ quality: 'high', win: noCss as unknown as Window })).toBe(true);
+    expect(chatGlassFallback({ quality: 'low', win: noCss as unknown as Window })).toBe(true);
     const reduced = {
       matchMedia: (q: string) => ({ matches: /prefers-reduced-transparency:\s*reduce/.test(q) }),
       CSS: { supports: () => true },
@@ -37,6 +38,7 @@ describe('candy-glass opaque fallback flag', () => {
       CSS: { supports: (p: string) => p.includes('backdrop-filter') },
     };
     expect(supportsBackdropFilter(ok)).toBe(true);
+    expect(chatGlassFallback({ quality: 'low', win: ok as unknown as Window })).toBe(false);
     expect(chatGlassFallback({ quality: 'high', win: ok as unknown as Window })).toBe(false);
   });
 });
