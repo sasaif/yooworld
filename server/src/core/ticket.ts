@@ -36,3 +36,6 @@ export async function hmac(secret: string, data: string): Promise<string> {
   if (!secret || secret.length < 32) throw new Error('secret too short');
   return b64u(await crypto.subtle.sign('HMAC', await key(secret), enc.encode(data)));
 }
+
+/** Hex SHA-256 (Web Crypto: workerd and Node). */
+export async function sha256Hex(s: string) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join(''); }

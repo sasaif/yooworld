@@ -8,7 +8,7 @@ import { Hono, type Context } from 'hono';
 import type pg from 'pg';
 import { validateEnv, type AppConfig } from '../core/envSchema';
 import { createEconomyGate, toGateError } from '../core/economy';
-import { signTicket, verifyTicket, hmac, type TicketClaims } from '../core/ticket';
+import { signTicket, verifyTicket, hmac, sha256Hex, type TicketClaims } from '../core/ticket';
 import { parseRoom, LOCATIONS } from '../core/rooms';
 import { canonicalResult, type TableResult } from '../core/tableGame';
 import { DbDown, withClient } from './db';
@@ -17,6 +17,7 @@ import type { Env } from './env';
 export { RoomDO } from './room-do';
 export { DirectoryDO } from './directory-do';
 export { TableDO } from './table-do';
+export { TradeDO } from './trade-do';
 
 interface User { id: string; email: string; emailVerified: boolean; twoFactorEnabled?: boolean | null; updatedAt: Date | string }
 interface Session { id: string; createdAt: Date | string; userId: string }
@@ -31,7 +32,7 @@ const STATUS: Record<string, number> = {
   version_conflict: 409, already_claimed: 409, result_conflict: 409, already_approved: 409, key_reuse: 409, exists: 409, full: 409,
   not_over: 409, not_started: 409, already_seated: 409, not_your_turn: 409, stale_seq: 409, game_over: 409,
   too_fast: 429, daily_cap: 429, rate_hour: 429, vip_day: 429, vip_active: 429,
-  unknown_event: 404, unknown_table: 404, unknown_request: 404, bad_session: 404,
+  unknown_event: 404, unknown_table: 404, unknown_trade: 404, not_participant: 403, stale_version: 409, bad_state: 409, nothing_to_accept: 409, unknown_request: 404, bad_session: 404,
 };
 const gateFail = (r: { code?: string; message?: string }) => new HttpErr(STATUS[r.code ?? ''] ?? (r.code === 'internal' ? 500 : 400), r.code ?? 'error', { message: r.message });
 
@@ -310,6 +311,44 @@ api.post('/tables/:id/claim', async (c) => {
   if ((await hmac(c.var.cfg.resultSecret, canonicalResult(r.result))) !== r.sig) throw new HttpErr(500, 'result_signature');
   const res = r.result;
   return c.json(await call(c, 'prog.record_match', [res.table, res.game, res.players, res.winners, res.scores, res.moves, r.hash]));
+});
+
+// ---------- trades: negotiation in a trade room (DO), settlement through the existing SQL functions ----------
+const tradeStub = (c: C, id: string) => { if (!UUID.test(id)) throw new HttpErr(400, 'bad_trade'); return c.env.TRADE.get(c.env.TRADE.idFromName(`${c.var.cfg.env}:trade:${id}`)); };
+type Pending = { ecoId: string; settler: string; a: string; b: string; version: number; lines: unknown[]; canonical: string };
+/** Lock + settle the version both players accepted. Idempotent: the same eco trade id, actor and keys are reused
+ *  if the settlement is re-driven after a crash (DO left in 'settling'). A business refusal (item moved, not
+ *  enough Gold...) sends the negotiation back to 'open'; both players must accept again. */
+async function driveSettlement(c: C, stub: ReturnType<typeof tradeStub>, p: Pending) {
+  const hash = await sha256Hex(p.canonical);
+  try {
+    await call(c, 'eco.trade_lock', [`tlock-${p.ecoId}`, p.ecoId, p.settler, p.a, p.b, p.version, hash, JSON.stringify(p.lines)]);
+  } catch (e) {
+    if (e instanceof HttpErr && e.status < 500) { const f = await stub.failed(p.ecoId, e.code); throw new HttpErr(409, e.code, { state: f.state }); }
+    throw e;
+  }
+  const s = await call(c, 'eco.trade_settle', [`tsettle-${p.ecoId}`, p.ecoId, p.settler]);
+  return unwrap(await stub.settled(p.ecoId, (s.tx as number) ?? null));
+}
+api.post('/trades', async (c) => {
+  const b = await body(c); const other = String(b.with ?? '');
+  if (!UUID.test(other)) throw new HttpErr(400, 'bad_target');
+  const id = crypto.randomUUID();
+  return c.json(unwrap(await tradeStub(c, id).create(id, c.var.user.id, other)));
+});
+api.get('/trades/:id', async (c) => {
+  const stub = tradeStub(c, c.req.param('id'));
+  const v = unwrap(await stub.view(c.var.user.id)) as { pending: Pending | null; state: { status: string } };
+  if (v.pending) return c.json(await driveSettlement(c, stub, v.pending));      // resume an interrupted settlement
+  return c.json({ ok: true, state: v.state });
+});
+api.post('/trades/:id/offer', async (c) => { const b = await body(c); return c.json(unwrap(await tradeStub(c, c.req.param('id')).offer(c.var.user.id, Number(b.version), b.lines))); });
+api.post('/trades/:id/cancel', async (c) => c.json(unwrap(await tradeStub(c, c.req.param('id')).cancel(c.var.user.id))));
+api.post('/trades/:id/accept', async (c) => {
+  const b = await body(c); const stub = tradeStub(c, c.req.param('id'));
+  const r = unwrap(await stub.accept(c.var.user.id, Number(b.version))) as { state: unknown; settle: Pending | null };
+  if (!r.settle) return c.json({ ok: true, waiting: true, state: r.state });
+  return c.json(await driveSettlement(c, stub, r.settle));
 });
 
 // ---------- admin (2FA + second-admin approval; role admin_ops) ----------
