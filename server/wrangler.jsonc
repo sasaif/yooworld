@@ -1,0 +1,10 @@
+// LOCAL DEVELOPMENT ONLY (Phase B). No account_id, no routes, no secrets: `wrangler dev --local` only.
+// UAT/prod configs will be separate environments created in Phase C with Alessandro's own account.
+{
+  "name": "yoland-api-local",
+  "main": "src/cf/worker.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "vars": { "ENV_TAG": "local" }
+}
