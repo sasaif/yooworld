@@ -36,10 +36,10 @@ async function stickTo(d, a, id = 1, steps = 4) {
   // Chrome delivers touch/pointer moves aligned to the next rendered frame: on a 5 fps renderer the last move can land
   // ~0.3 s after CDP returns. Wait until the game's stick actually reads the requested displacement.
   await p.waitForFunction((m) => Math.abs(window.__move().stick.mag - m) < 0.011, Math.min(1, d), { timeout: 3000, polling: 50 }).catch(() => {});
-  // finger past the rim (d >= 1): on a frame-starved renderer Chrome can deliver the last glide move at a resampled point a
+  // finger past the rim (d > 1, the 'butée' band; d = 1 sits on the rim and is not clamped): on a frame-starved renderer Chrome can deliver the last glide move at a resampled point a
   // hair inside the rim (mag 0.999x, seen in CI). A real thumb held still keeps reporting its position: re-send the same
   // final point (max 3×) until the game reads the clamped mag 1. Test-input only; the game's clamp is what is checked.
-  for (let k = 0; d >= 1 && k < 3 && (await mv()).stick.mag !== 1; k++) { await moveT(id, tx, ty); await p.waitForFunction(() => window.__move().stick.mag === 1, null, { timeout: 1500, polling: 50 }).catch(() => {}); }
+  for (let k = 0; d > 1 && k < 3 && (await mv()).stick.mag !== 1; k++) { await moveT(id, tx, ty); await p.waitForFunction(() => window.__move().stick.mag === 1, null, { timeout: 1500, polling: 50 }).catch(() => {}); }
 }
 const mv = () => p.evaluate(() => window.__move());
 const sampler = () => p.evaluate(() => { window.__samples = []; if (window.__sampling) return; window.__sampling = true; const f = () => { const m = window.__move(); window.__samples.push({ t: performance.now(), sim: m.simTime, x: m.pos[0], z: m.pos[1], speed: m.speed, v: Math.hypot(m.vel[0], m.vel[1]), mode: m.mode, d: m.d, act: m.stick.active, fr: m.frames, bl: m.blocked, yaw: m.yaw, anim: m.anim && { w: m.anim.walk, r: m.anim.run, i: m.anim.idle, wts: m.anim.walkTS, rts: m.anim.runTS, s: m.anim.speed } }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
@@ -93,8 +93,10 @@ async function laneRun({ a, d, dir, st, target, maxWin, tag }) {
     await place(st.x, st.z, Math.atan2(dir[0], dir[1])); await p.waitForTimeout(150); await renderedFrames(2); await resetSamples(); lastA = lastB = null; lastWall = NaN; longFrames = 0;
     await stickTo(d, a, 1, 2); const m0 = await mv(); const t0 = m0.t;
     const walked = Math.max(0, (m0.pos[0] - st.x) * dir[0] + (m0.pos[1] - st.z) * dir[1]); const v = Math.max(0.15, MAX * (target ?? m0.factor));
-    const room = st.r - END_MARGIN - walked - v * 0.3; const want = maxWin * winX; const win = Math.max(250, Math.min(want, room / v * 1000));
-    if (attempt) console.log(`  retry ${tag} #${attempt}: window ${Math.round(win)} ms (asked ${want} ms = ${winX}× base${win < want ? `, capped by the clear lane ${st.r.toFixed(2)} m` : ''})`);
+    // window: maxWin, stretched to ≥ 4 frame times on a starved renderer (CI ~3 fps: 900 ms held 0-2 frames), then doubled
+    // per retry, but never longer than the verified-clear lane allows. A longer steady-state window measures the same speed.
+    const room = st.r - END_MARGIN - walked - v * 0.3; const base = Math.max(maxWin, 4 * frameMs); const want = base * winX; const win = Math.max(250, Math.min(want, room / v * 1000));
+    if (attempt) console.log(`  retry ${tag} #${attempt}: window ${Math.round(win)} ms (asked ${Math.round(want)} ms = ${winX}× base${win < want ? `, capped by the clear lane ${st.r.toFixed(2)} m` : ''})`);
     await p.waitForTimeout(300 + win + 150); const m = await mv(); await up(1); await p.waitForTimeout(350);
     const ss = await samples(); const tEnd = t0 + 300 + win; const sp = steadySpeed(ss, m.d, tEnd);
     const inWin = lastA && lastB ? ss.filter((s) => s.t >= lastA.t && s.t <= lastB.t) : [];
