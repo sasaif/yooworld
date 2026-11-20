@@ -173,3 +173,21 @@ un jeton R2 « Object Read & Write » limité au bucket `yoland-backups-uat` (et
 **Reste pour la prod** : décision d'Alessandro ; bucket R2 prod (juridiction EU, décidée) + jeton R2 limité ; domaine + Turnstile + fournisseur
 d'e-mail (puis `TURNSTILE_MODE=turnstile`, `EMAIL_MODE=provider` câblé) ; branche/base prod Neon et mots de passe prod
 distincts ; configs Hyperdrive prod ; Workers Paid si la charge l'exige (décision d'argent) ; `migrate-url.mjs --i-am-alessandro`.
+
+**BUG-U5 (QA uat 20/11) — fermeture WS après révocation [MESURÉ, 21/11/2026 00:05–00:11 Paris, `c95674a`]** :
+le hook Better Auth `session.delete.after` attend la diffusion PRESENCE → ROOM DO **dans** la requête sign-out /
+revoke-session(s) / revoke-other-sessions, avant la réponse (pas de poll, pas de cron) ; la réponse porte
+`x-ws-revoked: sessions=…;rooms=…;closed=…;ms=…`. `infra/smoke/uat-revocation.mjs`, 5 répétitions en ligne, seuil 2 s,
+**PASS** — trame `session_revoked` puis trame de fermeture 4401 reçues (client `ws`), depuis le début de la requête :
+sign-out 859/949/975 ms (min/médiane/max), revoke-sessions 839/872/930, revoke-other-sessions 921/931/995, socket
+n'ayant jamais émis 877/928/960. Les 11–17 s de la QA viennent du **client** : `WebSocket` natif de Node (undici)
+sur un socket qui n'a jamais rien envoyé reçoit la trame de fermeture en < 1 s (`readyState` = 2 CLOSING, envois
+ignorés, aucun message serveur ensuite) mais ne déclenche `onclose` qu'à la fermeture TCP par le bord Cloudflare,
+≈ 11 s plus tard (mesuré 10 857/10 966/11 033 ms) ; même client contre un serveur `ws` local : 314 ms ; dès que le
+client a envoyé une trame (le jeu envoie un mouvement à l'arrivée) : < 1 s. Le serveur ne traite plus rien du socket
+après la trame. e2e workerd (`test/e2e/account.test.ts`, 3 × 3) : 23–48 ms, seuil 2 s.
+
+**U7 — lien de vérification réutilisé [MESURÉ en ligne]** : 302 vers `/?status=already_verified`, **aucun Set-Cookie**,
+aucune session (autoSignIn désactivé ; e2e : nombre de sessions inchangé). Le raccourci n'est pris que si la
+signature HS256 et l'expiration du jeton sont valides (pas de sondage d'adresses) ; un jeton falsifié va à Better Auth
+→ `?error=INVALID_TOKEN` ; pas de redirection hors site.
