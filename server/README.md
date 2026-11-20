@@ -30,19 +30,34 @@ Postgres as the single source of truth, with every economy write going through t
 | `scripts/pg-local.mjs` | Private local Postgres 18 (embedded binaries), `server/.local/pgdata`, port 54339. |
 | `scripts/migrate.mjs` | Migration runner (checksums, env tag, refuses prod and non-loopback hosts). |
 
-## Commands
+## Commands (exact — verified on a fresh clone of 9dedf8e)
+Prerequisites on this box: **Node 22 + npm** (the system `/usr/bin/node` is v20 *without* npm, so use the bundled
+Node 22). No account, no network service other than `npm ci`. Postgres comes from the npm package `embedded-postgres`.
 ```bash
+export PATH=/workspace/games-3d/yooworld/work-backend-a/node22/bin:$PATH   # node v22.21.1 + npm
 cd server && npm ci
-npm run db:start          # private Postgres on 127.0.0.1:54339
-npm run db:reset          # recreate yoland_local and apply all migrations (env=local)
-npm test                  # unit + db + security suites (creates yoland_test; stops Postgres at the end if it started it)
-npm run test:security     # 1000-parallel attack suite only (ATTACK_N=... to change)
-npm run test:coverage     # + TS coverage (v8) and SQL function coverage -> test-results/
-npm run test:e2e          # wrangler dev --local (port 18791) + yoland_e2e: slice, resilience, storm
-npm run typecheck
-npm run dev               # wrangler dev --local (no account, no deploy)
+npm run typecheck         # tsc (src + tests), 0 errors expected
+npm test                  # unit + db + security + backup suites; starts its own Postgres if needed, stops it at the end
+npm run test:coverage     # same + v8 coverage and SQL function coverage -> test-results/
+npm run test:e2e          # wrangler dev --local + yoland_e2e: slice, resilience (incl. 500-client storm), cost, env
+```
+Optional environment variables (defaults in brackets) — use them to run next to another checkout without clashes:
+| Variable | Effect |
+|---|---|
+| `YOLAND_PG_PORT` [54339] / `YOLAND_PG_DATA` [`server/.local/pgdata`] | private Postgres port / data dir |
+| `E2E_PORT` [18791] | wrangler port for e2e (inspector = `E2E_PORT + 1000`) |
+| `KEEP_PG=1` | do not stop Postgres at the end of a run |
+| `ATTACK_N` [1000], `COST_MOVE_S` / `COST_IDLE_S` [20] | security-suite parallelism / cost-harness phase lengths |
+
+Manual dev server (optional):
+```bash
+npm run db:start && npm run db:reset      # private Postgres on 127.0.0.1:54339, yoland_local with all migrations
+cp .dev.vars.example .dev.vars            # local placeholders only (git-ignored)
+npm run dev                               # wrangler dev --local on 127.0.0.1:8787 (no account, no deploy)
 npm run db:stop
 ```
+Expected results at 9dedf8e [MESURÉ]: typecheck OK; `npm test` 11 files / 80 tests passed; `npm run test:e2e`
+4 files / 20 tests passed (≈80 s; the cost test alone ≈45 s).
 
 ## Rules enforced by the database
 - Append-only ledger (`ledger_tx`, `ledger_entries`), `item_moves`, `gifts`, `reward_claims`, `trade_lines`, `audit.log`
