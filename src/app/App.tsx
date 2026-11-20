@@ -112,7 +112,7 @@ export default function App() {
       </Canvas>
       {(!SHOT || SHOT.startsWith('ui')) && <Hud />}
       {JOY && <VirtualJoystick hidden={joyHidden} panelOpen={!!panel} />}
-      {!SHOT && <RunButton hidden={joyHidden || !!panel} showButton={JOY} />}
+      {!SHOT && <RunButton hidden={joyHidden || (!!panel && panel !== 'chat')} showButton={JOY} />}
       {!SHOT && <ClubOverlay />}
       <TravelFade />
       {studio && <FashionStudio />}

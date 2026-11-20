@@ -1,7 +1,7 @@
 import { club } from '../app/clubService';
 import type { Body } from '../fashion/types';
 import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/camView';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../core/store';
 import { storage } from '../persistence/storage';
 import { game, fashion } from '../app/services';
@@ -17,6 +17,7 @@ import { moveSettings, setTouchTapToMove } from '../input/moveSettings';
 import { devicePrimaryInput } from '../app/floorTap';
 import { chatScopeNote, netBadge } from '../net/netStatus';
 import { MoodMenu, ExpressionChatBridge } from './mood/MoodMenu';
+import { ChatHud } from './chat/ChatHud';
 import { PlayerMap } from './map/PlayerMap';
 const isChar = (id: string) => !!world.chars[id];
 
@@ -33,7 +34,7 @@ export function Hud() {
       <ExpressionChatBridge chat={game.chat} isChar={isChar} />
       {s.panel === 'catalog' && <CatalogSheet />}
       {s.panel === 'finishes' && <FinishesSheet />}
-      {s.panel === 'chat' && <ChatSheet />}
+      <ChatHud />
       {s.panel === 'profile' && <ProfileSheet />}
       {(s.panel === 'places' || s.transition) && <PlayerMap />}
       {s.panel === 'settings' && <SettingsSheet />}
@@ -208,39 +209,6 @@ function NetChip() {
       <button className={'chip net net-' + b.tone} aria-label={b.label + ' : ' + b.detail} aria-expanded={open} onClick={() => setOpen(!open)}><i className="net-dot" />{b.label}</button>
       {open && <div className="net-pop" role="status" onClick={() => setOpen(false)}><b>{b.tone === 'local' ? 'Mode local — prototype hors ligne' : b.label}</b><span>{b.detail}</span></div>}
     </span>
-  );
-}
-const CHAT_COLLAPSED = 'chatCollapsed';
-const readCollapsed = () => { try { return storage.prefs.getItem(CHAT_COLLAPSED) === '1'; } catch { return false; } };
-function ChatSheet() {
-  const [msg, setMsg] = useState(''); const [, f] = useState(0);
-  // collapsible card: folds to its header (unread counter), state kept across sessions
-  const [collapsed, setCollapsed] = useState(readCollapsed); const [unread, setUnread] = useState(0); const [noteOpen, setNoteOpen] = useState(false);
-  const col = useRef(collapsed); col.current = collapsed;
-  useEffect(() => game.chat.onMessage(() => { f((n) => n + 1); if (col.current) setUnread((n) => n + 1); }), []);
-  const toggle = () => { const v = !collapsed; setCollapsed(v); setUnread(0); try { storage.prefs.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
-  const log = useRef<HTMLDivElement>(null);
-  // newest message in view: after each render AND whenever the log box is resized (iOS keyboard opening shrinks the
-  // card: the log used to stay scrolled to the oldest lines), unless the player scrolled up to read the history
-  const pinned = useRef(true);
-  useEffect(() => { const el = log.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; });
-  useEffect(() => { const el = log.current; if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => { if (pinned.current) el.scrollTop = el.scrollHeight; }); ro.observe(el); return () => ro.disconnect(); }, [collapsed]);
-  const local = netBadge(game.net.status).tone === 'local'; const note = chatScopeNote(game.net.status);
-  return (
-    <div className={'sheet chat-sheet' + (collapsed ? ' collapsed' : '')}>
-      <h3><button type="button" className="chat-fold" onClick={toggle} aria-expanded={!collapsed} aria-label={collapsed ? 'Ouvrir le chat' : 'Réduire le chat'}>{collapsed ? '▸' : '▾'} Chat{collapsed && unread > 0 && <span className="chat-unread">{unread}</span>}</button>
-        <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? 'Mode local · hors ligne' : netBadge(game.net.status).short}</span><button className="x" onClick={() => game.setPanel(null)}>✕</button></h3>
-      {!collapsed && <>
-        <p className={'chat-scope' + (noteOpen ? ' open' : '')} onClick={() => setNoteOpen(!noteOpen)}>{local && !noteOpen ? 'Visible seulement sur cet appareil.' : note}{local && <span className="more">{noteOpen ? ' ▴' : ' ⓘ'}</span>}</p>
-        <div className="chatlog" ref={log} onScroll={(e) => { const el = e.currentTarget; pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8; }}>{game.chat.history().slice(-40).map((m, i) => <div key={i} dir="auto"><b>{world.chars[m.from]?.name ?? m.from}</b> <bdi>{m.text}</bdi></div>)}</div>
-        <form className="chatbar" onSubmit={(e) => { e.preventDefault(); if (msg.trim()) game.sendChat(msg); setMsg(''); }}>
-          <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Dire quelque chose…" maxLength={200} dir="auto" />
-          <button className="btn primary" type="submit">Envoyer</button>
-        </form>
-        <div className="quick">{(game.s.location === 'beach' ? ['Salut ! 👋', 'On se baigne ? 🌊', 'Un smoothie ? 🥭', 'On danse ? 🎉'] : ['Salut ! 👋', 'Bienvenue chez moi 🏠', 'Trop cool !', 'On danse ? 🎉']).map((q) => <button key={q} onClick={() => game.sendChat(q)}>{q}</button>)}</div>
-      </>}
-    </div>
   );
 }
 function ProfileSheet() {
