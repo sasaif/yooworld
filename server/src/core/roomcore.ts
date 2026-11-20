@@ -30,12 +30,19 @@ export interface Persist {
   getBan(p: PlayerId): number | null;
   putBan(p: PlayerId, until: number, by: PlayerId): void;
   useTicket(jti: string, exp: number): boolean;     // false if already used
+  /** Optional durable chat history (DO SQLite): the last CHAT_HISTORY messages survive hibernation/eviction. */
+  appendChat?(m: ChatMsg): void;
+  recentChat?(limit: number): ChatMsg[];
 }
+export interface ChatMsg { id: string; from: PlayerId; text: string; at: number }
+/** Messages replayed to a joining player (newest last). Technical value. */
+export const CHAT_HISTORY = 50;
 export type Out =
   | { t: 'welcome'; you: PlayerId; players: { id: PlayerId; pos: Vec }[]; seq: number; v: 1 }
   | { t: 'joined'; id: PlayerId; pos: Vec }
   | { t: 'left'; id: PlayerId; reason?: string }
   | { t: 'chat'; id: string; from: PlayerId; text: string; at: number }
+  | { t: 'history'; msgs: ChatMsg[] }
   | { t: 'snap'; seq: number; at: number; p: [PlayerId, number, number][] }
   | { t: 'correct'; pos: Vec; reason: string }
   | { t: 'error'; code: string; detail?: string }
@@ -90,6 +97,8 @@ export class RoomCore {
     const pos = existing?.pos ?? this.clampSpawn(spawn);
     this.members.set(id, { id, conn, pos, lastMoveAt: this.now(), movedTick: -1e9, chat: [], seen: existing?.seen ?? new Set(), winStart: 0, winN: 0, warned: false, budget: this.budgetCap(), budgetAt: this.now() });
     this.send(conn, { t: 'welcome', you: id, players: [...this.members.values()].map((m) => ({ id: m.id, pos: m.pos })), seq: this.seq, v: 1 });
+    const hist = this.persist.recentChat?.(CHAT_HISTORY) ?? [];
+    if (hist.length) this.send(conn, { t: 'history', msgs: hist });
     if (!existing) this.broadcast({ t: 'joined', id, pos }, id);
     return { ok: true, replaced, pos };
   }
@@ -139,7 +148,9 @@ export class RoomCore {
     const text = String(msg.text ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, this.cfg.chatMaxLen);
     if (!text) return;
     m.chat.push(now); m.seen.add(msg.cid); if (m.seen.size > 200) m.seen.delete(m.seen.values().next().value!);
-    this.broadcast({ t: 'chat', id: `${m.id}:${msg.cid}`, from: m.id, text, at: now });   // server timestamp orders history
+    const c: ChatMsg = { id: `${m.id}:${msg.cid}`, from: m.id, text, at: now };
+    this.persist.appendChat?.(c);                                                         // durable BEFORE broadcast
+    this.broadcast({ t: 'chat', ...c });   // server timestamp orders history
   }
   /** Owner kick (authorised by the API: owner check + Postgres record happen there). Ban is durable BEFORE close. */
   kick(target: PlayerId, until: number, by: PlayerId) {

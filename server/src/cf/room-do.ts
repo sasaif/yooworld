@@ -1,7 +1,7 @@
 /** Thin Cloudflare adapter for RoomCore: hibernatable WebSockets, SQLite (bans, used tickets), 10 Hz alarm only
  *  while someone moves, directory reporting. All rules live in RoomCore (core/roomcore.ts). */
 import { DurableObject } from 'cloudflare:workers';
-import { RoomCore, type In, type Out, type Persist } from '../core/roomcore';
+import { RoomCore, CHAT_HISTORY, type In, type Out, type Persist, type ChatMsg } from '../core/roomcore';
 import { parseRoom, roomConfig, TECH } from '../core/rooms';
 import type { Env } from './env';
 
@@ -16,7 +16,8 @@ export class RoomDO extends DurableObject<Env> {
     this.sql = ctx.storage.sql;
     this.sql.exec(`create table if not exists bans(player text primary key, until integer not null, by text not null);
                    create table if not exists used_tickets(jti text primary key, exp integer not null);
-                   create table if not exists meta(k text primary key, v text not null);`);
+                   create table if not exists meta(k text primary key, v text not null);
+                   create table if not exists chat(seq integer primary key autoincrement, id text not null, sender text not null, text text not null, at integer not null);`);
     this.sql.exec(`insert into meta values ('constructs','1') on conflict(k) do update set v = cast(v as integer) + 1`);
     this.counters.constructs = Number(this.meta('constructs'));
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('{"t":"ping"}', '{"t":"pong"}'));   // pings never wake the DO
@@ -36,6 +37,12 @@ export class RoomDO extends DurableObject<Env> {
         if ([...sql.exec('select 1 from used_tickets where jti = ?', jti)].length) return false;
         sql.exec('insert into used_tickets values (?,?)', jti, exp); return true;
       },
+      appendChat: (m) => {
+        sql.exec('insert into chat(id, sender, text, at) values (?,?,?,?)', m.id, m.from, m.text, m.at);
+        sql.exec('delete from chat where seq <= (select max(seq) from chat) - ?', CHAT_HISTORY);
+      },
+      recentChat: (limit) => [...sql.exec('select id, sender, text, at from chat order by seq desc limit ?', limit)].reverse()
+        .map((r) => ({ id: String(r.id), from: String(r.sender), text: String(r.text), at: Number(r.at) }) satisfies ChatMsg),
     };
     const ws = (conn: string) => this.ctx.getWebSockets(conn)[0];
     this.core = new RoomCore(roomConfig(name, JSON.parse(claims), 0), persist,
@@ -125,6 +132,7 @@ export class RoomDO extends DurableObject<Env> {
   async stats() {
     const core = this.ensureCore();
     return { name: this.meta('name'), members: core?.count ?? 0, sockets: this.ctx.getWebSockets().length,
-      ...this.counters, core: core?.stats ?? null, ticking: this.ticking };
+      ...this.counters, core: core?.stats ?? null, ticking: this.ticking,
+      chatStored: Number([...this.sql.exec('select count(*) n from chat')][0].n) };
   }
 }

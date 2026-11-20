@@ -125,3 +125,23 @@ describe('join rules', () => {
     expect(() => roomConfig('local:beach:1', { kind: 'public' }, 0)).toThrow();
   });
 });
+
+describe('chat history (last 50, durable)', () => {
+  it('stores every accepted chat before broadcasting and replays the last 50 (oldest first) to a joining player', () => {
+    let t = 1_000_000; const out: { conn: string; m: Out }[] = []; const log: any[] = [];
+    const persist: Persist = { getBan: () => null, putBan: () => {}, useTicket: () => true,
+      appendChat: (m) => { log.push(m); if (log.length > 50) log.shift(); }, recentChat: (n) => log.slice(-n) };
+    const mk = () => new RoomCore(roomConfig('local:beach:1', { kind: 'public', cap: 30 }, 0), persist, (conn, m) => { out.push({ conn, m }); }, () => {}, () => t);
+    let core = mk(); let j = 0;
+    for (let p = 0; p < 11; p++) { core.join(`p${p}`, `c${p}`, `j${++j}`, t + 30_000); for (let k = 0; k < 5; k++) { t += 10; core.onMessage(`p${p}`, { t: 'chat', text: `m${p}-${k}`, cid: `x${k}` }); } }
+    expect(log).toHaveLength(50);
+    core = mk();                                                                  // new instance = after eviction
+    out.length = 0; core.join('late', 'cl', `j${++j}`, t + 30_000);
+    const h = out.find((o) => o.m.t === 'history')!.m as any;
+    expect(h.msgs).toHaveLength(50); expect(h.msgs[0].text).toBe('m1-0'); expect(h.msgs[49].text).toBe('m10-4');
+    // no history message when the room has never chatted
+    const empty = new RoomCore(roomConfig('local:beach:2', { kind: 'public', cap: 30 }, 0), { getBan: () => null, putBan: () => {}, useTicket: () => true, recentChat: () => [] }, (c, m) => { out.push({ conn: c, m }); }, () => {}, () => t);
+    out.length = 0; empty.join('z', 'cz', 'jz', t + 30_000);
+    expect(out.some((o) => o.m.t === 'history')).toBe(false);
+  });
+});

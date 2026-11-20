@@ -36,6 +36,29 @@ describe('event kick ban survives a restart', () => {
   });
 });
 
+describe('chat history survives a restart', () => {
+  it('last 50 messages kept in the room DO SQLite and replayed to a newcomer after wrangler/DO restart', async () => {
+    const room = 'local:beach:777';
+    const cs: WsClient[] = [];
+    for (let p = 0; p < 11; p++) { const c = await openWs(room, await localTicket(room, `00000000-0000-4000-8000-0000000007${String(p).padStart(2, '0')}`)); await ready(c); cs.push(c); }
+    for (let k = 0; k < 5; k++) for (let p = 0; p < 11; p++) { cs[p].send({ t: 'chat', text: `m${p}-${k}`, cid: `h${k}` }); await sleep(5); }
+    await cs[0].wait((m) => m.t === 'chat' && m.text === 'm10-4');
+    expect((await http('GET', `/dev/rooms/${room}/stats`)).json.chatStored).toBe(50);
+    for (const c of cs) c.ws.close();
+    const before = (await http('GET', `/dev/rooms/${room}/stats`)).json.constructs;
+    await stopWrangler(); await startWrangler();
+    const late = await openWs(room, await localTicket(room, '00000000-0000-4000-8000-000000000799'));
+    const h = await late.wait((m) => m.t === 'history');
+    expect((await http('GET', `/dev/rooms/${room}/stats`)).json.constructs).toBeGreaterThan(before);
+    expect(h.msgs).toHaveLength(50);
+    expect(h.msgs[0].text).toBe('m5-0');                                         // 5 oldest (m0-0..m4-0) dropped
+    expect(h.msgs[49].text).toBe('m10-4');
+    expect(h.msgs.map((m: any) => m.text)).not.toContain('m0-0');                 // 55 sent, the 5 oldest dropped
+    late.ws.close();
+    results.chat_history_after_restart = { sent: 55, replayed: h.msgs.length, first: h.msgs[0].text, last: h.msgs[49].text };
+  });
+});
+
 describe('Postgres outage', () => {
   it('session / ticket / save endpoints -> 503 + Retry-After; live room chat continues; recovers after restart', async () => {
     const j = (await http('POST', '/api/rooms/beach/join', { cookie: A.cookie, body: {} })).json;
