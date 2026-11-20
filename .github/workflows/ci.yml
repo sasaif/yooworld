@@ -50,6 +50,10 @@ jobs:
         run: |
           nohup npx vite preview --port 5230 --strictPort --host 127.0.0.1 > preview.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:5230/ > /dev/null && exit 0; sleep 1; done; cat preview.log; exit 1
+      # joystick group (step2 + both joystick scripts): DPR=1 (Alessandro's option A, 2026-11-20). Same iPhone 15 landscape
+      # viewport 852x393, touch + mobile, same assertions; only the canvas pixel count drops (1x instead of the game's 1.5x
+      # cap on coarse-pointer devices), because SwiftShader at ~2 fps left 0-2 frames per speed window. Movement maths and
+      # touch coordinates are in CSS px and do not depend on DPR.
       # inside a group every e2e step runs even when an earlier one failed (each still fails the job); only a missing preview server skips them
       # headless e2e on the real game (SwiftShader WebGL, iPhone 15 landscape touch)
       - name: e2e gameplay (movement profiles, foot sync, name tag vs chip, chat + keyboard)
@@ -63,15 +67,15 @@ jobs:
       - name: e2e tap-to-move (step 2)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
         timeout-minutes: 8
-        run: SHOTS=ci-shots/step2 node tools/e2e-step2.mjs http://127.0.0.1:5230/
+        run: DPR=1 SHOTS=ci-shots/step2 node tools/e2e-step2.mjs http://127.0.0.1:5230/
       - name: e2e joystick (new movement model, default)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
         timeout-minutes: 12
-        run: SHOTS=ci-shots/joystick-new node tools/e2e-joystick.mjs http://127.0.0.1:5230/
+        run: DPR=1 SHOTS=ci-shots/joystick-new node tools/e2e-joystick.mjs http://127.0.0.1:5230/
       - name: e2e joystick (former controller, ?move=classic)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
         timeout-minutes: 15
-        run: SHOTS=ci-shots/joystick node tools/e2e-joystick.mjs "http://127.0.0.1:5230/?move=classic"
+        run: DPR=1 SHOTS=ci-shots/joystick node tools/e2e-joystick.mjs "http://127.0.0.1:5230/?move=classic"
       - name: e2e walk / run separation (iPhone 15 + SE landscape)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'walk-run' }}
         timeout-minutes: 25
