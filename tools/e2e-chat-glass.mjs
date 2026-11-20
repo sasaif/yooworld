@@ -101,7 +101,7 @@ for (const d of DEVS) {
   const restBad = Object.entries(restOv).filter(([, v]) => v.overlaps);
   ok(rest.ui.length >= 1, `${d.name} rest: preview visible`, rest.ui);
   ok(restBad.length === 0, `${d.name} rest: 0 px vs ${restKeys.join(', ')}`, restOv);
-  ok(rest.glass === 'opaque', `${d.name} rest: q=low uses opaque fallback`, { glass: rest.glass });
+  ok(rest.glass === 'filter', `${d.name} rest: q=low defaults to glass`, { glass: rest.glass });
   if (d.name === 'iphone15') drawsRest = rest.calls;
   await p.screenshot({ path: `${SHOTS}/${d.name}_rest.png` });
 
@@ -118,7 +118,7 @@ for (const d of DEVS) {
   ok(/Mode local/.test(histSheet.mode) && /(seuls tes avatars|cet appareil)/.test(histSheet.scope), `${d.name} history: Mode local + scope`, { mode: histSheet.mode, scope: histSheet.scope });
   if (d.h < 500) ok(histSheet.area <= 22, `${d.name} history: area ≤ 22 % (${histSheet.area})`, { area: histSheet.area });
   ok(histBad.length === 0, `${d.name} history: 0 px vs ${histKeys.join(', ')}`, histOv);
-  ok(histSheet.glass === 'opaque', `${d.name} history: opaque fallback at q=low`, { glass: histSheet.glass });
+  ok(histSheet.glass === 'filter', `${d.name} history: q=low defaults to glass`, { glass: histSheet.glass });
   if (d.name === 'iphone15') drawsHistory = histSheet.calls;
   if (d.name === 'iphone15') ok(histSheet.vis.run === true, 'iphone15 history: Run stays visible while compact chat is open');
   await p.screenshot({ path: `${SHOTS}/${d.name}_history.png` });
@@ -170,12 +170,35 @@ for (const d of DEVS) {
   await p.evaluate(() => window.game.setPanel('chat'));
   await p.waitForTimeout(300);
   const g = await p.evaluate(() => document.querySelector('.chat-sheet')?.getAttribute('data-chat-glass'));
-  ok(g === 'filter', 'forced ?chatGlass=filter even at q=low (glass path for tests)', { g });
+  const cs = await p.evaluate(() => { const e = document.querySelector('.chat-sheet'); return e ? getComputedStyle(e).backdropFilter || getComputedStyle(e).webkitBackdropFilter : null; });
+  ok(g === 'filter', '?chatGlass=filter keeps the glass path at q=low', { g, cs });
+  ok(g === 'filter' && cs && cs !== 'none', 'default glass applies backdrop-filter', { cs });
   await p.screenshot({ path: `${SHOTS}/iphone15_glass_filter.png` });
   await p.evaluate(() => window.__setChatGlassFallback(true));
   await p.waitForTimeout(100);
   const g2 = await p.evaluate(() => document.querySelector('.chat-sheet')?.getAttribute('data-chat-glass'));
   ok(g2 === 'opaque', '__setChatGlassFallback(true) switches the live panel to opaque', { g2 });
+  await ctx.close();
+}
+{
+  // No-support emulation: CSS.supports reports no backdrop-filter, so q=low must fall back to opaque.
+  const d = DEVS[0];
+  const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: Math.min(d.dpr, 2), isMobile: d.touch, hasTouch: d.touch });
+  await ctx.addInitScript(() => {
+    try { sessionStorage.setItem('yw:e:dev:portrait', '1'); localStorage.setItem('yw:e:dev:camView', 'room'); } catch { /* */ }
+    const css = window.CSS || (window.CSS = {});
+    css.supports = () => false;
+  });
+  const p = await ctx.newPage();
+  await p.goto(`${url}${url.includes('?') ? '&' : '?'}fresh=1&lieu=appart&q=low`, { timeout: 120000 });
+  await p.waitForFunction(() => window.game?.s.ready && window.__metrics, null, { timeout: 180000 });
+  await p.waitForTimeout(3000);
+  await p.keyboard.press('F9');
+  await p.evaluate(() => window.game.setPanel('chat'));
+  await p.waitForTimeout(300);
+  const g = await p.evaluate(() => document.querySelector('.chat-sheet')?.getAttribute('data-chat-glass'));
+  const cs = await p.evaluate(() => { const e = document.querySelector('.chat-sheet'); return e ? getComputedStyle(e).backdropFilter || getComputedStyle(e).webkitBackdropFilter : null; });
+  ok(g === 'opaque', 'no backdrop-filter support falls back to opaque at q=low', { g, cs });
   await ctx.close();
 }
 
