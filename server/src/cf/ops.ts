@@ -1,0 +1,59 @@
+/**
+ * Ops adapter: Postgres sinks for the pure metrics/alerts interface (src/core/metrics.ts) and the periodic check
+ * (cron `scheduled()` in uat/prod — no trigger is configured in Phase B; locally `GET /dev/ops/check`).
+ */
+import type { AppConfig } from '../core/envSchema';
+import { Metrics, ConsoleSink, evaluateRoomHealth, roomMetrics, type Alert, type AlertSink, type Metric, type MetricSink } from '../core/metrics';
+import { LOCATIONS } from '../core/rooms';
+import { withClient } from './db';
+import type { Env } from './env';
+
+async function envChecked<T>(cfg: AppConfig, fn: (q: (sql: string, p: unknown[]) => Promise<any>) => Promise<T>) {
+  return withClient(cfg.databaseUrl, async (cl) => {
+    const tag = (await cl.query('select eco.env_check() as t')).rows[0].t;
+    if (tag !== cfg.env) throw new Error(`env_mismatch db=${tag} worker=${cfg.env}`);
+    return fn(async (sql, p) => (await cl.query(sql, p)).rows[0]?.r);
+  });
+}
+export class PgSink implements MetricSink, AlertSink {
+  constructor(private cfg: AppConfig) {}
+  async write(batch: Metric[]) {
+    const r = await envChecked(this.cfg, (q) => q('select ops.ingest($1) r', [JSON.stringify(batch)]));
+    if (!r?.ok) throw new Error(`ops.ingest ${r?.code ?? 'failed'}`);
+  }
+  async raise(a: Alert) { await envChecked(this.cfg, (q) => q('select ops.raise_alert($1,$2,$3,$4) r', [a.kind, a.subject, a.severity, JSON.stringify(a.detail)])); }
+  async resolve(kind: string, subject: string) { await envChecked(this.cfg, (q) => q('select ops.resolve_alert($1,$2) r', [kind, subject])); }
+}
+
+/** One Metrics buffer per isolate. Sink = Postgres (all envs; a hosted sink is Phase C) + console mirror outside local. */
+let shared: { cfg: AppConfig; m: Metrics } | null = null;
+export function metricsFor(cfg: AppConfig): Metrics {
+  if (!shared || shared.cfg !== cfg) {
+    const pg = new PgSink(cfg); const con = new ConsoleSink();
+    shared = { cfg, m: new Metrics({ async write(b) { if (cfg.env !== 'local') await con.write(b); await pg.write(b); } }) };
+  }
+  return shared.m;
+}
+
+export interface OpsReport { rooms: number; roomAlerts: Alert[]; recon: { clean: boolean; problems: Record<string, number> }; flushed: number; flushError?: string }
+/** Room health over every live public shard + reconciliation (critical alerts deduplicated in ops.alerts). */
+export async function runOpsCheck(env: Env, cfg: AppConfig): Promise<OpsReport> {
+  const m = metricsFor(cfg); const pg = new PgSink(cfg);
+  const roomAlerts: Alert[] = []; let rooms = 0;
+  for (const loc of Object.values(LOCATIONS).filter((l) => l.sharded)) {
+    const shards = await env.DIRECTORY.get(env.DIRECTORY.idFromName(`${cfg.env}:dir:${loc.id}`)).snapshot() as { shard: number; members: number }[];
+    for (const sh of shards) {
+      const room = `${cfg.env}:${loc.id}:${sh.shard}`;
+      const st = await env.ROOM.get(env.ROOM.idFromName(room)).stats() as { members: number; sockets: number; core: null | { msgsIn: number; corrections: number; ticks: number; idleTicksSkipped: number; bytesOut: number } };
+      const s = { room, members: st.members, sockets: st.sockets, msgsIn: st.core?.msgsIn ?? 0, corrections: st.core?.corrections ?? 0, ticks: st.core?.ticks ?? 0, idleTicksSkipped: st.core?.idleTicksSkipped ?? 0, bytesOut: st.core?.bytesOut ?? 0 };
+      rooms++;
+      for (const x of roomMetrics(s)) m.emit(x.name, x.value, x.tags);
+      const found = evaluateRoomHealth(s);
+      for (const a of found) { roomAlerts.push(a); await pg.raise(a); }
+    }
+  }
+  const recon = await envChecked(cfg, (q) => q('select ops.recon_check() r', [])) as { clean: boolean; problems: Record<string, number> };
+  m.emit('ops.check', 1, { rooms });
+  const f = await m.flush();
+  return { rooms, roomAlerts, recon: { clean: recon.clean, problems: recon.problems }, flushed: f.sent, flushError: f.error };
+}

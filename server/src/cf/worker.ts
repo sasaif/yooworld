@@ -15,6 +15,7 @@ import { DbDown, withClient } from './db';
 import { makeAuth } from './auth';
 import { makeVerifier, HUMAN_CHECKED, type HumanVerifier } from '../core/humanCheck';
 import type { Env } from './env';
+import { metricsFor, runOpsCheck } from './ops';
 export { RoomDO } from './room-do';
 export { DirectoryDO } from './directory-do';
 export { TableDO } from './table-do';
@@ -57,6 +58,7 @@ app.onError((e, c) => {
   if (e instanceof DbDown) { c.header('Retry-After', String(RETRY_AFTER_S)); return c.json({ ok: false, code: 'db_unavailable', retryable: true }, 503); }
   if (e instanceof HttpErr) return c.json({ ok: false, code: e.code, ...e.extra }, e.status as 400);
   console.error('internal', e);
+  if (c.var.cfg) metricsFor(c.var.cfg).emit('http.internal_error', 1, { path: new URL(c.req.url).pathname.split('/').slice(0, 3).join('/') });
   return c.json({ ok: false, code: 'internal' }, 500);
 });
 
@@ -339,6 +341,8 @@ async function driveSettlement(c: C, stub: ReturnType<typeof tradeStub>, p: Pend
     throw e;
   }
   const s = await call(c, 'eco.trade_settle', [`tsettle-${p.ecoId}`, p.ecoId, p.settler]);
+  const m = metricsFor(c.var.cfg); m.emit('trade.settled', 1, { lines: p.lines.length });
+  if (m.shouldFlush) c.executionCtx.waitUntil(m.flush());
   return unwrap(await stub.settled(p.ecoId, (s.tx as number) ?? null));
 }
 api.post('/trades', async (c) => {
@@ -394,4 +398,19 @@ app.get('/dev/directory/:loc', async (c) => {
   return c.json(await c.env.DIRECTORY.get(c.env.DIRECTORY.idFromName(`${c.var.cfg.env}:dir:${c.req.param('loc')}`)).snapshot());
 });
 
-export default app;
+app.get('/dev/ops/check', async (c) => {
+  if (c.var.cfg.env !== 'local') return c.json({ ok: false }, 404);
+  return c.json({ ok: true, ...(await runOpsCheck(c.env, c.var.cfg)) });
+});
+app.get('/dev/ops/alerts', async (c) => {
+  if (c.var.cfg.env !== 'local') return c.json({ ok: false }, 404);
+  return c.json({ ok: true, alerts: await call(c, 'ops.open_alerts', []) });
+});
+
+/** Cron entry (uat/prod once a trigger is configured in Phase C): same check as /dev/ops/check. */
+async function scheduled(_ev: ScheduledController, env: Env, ctx: ExecutionContext) {
+  const r = validateEnv(env as never);
+  if (!r.ok) { console.error('ops.check env_invalid', r.errors); return; }
+  ctx.waitUntil(runOpsCheck(env, r.cfg).then((rep) => console.log(JSON.stringify({ ops_check: rep })), (e) => console.error('ops.check failed', e)));
+}
+export default { fetch: app.fetch, scheduled } satisfies ExportedHandler<Env>;
