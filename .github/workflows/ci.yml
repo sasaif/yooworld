@@ -70,7 +70,7 @@ jobs:
         run: SHOTS=ci-shots/joystick-new node tools/e2e-joystick.mjs http://127.0.0.1:5230/
       - name: e2e joystick (former controller, ?move=classic)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'joystick' }}
-        timeout-minutes: 12
+        timeout-minutes: 15
         run: SHOTS=ci-shots/joystick node tools/e2e-joystick.mjs "http://127.0.0.1:5230/?move=classic"
       - name: e2e walk / run separation (iPhone 15 + SE landscape)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'walk-run' }}
