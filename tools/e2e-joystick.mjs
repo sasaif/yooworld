@@ -36,6 +36,10 @@ async function stickTo(d, a, id = 1, steps = 4) {
   // Chrome delivers touch/pointer moves aligned to the next rendered frame: on a 5 fps renderer the last move can land
   // ~0.3 s after CDP returns. Wait until the game's stick actually reads the requested displacement.
   await p.waitForFunction((m) => Math.abs(window.__move().stick.mag - m) < 0.011, Math.min(1, d), { timeout: 3000, polling: 50 }).catch(() => {});
+  // finger past the rim (d >= 1): on a frame-starved renderer Chrome can deliver the last glide move at a resampled point a
+  // hair inside the rim (mag 0.999x, seen in CI). A real thumb held still keeps reporting its position: re-send the same
+  // final point (max 3×) until the game reads the clamped mag 1. Test-input only; the game's clamp is what is checked.
+  for (let k = 0; d >= 1 && k < 3 && (await mv()).stick.mag !== 1; k++) { await moveT(id, tx, ty); await p.waitForFunction(() => window.__move().stick.mag === 1, null, { timeout: 1500, polling: 50 }).catch(() => {}); }
 }
 const mv = () => p.evaluate(() => window.__move());
 const sampler = () => p.evaluate(() => { window.__samples = []; if (window.__sampling) return; window.__sampling = true; const f = () => { const m = window.__move(); window.__samples.push({ t: performance.now(), sim: m.simTime, x: m.pos[0], z: m.pos[1], speed: m.speed, v: Math.hypot(m.vel[0], m.vel[1]), mode: m.mode, d: m.d, act: m.stick.active, fr: m.frames, bl: m.blocked, yaw: m.yaw, anim: m.anim && { w: m.anim.walk, r: m.anim.run, i: m.anim.idle, wts: m.anim.walkTS, rts: m.anim.runTS, s: m.anim.speed } }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
@@ -73,10 +77,16 @@ function speedOver(ss, t0, t1) { const a = ss.find((s) => s.t >= t0), bb = [...s
  *  measurement itself is unusable: no frame inside the window (renderer stall) or fewer than 3 frames. Being
  *  blocked inside the verified-clear lane is NOT retried: it is reported as a real collision bug. */
 const END_MARGIN = 0.25; const retries = [];
+// CI (4-vCPU runner, SwiftShader, ~3-5 fps): a teleport is followed by one or two very long frames, and a 0.6-0.9 s window
+// regularly holds < 3 frames. Only UNUSABLE measurements are re-done (never a wrong speed / heading / blocked result), so
+// more attempts change nothing about what passes; each start also waits until the renderer has drawn 2 fresh frames.
+const MAX_ATTEMPTS = Number(process.env.LANE_ATTEMPTS ?? 6);
+/** wait (≤ 5 s) until the page has rendered n new animation frames */
+const renderedFrames = (n) => p.evaluate((n) => new Promise((res) => { let k = 0; const t = setTimeout(res, 5000); const f = () => { if (++k >= n) { clearTimeout(t); res(); } else requestAnimationFrame(f); }; requestAnimationFrame(f); }), n);
 async function laneRun({ a, d, dir, st, target, maxWin, tag }) {
   let out = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await place(st.x, st.z, Math.atan2(dir[0], dir[1])); await p.waitForTimeout(150); await resetSamples(); lastA = lastB = null; lastWall = NaN; longFrames = 0;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    await place(st.x, st.z, Math.atan2(dir[0], dir[1])); await p.waitForTimeout(150); await renderedFrames(2); await resetSamples(); lastA = lastB = null; lastWall = NaN; longFrames = 0;
     await stickTo(d, a, 1, 2); const m0 = await mv(); const t0 = m0.t;
     const walked = Math.max(0, (m0.pos[0] - st.x) * dir[0] + (m0.pos[1] - st.z) * dir[1]); const v = Math.max(0.15, MAX * (target ?? m0.factor));
     const room = st.r - END_MARGIN - walked - v * 0.3; const win = Math.max(250, Math.min(maxWin, room / v * 1000));
@@ -87,7 +97,11 @@ async function laneRun({ a, d, dir, st, target, maxWin, tag }) {
     const blocked = inWin.some((s) => s.bl);
     out = { sp, ss, m, t0, win, tEnd, walked, endProg, blocked, frames: inWin.length, attempt };
     if (process.env.DUMP) fs.writeFileSync(`/tmp/dump_${devName}_${tag}.json`, JSON.stringify({ st, ...out }));
-    const why = d <= 0.1 ? null : !Number.isFinite(sp) ? 'no frame in the measurement window (renderer stall)' : inWin.length < 3 ? `only ${inWin.length} frames in the window` : null;
+    // a starved renderer can make the finger glide itself take seconds: the avatar is then already near the end of the clear
+    // lane before the window opens and the window (min 250 ms) runs past it into the furniture / wall that ends the lane.
+    // That run measured outside the verified-clear lane, so it is unusable (re-done), not a collision result.
+    const outOfLane = Number.isFinite(endProg) && endProg > st.r - END_MARGIN / 2;
+    const why = d <= 0.1 ? null : !Number.isFinite(sp) ? 'no frame in the measurement window (renderer stall)' : inWin.length < 3 ? `only ${inWin.length} frames in the window` : outOfLane ? `window ended ${endProg.toFixed(2)} m along a ${st.r.toFixed(2)} m clear lane (slow glide)` : null;
     if (!why) break; retries.push({ tag, attempt, why }); console.log(`  retry ${tag}: ${why}`);
   }
   return out;
@@ -272,7 +286,10 @@ await p.screenshot({ path: `${SHOTS}/${devName}_idle.png` });
   await up(1); await p.waitForTimeout(400); const modes = [...new Set((await samples()).map((s) => s.mode))];
   ok(sat && modes.includes('standing') && mm.mode === 'walk' && mm.speed > 0.2, 'sitting + joystick → stand-up animation, then walks away', { sat, modes, last: [mm.mode, +mm.speed.toFixed(2)] });
   // dance then push the stick
+  // the emote starts on the next rendered frame(s): wait for the game state (≤ 10 s) instead of a fixed 800 ms, which a
+  // 3-5 fps CI renderer sometimes missed (dancing:false although the stick then correctly walked)
   await place(st.x, st.z, 0); await p.evaluate(() => window.game.toggleEmote()); await p.waitForTimeout(800);
+  await p.waitForFunction(() => window.__move().mode === 'emote', null, { timeout: 10000, polling: 50 }).catch(() => {});
   const dancing = (await mv()).mode === 'emote'; await stickTo(1, 45); await p.waitForTimeout(500); const md = await mv(); const em = await p.evaluate(() => window.__world.chars[window.game.s.activeChar].emote); await up(1); await p.waitForTimeout(400);
   ok(dancing && md.mode === 'walk' && !em, 'dancing + joystick → stops dancing and walks', { dancing, mode: md.mode, emote: em, speed: +md.speed.toFixed(3), blocked: md.blocked, pos: md.pos });
   const buddy = await p.evaluate(() => { const g = window.game.s.activeChar === 'f' ? 'm' : 'f'; return window.__world.chars[g].mode; }); ok(!!buddy, `companion avatar untouched (${buddy})`);
