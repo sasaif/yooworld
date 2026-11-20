@@ -8,10 +8,14 @@ import { DB_TIMEOUT_MS } from './db';
 /** onSessionDeleted: called for EVERY deleted session row (sign-out, revoke-session(s), password reset, expiry):
  *  the Worker closes that session's open WebSockets (close 4401). Failures are logged, never block the auth flow. */
 export type SessionDeleted = (userId: string, sessionId: string) => Promise<unknown>;
-export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
+export type CaptureMail = (m: { to: string; kind: 'verify' | 'reset'; url: string }) => Promise<unknown>;
+/** Better Auth rate limits (per IP). Sign-up stays at 5 per hour per IP in every environment. */
+export const AUTH_RATE_RULES = { '/sign-in/email': { window: 60, max: 5 }, '/sign-up/email': { window: 3600, max: 5 }, '/two-factor/verify-totp': { window: 60, max: 5 },
+  '/two-factor/verify-backup-code': { window: 60, max: 5 }, '/request-password-reset': { window: 3600, max: 5 } } as const;
+export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted, capture?: CaptureMail) {
   const pool = new pg.Pool({ connectionString: cfg.authDatabaseUrl, max: 1, connectionTimeoutMillis: DB_TIMEOUT_MS, options: '-c search_path=auth' });
   pool.on('error', () => {});
-  const deliver = (email: string, kind: 'verify' | 'reset', url: string) => deliverMail(cfg, pool, email, kind, url);
+  const deliver = (email: string, kind: 'verify' | 'reset', url: string) => deliverMail(cfg, pool, email, kind, url, capture);
   const auth = betterAuth({
     appName: 'YoLand',
     database: pool,
@@ -36,8 +40,7 @@ export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
     session: { expiresIn: 60 * 60 * 24 * 7, updateAge: 60 * 60 * 24, cookieCache: { enabled: false } },
     rateLimit: {
       enabled: true, storage: 'database', window: 60, max: 100,
-      customRules: { '/sign-in/email': { window: 60, max: 5 }, '/sign-up/email': { window: 3600, max: 5 }, '/two-factor/verify-totp': { window: 60, max: 5 },
-                     '/two-factor/verify-backup-code': { window: 60, max: 5 }, '/request-password-reset': { window: 3600, max: 5 } },
+      customRules: { ...AUTH_RATE_RULES },
     },
     advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] }, useSecureCookies: true, database: { generateId: 'uuid' } },
     plugins: [twoFactor({ issuer: 'YoLand' })],
@@ -47,8 +50,10 @@ export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted) {
   });
   return { auth, close: () => pool.end().catch(() => {}) };
 }
-/** E-mail delivery by EMAIL_MODE. 'disabled' (uat only) sends nothing and logs WITHOUT the link or address. */
-export async function deliverMail(cfg: Pick<AppConfig, 'emailMode'>, db: { query: (q: string, v: unknown[]) => Promise<unknown> }, email: string, kind: 'verify' | 'reset', url: string) {
+/** E-mail delivery by EMAIL_MODE. 'disabled' (uat only) sends nothing and logs WITHOUT the link or address;
+ *  'capture' (uat only) stores the message in the QA outbox (short TTL). */
+export async function deliverMail(cfg: Pick<AppConfig, 'emailMode'>, db: { query: (q: string, v: unknown[]) => Promise<unknown> }, email: string, kind: 'verify' | 'reset', url: string, capture?: CaptureMail) {
+  if (cfg.emailMode === 'capture') { if (!capture) throw new Error('capture mode without an outbox'); await capture({ to: email, kind, url }); return 'captured'; }
   if (cfg.emailMode === 'dev_mail') { await db.query('insert into auth.dev_mail(email, kind, url) values ($1, $2, $3)', [email, kind, url]); return 'stored'; }
   if (cfg.emailMode === 'disabled') { console.warn(`email disabled (uat): ${kind} link not sent`); return 'dropped'; }
   throw new Error('no e-mail provider configured (Phase C: Resend, owner account)');

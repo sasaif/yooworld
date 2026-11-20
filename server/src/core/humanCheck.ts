@@ -38,7 +38,9 @@ export class OffVerifier implements HumanVerifier {
   readonly mode = 'off' as const;
   async verify(): Promise<HumanVerdict> { return { ok: true, codes: ['disabled'] }; }
 }
-export function makeVerifier(mode: HumanMode, secret?: string, fetchFn?: typeof fetch): HumanVerifier {
+export function makeVerifier(mode: HumanMode, secret?: string, fetchFn?: typeof fetch, env?: string): HumanVerifier {
+  // defence in depth (the env schema already refuses these): the public fake token never works in prod
+  if (env === 'prod' && mode !== 'turnstile') throw new Error(`human check mode ${mode} refused in prod`);
   if (mode === 'turnstile') { if (!secret) throw new Error('TURNSTILE_SECRET missing'); return new TurnstileVerifier(secret, fetchFn); }
   return mode === 'fake' ? new FakeVerifier() : new OffVerifier();
 }

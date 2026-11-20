@@ -10,7 +10,8 @@
  * the URL rules do not apply to it: the role is fixed by the Hyperdrive config (one per role, infra/cloudflare/
  * hyperdrive.sh) and TLS to the origin was checked when the config was created. [MEASURED] the deployed binding's
  * user is not the origin role. /api/health/db reports the effective database role.
- * uat only: TURNSTILE_MODE=fake and EMAIL_MODE=disabled are allowed (no domain/Turnstile/e-mail yet); prod never.
+ * uat only: TURNSTILE_MODE=fake and EMAIL_MODE=disabled|capture are allowed (no domain/Turnstile/e-mail yet); prod never.
+ * EMAIL_MODE=capture also requires QA_OUTBOX_TOKEN (>= 32 chars, not a placeholder): see core/qaOutbox.ts.
  */
 export type EnvTag = 'local' | 'uat' | 'prod';
 export interface RawEnv { [k: string]: unknown }
@@ -20,8 +21,12 @@ export interface AppConfig {
   humanMode: 'off' | 'fake' | 'turnstile'; turnstileSecret?: string;
   /** WebSocket lifetime cap (ms): sockets older than this are closed (4402) and the client reconnects with a fresh ticket. */
   wsMaxLifetimeMs: number;
-  /** 'dev_mail' (local: auth.dev_mail table), 'disabled' (uat only: links are NOT sent, a warning is logged), 'provider' (not wired yet: sending throws). */
-  emailMode: 'dev_mail' | 'disabled' | 'provider';
+  /** 'dev_mail' (local: auth.dev_mail table), 'disabled' (uat only: links are NOT sent, a warning is logged),
+   *  'capture' (uat only: kept in the QA outbox, short TTL), 'provider' (not wired yet: sending throws). */
+  emailMode: 'dev_mail' | 'disabled' | 'capture' | 'provider';
+  qaOutboxToken?: string;
+  /** Deployed commit (GIT_SHA var set at deploy), 'unknown' when absent. */
+  gitSha: string;
 }
 const HD: Record<string, string> = { DATABASE_URL: 'HD_API', AUTH_DATABASE_URL: 'HD_AUTH', ADMIN_DATABASE_URL: 'HD_ADMIN' };
 /** Hyperdrive binding connection string for k, or '' when the binding is absent. */
@@ -70,9 +75,14 @@ export function validateEnv(e: RawEnv): { ok: true; cfg: AppConfig } | { ok: fal
   if (env === 'prod' && hm !== 'turnstile') errors.push('TURNSTILE_MODE must be turnstile in prod');
   if (env === 'uat' && !['turnstile', 'fake'].includes(hm)) errors.push('TURNSTILE_MODE must be turnstile|fake in uat');
   const em = s('EMAIL_MODE') || (env === 'local' ? 'dev_mail' : 'provider');
-  if (!['dev_mail', 'disabled', 'provider'].includes(em)) errors.push('EMAIL_MODE must be dev_mail|disabled|provider');
+  if (!['dev_mail', 'disabled', 'capture', 'provider'].includes(em)) errors.push('EMAIL_MODE must be dev_mail|disabled|capture|provider');
   else if (em === 'dev_mail' && env !== 'local') errors.push(`EMAIL_MODE=dev_mail is local only`);
-  else if (em === 'disabled' && env !== 'uat') errors.push(`EMAIL_MODE=disabled is uat only`);
+  else if ((em === 'disabled' || em === 'capture') && env !== 'uat') errors.push(`EMAIL_MODE=${em} is uat only`);
+  const qt = s('QA_OUTBOX_TOKEN');
+  if (em === 'capture' && (qt.length < 32 || /local|example|changeme|dev|test/i.test(qt))) errors.push('QA_OUTBOX_TOKEN missing, short (< 32) or placeholder (required by EMAIL_MODE=capture)');
+  if (qt && [s('BETTER_AUTH_SECRET'), s('TICKET_SECRET'), s('RESULT_SECRET')].includes(qt)) errors.push('QA_OUTBOX_TOKEN must differ from the other secrets');
+  const sha = s('GIT_SHA');
+  if (sha && !/^[0-9a-f]{7,40}$/.test(sha)) errors.push('GIT_SHA must be a hex commit id');
   if (hm === 'turnstile' && (s('TURNSTILE_SECRET').length < 20 || (env !== 'local' && /local|example|changeme|dev|test/i.test(s('TURNSTILE_SECRET'))))) errors.push('TURNSTILE_SECRET missing or placeholder');
   const wsMax = s('WS_MAX_LIFETIME_S') === '' ? 86_400 : Number(s('WS_MAX_LIFETIME_S'));
   const wsMin = env === 'local' ? 2 : 3_600;
@@ -80,5 +90,6 @@ export function validateEnv(e: RawEnv): { ok: true; cfg: AppConfig } | { ok: fal
   if (errors.length) return { ok: false, errors };
   return { ok: true, cfg: { env, databaseUrl: dbUrl.DATABASE_URL, authDatabaseUrl: dbUrl.AUTH_DATABASE_URL, adminDatabaseUrl: dbUrl.ADMIN_DATABASE_URL || undefined,
     authSecret: s('BETTER_AUTH_SECRET'), ticketSecret: s('TICKET_SECRET'), resultSecret: s('RESULT_SECRET'), authUrl: s('BETTER_AUTH_URL'), appOrigin: s('APP_ORIGIN'),
-    humanMode: hm as AppConfig['humanMode'], turnstileSecret: s('TURNSTILE_SECRET') || undefined, wsMaxLifetimeMs: wsMax * 1000, emailMode: em as AppConfig['emailMode'] } };
+    humanMode: hm as AppConfig['humanMode'], turnstileSecret: s('TURNSTILE_SECRET') || undefined, wsMaxLifetimeMs: wsMax * 1000, emailMode: em as AppConfig['emailMode'],
+    qaOutboxToken: em === 'capture' ? qt : undefined, gitSha: sha || 'unknown' } };
 }

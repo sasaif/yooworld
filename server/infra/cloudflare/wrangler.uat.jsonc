@@ -2,7 +2,8 @@
 // No prod env here on purpose. No secrets: BETTER_AUTH_SECRET / TICKET_SECRET / RESULT_SECRET via `wrangler secret put`.
 // Database access goes through the three Hyperdrive bindings (one per role); they override *_DATABASE_URL.
 // uat relaxations (envSchema refuses them in prod): TURNSTILE_MODE=fake (public fake token: NOT bot-protected) and
-// EMAIL_MODE=disabled (verification/reset links are not sent). No custom domain yet: workers.dev.
+// EMAIL_MODE=capture (verification/reset mails kept 15 min in the OUTBOX DO, read by QA at GET /qa/outbox with the
+// QA_OUTBOX_TOKEN secret). No custom domain yet: workers.dev. Deploy with `--var GIT_SHA:$(git rev-parse HEAD)`.
 {
   "name": "yoland-api-uat",
   "main": "../../src/cf/worker.ts",
@@ -12,7 +13,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": { "ENV_TAG": "uat", "BETTER_AUTH_URL": "https://yoland-api-uat.yoland.workers.dev", "APP_ORIGIN": "https://yoland-api-uat.yoland.workers.dev",
-            "TURNSTILE_MODE": "fake", "EMAIL_MODE": "disabled", "WS_MAX_LIFETIME_S": "86400" },
+            "TURNSTILE_MODE": "fake", "EMAIL_MODE": "capture", "WS_MAX_LIFETIME_S": "86400" },
   "hyperdrive": [
     { "binding": "HD_API", "id": "963510e5f39c4e20a4df414383fe6183" },
     { "binding": "HD_AUTH", "id": "11f0acd4732f4a45ab42153c54e91789" },
@@ -22,7 +23,7 @@
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "durable_objects": { "bindings": [
     { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" },
-    { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }
+    { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }, { "name": "OUTBOX", "class_name": "OutboxDO" }
   ] },
-  "migrations": [ { "tag": "v1", "new_sqlite_classes": ["RoomDO", "DirectoryDO", "TableDO"] }, { "tag": "v2", "new_sqlite_classes": ["TradeDO"] }, { "tag": "v3", "new_sqlite_classes": ["PresenceDO"] } ]
+  "migrations": [ { "tag": "v1", "new_sqlite_classes": ["RoomDO", "DirectoryDO", "TableDO"] }, { "tag": "v2", "new_sqlite_classes": ["TradeDO"] }, { "tag": "v3", "new_sqlite_classes": ["PresenceDO"] }, { "tag": "v4", "new_sqlite_classes": ["OutboxDO"] } ]
 }

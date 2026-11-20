@@ -17,11 +17,13 @@ import { makeAuth } from './auth';
 import { makeVerifier, HUMAN_CHECKED, type HumanVerifier } from '../core/humanCheck';
 import type { Env } from './env';
 import { metricsFor, runOpsCheck } from './ops';
+import { outboxAccess, presentedToken } from '../core/qaOutbox';
 export { RoomDO } from './room-do';
 export { DirectoryDO } from './directory-do';
 export { TableDO } from './table-do';
 export { TradeDO } from './trade-do';
 export { PresenceDO } from './presence-do';
+export { OutboxDO } from './outbox-do';
 
 interface User { id: string; email: string; emailVerified: boolean; twoFactorEnabled?: boolean | null; updatedAt: Date | string }
 interface Session { id: string; createdAt: Date | string; userId: string }
@@ -104,13 +106,15 @@ async function kickSessions(env: Env, cfg: AppConfig, userId: string, sid: strin
   const r = await Promise.all(rooms.map((room) => env.ROOM.get(env.ROOM.idFromName(room)).revoke(userId, sid).catch(() => ({ closed: 0 }))));
   return { rooms: rooms.length, closed: r.reduce((n, x) => n + x.closed, 0) };
 }
-const authFor = (c: C) => makeAuth(c.var.cfg, (userId, sid) => kickSessions(c.env, c.var.cfg, userId, sid));
+const outbox = (env: Env, cfg: AppConfig) => env.OUTBOX.get(env.OUTBOX.idFromName(`${cfg.env}:qa-outbox`));
+const authFor = (c: C) => makeAuth(c.var.cfg, (userId, sid) => kickSessions(c.env, c.var.cfg, userId, sid),
+  c.var.cfg.emailMode === 'capture' ? (m) => outbox(c.env, c.var.cfg).put(m) : undefined);
 
 // ---------- human check (Turnstile hook) on bot-attractive unauthenticated routes ----------
 let verifierCache: { cfg: AppConfig; v: HumanVerifier } | null = null;
 app.use('/api/auth/*', async (c, next) => {
   if (c.req.method === 'POST' && (HUMAN_CHECKED as readonly string[]).includes(new URL(c.req.url).pathname)) {
-    if (!verifierCache || verifierCache.cfg !== c.var.cfg) verifierCache = { cfg: c.var.cfg, v: makeVerifier(c.var.cfg.humanMode, c.var.cfg.turnstileSecret) };
+    if (!verifierCache || verifierCache.cfg !== c.var.cfg) verifierCache = { cfg: c.var.cfg, v: makeVerifier(c.var.cfg.humanMode, c.var.cfg.turnstileSecret, undefined, c.var.cfg.env) };
     const r = await verifierCache.v.verify(c.req.header('x-turnstile-token'), c.req.header('cf-connecting-ip'));
     if (!r.ok) return c.json({ ok: false, code: 'human_check_failed', codes: r.codes }, 403);
   }
@@ -163,6 +167,18 @@ async function requireAdmin(c: C, next: () => Promise<void>) {
   await next();
 }
 
+// U2: deployed commit + env (no secrets). GIT_SHA is set at deploy time (`--var GIT_SHA:<sha>`).
+app.get('/version', (c) => c.json({ ok: true, service: 'yoland-api', env: c.var.cfg.env, sha: c.var.cfg.gitSha }));
+// QA outbox (uat, EMAIL_MODE=capture only; 404 otherwise). Token in a header, compared in constant time.
+app.get('/qa/outbox', async (c) => {
+  const st = await outboxAccess(c.var.cfg, presentedToken(c.req.header('authorization'), c.req.header('x-qa-token')));
+  c.header('cache-control', 'no-store');
+  if (st === 404) return c.json({ ok: false, code: 'not_found' }, 404);
+  if (st === 401) return c.json({ ok: false, code: 'unauthorized' }, 401);
+  const to = c.req.query('to') ?? '';
+  if (!to || to.length > 320 || !to.includes('@')) return c.json({ ok: false, code: 'bad_to' }, 400);
+  return c.json({ ok: true, to: to.trim().toLowerCase(), messages: await outbox(c.env, c.var.cfg).list(to) });
+});
 app.get('/api/health', (c) => c.json({ ok: true, env: c.var.cfg.env, service: 'yoland-api' }));
 app.get('/api/health/db', async (c) => { const r = await db(c, async (cl) => (await cl.query('select eco.env_check() t, current_user r')).rows[0]); return c.json({ ok: true, db: r.t, role: r.r }); });
 

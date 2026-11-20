@@ -1,4 +1,4 @@
-// UAT smoke test against the live Worker. Run from a directory where `@neondatabase/serverless` and `ws` resolve
+// UAT smoke test against the live Worker. The QA outbox token is read from QA_OUTBOX_TOKEN_FILE (never printed). Run from a directory where `@neondatabase/serverless` and `ws` resolve
 // (deliberately NOT in package.json; the box keeps them in work-backend/neon-tools). Env: UAT_BASE (https://...), NEON_OWNER_URL (owner, used ONLY to
 // mark the smoke e-mail verified, since uat has EMAIL_MODE=disabled, and to read reconciliation). Prints JSON, no secrets.
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -7,6 +7,7 @@ neonConfig.webSocketConstructor = WebSocket;
 const BASE = process.env.UAT_BASE; if (!/^https:\/\/[^/]*uat[^/]*$/.test(BASE ?? '')) throw new Error('UAT_BASE must be the https uat origin');
 if (/prod/i.test(BASE)) throw new Error('refusing: prod');
 const ORIGIN = process.env.UAT_ORIGIN ?? BASE; const FAKE = 'local-fake-pass';
+const QA_TOKEN = process.env.QA_OUTBOX_TOKEN_FILE ? (await import('node:fs')).readFileSync(process.env.QA_OUTBOX_TOKEN_FILE, 'utf8').trim() : '';
 const owner = new Pool({ connectionString: process.env.NEON_OWNER_URL });
 const sql = async (q, v = []) => (await owner.query(q, v)).rows;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +47,7 @@ try {
   const h = await http('GET', '/api/health'); R.health = { status: h.status, body: h.json, ms: h.ms };
   const hd = await http('GET', '/api/health/db'); R.health_db = { status: hd.status, body: hd.json, ms: hd.ms };
   const hd2 = await http('GET', '/api/health/db'); R.health_db_warm_ms = hd2.ms;
+  const ver = await http('GET', '/version'); R.version = { status: ver.status, body: ver.json };
   R.dev_routes_hidden = (await http('GET', '/dev/ops/check')).status;
   R.cors_foreign_origin_post = (await http('POST', '/api/economy/daily', { headers: { origin: 'https://evil.example' } })).status;
 
@@ -54,8 +56,17 @@ try {
   const su = await http('POST', '/api/auth/sign-up/email', { body: { email, password, name: 'smoke' }, headers: { 'x-turnstile-token': FAKE } });
   R.signup = { status: su.status, ms: su.ms };
   const s0 = await signIn(email, password); R.signin_before_verify = { status: s0.status, code: s0.code };
-  const upd = await sql(`update auth."user" set "emailVerified" = true where email = $1 returning id`, [email]);   // EMAIL_MODE=disabled: verify by SQL
-  R.verified_by_sql = upd.length === 1;
+  // EMAIL_MODE=capture: read the verification link from the QA outbox
+  R.outbox_no_token = (await http('GET', `/qa/outbox?to=${encodeURIComponent(email)}`)).status;
+  R.outbox_wrong_token = (await http('GET', `/qa/outbox?to=${encodeURIComponent(email)}`, { headers: { authorization: 'Bearer ' + 'x'.repeat(48) } })).status;
+  const ob = await http('GET', `/qa/outbox?to=${encodeURIComponent(email.toUpperCase())}`, { headers: { authorization: `Bearer ${QA_TOKEN}` } });
+  const link = ob.json?.messages?.find((m) => m.kind === 'verify');
+  R.outbox = { status: ob.status, ms: ob.ms, messages: ob.json?.messages?.length, kind: link?.kind, link_host_ok: !!link && new URL(link.url).origin === BASE,
+    ttl_s: link ? Math.round((Date.parse(link.expires_at) - Date.parse(link.at)) / 1000) : null };
+  const vr = link ? await fetch(link.url, { redirect: 'manual' }) : null;
+  R.verify_link = { status: vr?.status ?? 'no link' };
+  const upd = await sql(`select id, "emailVerified" v from auth."user" where email = $1`, [email]);
+  R.verified_in_db = upd[0]?.v === true;
   const a = await signIn(email, password); R.signin = { status: a.status, ms: a.ms };
   const me = await http('GET', '/api/me', { cookie: a.cookie }); R.me = { status: me.status, ms: me.ms };
 

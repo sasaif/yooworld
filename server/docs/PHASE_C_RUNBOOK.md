@@ -129,14 +129,24 @@ gestionnaire de mots de passe d'Alessandro**. Rien de nommé « prod » n'a ét�
 | Cloudflare compte | `9a7873168d77930d42e6b1183b338b2b` (YoLand) — plan gratuit |
 | Sous-domaine workers.dev | `yoland` (créé par API) |
 | Hyperdrive (cache désactivé) | `yoland-uat-api` `963510e5f39c4e20a4df414383fe6183` (app_api) · `yoland-uat-auth` `11f0acd4732f4a45ab42153c54e91789` (app_auth) · `yoland-uat-admin` `33bf6d98204a477091d51bd6375c6230` (admin_ops) |
-| Worker | `yoland-api-uat` → **https://yoland-api-uat.yoland.workers.dev** ; config `infra/cloudflare/wrangler.uat.jsonc` (uat seul, pas d'env prod) ; DO RoomDO/DirectoryDO/TableDO/TradeDO/PresenceDO (migrations v1–v3) ; cron `*/5 * * * *` |
-| Secrets Worker | `BETTER_AUTH_SECRET`, `TICKET_SECRET`, `RESULT_SECRET` (`wrangler secret bulk`, neufs, ≠ local) |
+| Worker | `yoland-api-uat` → **https://yoland-api-uat.yoland.workers.dev** ; config `infra/cloudflare/wrangler.uat.jsonc` (uat seul, pas d'env prod) ; DO RoomDO/DirectoryDO/TableDO/TradeDO/PresenceDO/OutboxDO (migrations v1–v4) ; cron `*/5 * * * *` |
+| Secrets Worker | `BETTER_AUTH_SECRET`, `TICKET_SECRET`, `RESULT_SECRET` (`wrangler secret bulk`, neufs, ≠ local), `QA_OUTBOX_TOKEN` (QA outbox) |
 | R2 | bucket **`yoland-backups-uat`** (créé le 20/11/2026 23:30 Paris après activation de R2 par Alessandro) : classe Standard, emplacement ENAM (aucun indice de région donné), juridiction par défaut, accès public r2.dev **désactivé**, aucune règle de cycle de vie ajoutée (seule la règle par défaut de Cloudflare : abandon des envois multipart après 7 jours), aucune option payante. Objets sous `uat/AAAA-MM-JJ/…dump.age`, chiffrés age |
 
-**Dérogations uat (refusées en prod par `envSchema`)** : `TURNSTILE_MODE=fake` (jeton public `local-fake-pass` : l'inscription
-uat n'est **pas** protégée contre les robots) ; `EMAIL_MODE=disabled` (liens de vérification / réinitialisation **non
-envoyés**, journal sans lien ni adresse ; vérification des comptes de test par SQL propriétaire) ; `APP_ORIGIN` = l'URL de
-l'API (pas encore de front uat).
+**Dérogations uat (refusées en prod par `envSchema`, tests à l'appui)** :
+- `TURNSTILE_MODE=fake` : seul le jeton public `local-fake-pass` passe ; l'inscription uat n'est **pas** protégée contre
+  les robots. Refusé en prod par le schéma et, en plus, par `makeVerifier` (défense en profondeur). Limite d'inscription
+  inchangée : **5 / heure / IP** (`AUTH_RATE_RULES`, testée).
+- `EMAIL_MODE=capture` (décision du directeur, délégation d'Alessandro, 20/11/2026) : les e-mails de vérification /
+  réinitialisation ne sont pas envoyés ; ils sont gardés **15 min** dans le Durable Object `OutboxDO` (instance
+  `uat:qa-outbox`, purge à chaque appel + alarme, 200 messages max) et lisibles par la QA :
+  `GET /qa/outbox?to=<email>` avec `Authorization: Bearer <QA_OUTBOX_TOKEN>` (ou `x-qa-token`), comparaison à temps
+  constant ; 401 si jeton absent/faux ; **404 dès que le mode capture est éteint** (et toujours hors uat). Jeton :
+  secret Worker `QA_OUTBOX_TOKEN` ; copie pour la QA sur la box dans `/workspace/games-3d/yooworld/qa/secrets/uat_qa_outbox_token`
+  (600, hors dépôt). Pas de Resend, pas de domaine. (`EMAIL_MODE=disabled` reste possible en uat.)
+- `APP_ORIGIN` = l'URL de l'API (pas encore de front uat).
+- `GET /version` → `{ env, sha }` : commit déployé (`wrangler deploy … --var GIT_SHA:$(git rev-parse HEAD)`), sans secret.
+- Durable Objects : migration **v4** = `OutboxDO` (après v1–v3, jamais réécrites).
 
 **Particularités Neon (Postgres géré)** :
 - `neondb_owner` n'est pas superuser → `migrate-url.mjs` retire `NOSUPERUSER` de `0001` (fichier inchangé) et pose
