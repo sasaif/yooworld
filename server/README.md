@@ -113,8 +113,7 @@ Counts incoming/outgoing WS messages, bytes and alarms for one 25-player room (m
   itself. To re-check on real Cloudflare in Phase C.
 
 ## Milestone 3 notes
-- **Account deletion** = close + anonymise (`eco.close_account`, ledger untouched); wallet/items are frozen in place —
-  the sweep policy is Alessandro's decision (options in `docs/BETTER_AUTH_REVIEW.md`). Export: `GET /api/me/export`.
+- **Account deletion** (superseded by M4 policy (a), below). Export: `GET /api/me/export`.
 - **Trades**: `TradeDO` (versioned offer / counter / accept; settles via `eco.trade_lock` + `eco.trade_settle`).
 - **Human check**: `TURNSTILE_MODE=off|fake|turnstile` (local default off; uat/prod must be `turnstile` + secret).
 - **Ops**: `ops.metrics` / `ops.alerts` (0012), `GET /dev/ops/check` locally, `scheduled()` for a Phase C cron.
@@ -122,3 +121,18 @@ Counts incoming/outgoing WS messages, bytes and alarms for one 25-player room (m
   with `?net=1&lieu=beach` (APP_ORIGIN must equal the game origin). Off by default.
 - **Dominoes contract**: `test/unit/dominoes-contract.test.ts` breaks on client rule drift; re-pin with `PIN_CONTRACT=1`.
 - **B4 (pg_dump + real R2 restore)**: Phase C (needs Alessandro's accounts); the local backup/restore drill stays.
+
+## Milestone 4 notes
+- **Better Auth 1.7.27 adopted, pinned** — advisory watch + 48 h upgrade rule in `docs/BETTER_AUTH_REVIEW.md`.
+- **Account deletion = policy (a)** (`0013_account_grace.sql`): `POST /api/me/delete` starts a 30-day grace
+  (`eco.config` key `account.delete_grace_days`), revokes every session and closes every WebSocket; during grace only
+  `GET /api/me`, `GET /api/me/export`, `POST /api/me/restore` work (others → 403 `account_pending_deletion`).
+  At the end of grace the ops job (`runOpsCheck`: cron `scheduled()` / `GET /dev/ops/check` locally) runs
+  `eco.finalize_deletions` (balances → system wallet `sink:account_closed` via one `account_sweep` ledger tx, items →
+  SYSTEM player or revoked per `account.sweep_items_to_system`, personal data erased) and then anonymises the auth row.
+- **WebSocket revocation**: (i) every deleted auth session (sign-out, revoke, password reset, expiry, deletion) closes
+  that session's sockets with **4401** (Better Auth `databaseHooks.session.delete.after` → `PresenceDO` per player →
+  `RoomDO.revoke`); tickets of a revoked session are refused at upgrade. (ii) Lifetime cap `WS_MAX_LIFETIME_S`
+  (default 86400) → **4402**, the client reconnects with a fresh ticket. Wrangler migration `v3` adds `PresenceDO`.
+- **Phase C**: `docs/PHASE_C_RUNBOOK.md` (+ `infra/`), `docs/PHASE_C_COST_PLAN.md`. Nothing is created by any script
+  unless Alessandro runs it with his own credentials.

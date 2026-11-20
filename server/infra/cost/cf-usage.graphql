@@ -1,0 +1,40 @@
+# Cloudflare GraphQL Analytics (https://api.cloudflare.com/client/v4/graphql) — run by Alessandro / CI with an
+# API token scoped "Account Analytics: Read" only. Variables: $account (32 hex), $from/$to (ISO date-times).
+# Dataset names from developers.cloudflare.com (read 2026-11-20); field lists to confirm by introspection in Phase C.
+query YoLandUsage($account: String!, $from: Time!, $to: Time!, $fromDate: Date!, $toDate: Date!) {
+  viewer {
+    accounts(filter: { accountTag: $account }) {
+      # Durable Objects: active (billable duration) time, CPU, outgoing WS messages (+ incoming when not hibernated)
+      durableObjectsPeriodicGroups(filter: { datetime_geq: $from, datetime_lt: $to }, limit: 10000) {
+        dimensions { namespaceId }
+        sum { activeTime cpuTime inboundWebsocketMsgCount outboundWebsocketMsgCount }
+      }
+      # DO requests incl. hibernated incoming WS messages (billed 20:1) and RPC calls
+      durableObjectsInvocationsAdaptiveGroups(filter: { datetime_geq: $from, datetime_lt: $to }, limit: 10000) {
+        dimensions { namespaceId }
+        sum { requests wallTime responseBodySize }
+      }
+      durableObjectsStorageGroups(filter: { date_geq: $fromDate, date_lt: $toDate }, limit: 1000) { max { storedBytes } }
+      # API Worker
+      workersInvocationsAdaptive(filter: { datetime_geq: $from, datetime_lt: $to }, limit: 1000) {
+        dimensions { scriptName status }
+        sum { requests errors subrequests }
+        quantiles { cpuTimeP50 cpuTimeP99 }
+      }
+      hyperdriveQueriesAdaptiveGroups(filter: { datetime_geq: $from, datetime_lt: $to }, limit: 1000) {
+        dimensions { configId cacheStatus }
+        count
+        sum { queryBytes resultBytes }
+        avg { queryLatency }
+      }
+      r2OperationsAdaptiveGroups(filter: { datetime_geq: $from, datetime_lt: $to }, limit: 1000) {
+        dimensions { bucketName actionType }
+        sum { requests }
+      }
+      r2StorageAdaptiveGroups(filter: { datetime_geq: $from, datetime_lt: $to }, limit: 100) {
+        dimensions { bucketName }
+        max { payloadSize metadataSize objectCount }
+      }
+    }
+  }
+}
