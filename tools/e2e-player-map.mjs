@@ -1,12 +1,14 @@
 import { createRequire } from 'module'; import fs from 'fs';
 const { chromium } = createRequire(import.meta.url)(process.env.PW ?? 'playwright-core');
-// Player map (Carte) on iPhone 15 landscape, real taps. Usage:
-//   SHOTS=dir node tools/e2e-player-map.mjs http://127.0.0.1:PORT/
+// Two-level player map (Carte), real taps. Level 1: 6 district badges + Usine/Ferme pins + Toi; level 2: district cards + Visiter.
+// Usage: [DEV=iphone15|desktop] [SHOTS=dir] node tools/e2e-player-map.mjs http://127.0.0.1:PORT/
 const url = process.argv[2] ?? `http://127.0.0.1:${process.env.PORT ?? '54224'}/`;
+const DEVS = { iphone15: { width: 852, height: 393, mobile: true }, desktop: { width: 1440, height: 900, mobile: false } };
+const DEV = process.env.DEV ?? 'iphone15'; const dev = DEVS[DEV];
 const SHOTS = process.env.SHOTS ?? 'shots/player-map';
 fs.mkdirSync(SHOTS, { recursive: true });
 const b = await chromium.launch({ executablePath: process.env.CHROME ?? '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-const ctx = await b.newContext({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const ctx = await b.newContext({ viewport: { width: dev.width, height: dev.height }, deviceScaleFactor: dev.mobile ? 2 : 1, isMobile: dev.mobile, hasTouch: dev.mobile });
 const p = await ctx.newPage();
 const errs = [], bad = [];
 p.on('pageerror', (e) => errs.push(e.message));
@@ -14,8 +16,14 @@ p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text().slice(0, 2
 p.on('response', (r) => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
 let fails = 0, passes = 0;
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) { fails++; process.exitCode = 1; } else passes++; };
-const shot = (name) => p.screenshot({ path: `${SHOTS}/${name}.png` });
+const shot = (name) => p.screenshot({ path: `${SHOTS}/${DEV}_${name}.png` });
+const tap = (sel) => (dev.mobile ? p.tap(sel) : p.click(sel));
 const ready = () => p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 });
+const level = () => p.locator('[data-map="root"]').getAttribute('data-map-level');
+const settle = () => p.waitForTimeout(700); // camera transition .45 s + layer fade
+const box = (sel) => p.locator(sel).first().boundingBox();
+const inView = (r) => !!r && r.x >= 0 && r.y >= 0 && r.x + r.width <= dev.width + 0.5 && r.y + r.height <= dev.height + 0.5;
+const openMap = async () => { await tap('.dock button[data-map="dock"]'); await p.waitForSelector('[data-map="root"].visible', { timeout: 10000 }); await settle(); };
 
 await p.goto(url + (url.includes('?') ? '&' : '?') + 'fresh=1');
 await ready(); await p.waitForTimeout(2500);
@@ -23,83 +31,111 @@ await p.keyboard.press('F9'); await p.waitForTimeout(200);
 
 ok(await p.locator('.dock button[data-map="dock"]').count() === 1, 'dock has a Carte button');
 ok(await p.locator('.dock button[data-map="dock"]').innerText().then((t) => t.includes('Carte') && !t.includes('Lieux')), 'dock label is Carte, not Lieux');
-ok(await p.locator('.dock button', { hasText: 'Lieux' }).count() === 0, 'no second Lieux button');
-await shot('01_map_closed');
+await shot('01_closed');
 
-await p.tap('.dock button[data-map="dock"]');
-await p.waitForSelector('[data-map="root"].visible', { timeout: 10000 });
-await p.waitForTimeout(500);
-ok(await p.locator('[data-map="root"].visible').count() === 1, 'map opens as a full overlay');
-const nPlaces = await p.locator('[data-map-place]').count();
-ok(nPlaces === 25, `25 place hotspots (${nPlaces})`);
-const beachVisible = await p.evaluate(() => {
-  const root = document.querySelector('[data-map="view"]');
-  const hs = document.querySelector('[data-map-place="beach"]');
-  if (!root || !hs) return false;
-  const a = root.getBoundingClientRect(), b = hs.getBoundingClientRect();
-  const midY = (b.top + b.bottom) / 2, midX = (b.left + b.right) / 2;
-  return midX >= a.left && midX <= a.right && midY >= a.top && midY <= a.bottom;
-});
-ok(beachVisible, 'Yoo Plage is visible in the opening full-city view');
-ok(await p.locator('[data-map="close"]').count() === 1, 'baked close (X) hotspot is present');
-ok(await p.locator('[data-map="zin"]').count() === 1 && await p.locator('[data-map="zout"]').count() === 1, 'baked +/- zoom hotspots are present');
-await shot('02_map_open');
+// ---------- level 1 ----------
+await openMap();
+ok(await level() === '1', 'map opens on level 1 (city)');
+ok(await p.locator('[data-map="root"]').getAttribute('data-map-art') === 'clean', 'clean (text-free) art is loaded, not the fallback');
+ok(await p.evaluate(() => { const i = document.querySelector('.pmap-world img.map'); return !!i && i.complete && i.naturalWidth === 1672 && i.currentSrc.endsWith('/playermap/map_clean.webp'); }), 'map_clean.webp decoded at 1672 px');
+const names = await p.locator('[data-map-district]').allInnerTexts();
+ok(names.length === 6, `6 district badges (${names.length})`);
+ok(['Résidentiel', 'Centre-ville', 'Travail', 'Loisirs', 'Plage', 'Nature'].every((n, i) => names[i]?.includes(n)), 'badges are the 6 approved names: ' + names.map((n) => n.replace(/\s+/g, ' ').trim()).join(' / '));
+ok(await p.locator('[data-map-place]').count() === 0 && await p.locator('.pmap-dot').count() === 0, 'no per-place markers on level 1 (the 25 hotspots / dots are gone)');
+ok(await p.locator('[data-map-pin]').count() === 2, 'exactly 2 big pins on level 1');
+for (const id of ['factory', 'farm']) {
+  const r = await box(`[data-map-pin="${id}"]`); const t = await p.locator(`[data-map-pin="${id}"]`).innerText();
+  ok(inView(r) && r.width >= 44 && r.height >= 44, `${id} pin visible and ≥ 44 px (${r && Math.round(r.width)}×${r && Math.round(r.height)})`);
+  ok(t.includes('Bientôt') && (t.includes('Usine') || t.includes('Ferme')), `${id} pin says ${t.replace(/\s+/g, ' ').trim()}`);
+}
+for (const n of await p.locator('[data-map-district]').all()) { const r = await n.boundingBox(); if (!(inView(r) && r.height >= 44)) ok(false, 'badge in view and ≥ 44 px tall: ' + await n.innerText()); }
+ok(true, 'all 6 badges are inside the viewport and ≥ 44 px tall');
+ok(await p.locator('[data-map="here"]').count() === 1, '"Toi" marker shown on level 1');
+ok(await p.locator('[data-map="title"]').innerText().then((t) => t.includes('YoLand') && !t.includes('YooWorld')), 'title says YoLand');
+ok(!(await p.locator('[data-map="root"]').innerText()).includes('YooWorld'), 'no "YooWorld" text in the map');
+await shot('02_level1');
 
-// Close at city-fit first: after zoom the painted X leaves the viewport (known art limitation).
-await p.tap('[data-map="close"]');
-await p.waitForTimeout(450);
-ok(await p.locator('[data-map="root"].visible').count() === 0, 'baked X closes the map in the full-city view');
+// ---------- level 2: Travail via the Usine pin ----------
+await tap('[data-map-pin="factory"]'); await settle();
+ok(await level() === '2', 'Usine pin opens level 2');
+ok(await p.locator('[data-map-tab="work"]').getAttribute('aria-pressed') === 'true', 'Travail tab is active');
+ok(await p.locator('[data-map-card="factory"].active').count() === 1, 'Usine card is pre-selected');
+for (const id of ['factory', 'farm']) {
+  const t = await p.locator(`[data-map-card="${id}"]`).innerText();
+  ok(t.includes('Bientôt') && !/paie|Gold/i.test(t), `${id} card: Bientôt, no pay promise`);
+  ok(await p.locator(`[data-map-go="${id}"]`).isDisabled(), `${id}: no Visiter (disabled)`);
+  ok(inView(await box(`[data-map-place="${id}"]`)), `${id} pin visible in the Travail view`);
+}
+ok(await p.locator('[data-map="future"]').innerText().then((t) => t.includes('Dépôt') && t.includes('Atelier')), 'Travail: Extension future lists Dépôt + Atelier meubles');
+await shot('03_work');
+await tap('[data-map-place="farm"]'); await p.waitForTimeout(250);
+ok(await p.locator('[data-map-card="farm"].active').count() === 1, 'tapping the Ferme pin selects its card');
 
-await p.tap('.dock button[data-map="dock"]');
-await p.waitForSelector('[data-map="root"].visible');
+// switch district from the tabs
+await tap('[data-map-tab="center"]'); await settle();
+ok(await p.locator('[data-map-tab="center"]').getAttribute('aria-pressed') === 'true', 'tab switches to Centre-ville without going back');
+const centerCards = await p.locator('[data-map-card]').evaluateAll((els) => els.map((e) => e.getAttribute('data-map-card')));
+ok(JSON.stringify(centerCards) === JSON.stringify(['club', 'cafe', 'plaza', 'promenade']), 'Centre-ville cards: ' + centerCards.join(', '));
+ok(await p.locator('[data-map-card="club"]').innerText().then((t) => t.includes('Ouvert')), 'Games Club card is Ouvert');
+ok(await p.locator('[data-map-go="club"]').isEnabled(), 'Visiter enabled for the Games Club');
+ok(await p.locator('[data-map-go="cafe"]').isDisabled(), 'Café Yoo is Bientôt (disabled)');
+ok(inView(await box('[data-map-card="club"]')) && inView(await box('[data-map-go="club"]')), 'Games Club card + button fully visible');
+await shot('04_center');
 
-await p.tap('[data-map-place="beach"]');
-await p.waitForSelector('[data-map="card"]', { timeout: 5000 });
-ok(await p.locator('[data-map="card"]').count() === 1, 'location card opens on tap');
-ok(await p.locator('[data-map="card"]').innerText().then((t) => t.includes('Yoo Plage') && t.includes('Ouvert')), 'card shows Yoo Plage / Ouvert');
-ok(await p.locator('[data-map="go"]').isEnabled(), 'Visiter is enabled for Yoo Plage');
-await shot('03_location_card');
+// back to the city, Escape chain
+await tap('[data-map="back"]'); await settle();
+ok(await level() === '1', '‹ Ville goes back to level 1');
+await tap('[data-map-district="beach"]'); await settle();
+ok(await level() === '2' && await p.locator('[data-map-card="beach"]').count() === 1, 'Plage badge opens the beach view');
+ok(await p.locator('[data-map="future"]').innerText().then((t) => t.includes('Ponton')), 'Ponton de pêche is under Extension future');
+await p.keyboard.press('Escape'); await settle();
+ok(await level() === '1', 'Escape: level 2 → level 1');
+await p.keyboard.press('Escape'); await p.waitForTimeout(450);
+ok(await p.locator('[data-map="root"].visible').count() === 0, 'Escape on level 1 closes the map');
 
-await p.locator('[data-map="card-x"]').tap();
-await p.waitForTimeout(200);
-ok(await p.locator('[data-map="card"]').count() === 0, 'card close button works');
+// tap a district ZONE (not the badge), then close from level 2
+await openMap();
+const z = await box('[data-map-zone="nature"]');
+await (dev.mobile ? p.touchscreen.tap(z.x + z.width / 2, z.y + z.height * 0.8) : p.mouse.click(z.x + z.width / 2, z.y + z.height * 0.8)); await settle();
+ok(await level() === '2' && await p.locator('[data-map-tab="nature"]').getAttribute('aria-pressed') === 'true', 'tapping the Nature area opens Nature');
+await tap('[data-map="close"]'); await p.waitForTimeout(450);
+ok(await p.locator('[data-map="root"].visible').count() === 0, 'X closes the map from level 2');
+await openMap();
+ok(await level() === '1', 'reopening always starts on level 1');
 
-await p.tap('[data-map-place="club"]');
-await p.waitForSelector('[data-map="card"]');
-ok(await p.locator('[data-map="card"]').innerText().then((t) => t.includes('Yoo Games Club') && t.includes('Ouvert')), 'Games Club card is Ouvert');
-ok(await p.locator('[data-map="go"]').isEnabled(), 'Visiter is enabled for Games Club');
-await p.locator('[data-map="card-x"]').tap();
-
-const s0 = await p.evaluate(() => getComputedStyle(document.querySelector('.pmap-world')).transform);
-await p.tap('[data-map="zin"]');
-await p.waitForTimeout(400);
-const s1 = await p.evaluate(() => getComputedStyle(document.querySelector('.pmap-world')).transform);
-ok(s0 !== s1, 'baked + button zooms the map');
-await p.keyboard.press('Escape');
-await p.waitForTimeout(450);
-ok(await p.locator('[data-map="root"].visible').count() === 0, 'Escape closes the map after zoom');
-
-await p.tap('.dock button[data-map="dock"]');
-await p.waitForSelector('[data-map="root"].visible');
-await p.tap('[data-map-place="beach"]');
-await p.waitForSelector('[data-map="go"]:not([disabled])');
-await p.tap('[data-map="go"]');
-await p.waitForTimeout(500);
-await shot('04_transition');
+// ---------- travel ----------
+await tap('[data-map-district="beach"]'); await settle();
+await tap('[data-map-go="beach"]');
+await p.waitForTimeout(500); await shot('05_transition');
 await p.waitForFunction(() => window.game.s.location === 'beach' && !window.game.s.transition, null, { timeout: 30000 })
   .then(() => ok(true, 'Visiter travels to Yoo Plage with the fade'), () => ok(false, 'Visiter travels to Yoo Plage'));
 ok(await p.evaluate(() => window.game.s.panel) !== 'places', 'map closes after travel');
+await p.waitForTimeout(1200);
 
-await p.tap('.dock button[data-map="dock"]');
-await p.waitForSelector('[data-map="root"].visible');
-await p.tap('[data-map-place="club"]');
-await p.waitForSelector('[data-map="go"]:not([disabled])');
-await p.tap('[data-map="go"]');
+await openMap();
+await tap('[data-map-district="beach"]'); await settle();
+ok(await p.locator('[data-map-go="beach"]').innerText().then((t) => t.includes('Tu y es')) && await p.locator('[data-map-go="beach"]').isDisabled(), 'Yoo Plage shows "Tu y es" when you are there');
+ok(await p.locator('[data-map="here"]').count() === 1, '"Toi" marker shown in the Plage view');
+await tap('[data-map="back"]'); await settle();
+await tap('[data-map-district="residential"]'); await settle();
+await tap('[data-map-go="home"]');
+await p.waitForFunction(() => window.game.s.location === 'home' && !window.game.s.transition, null, { timeout: 30000 })
+  .then(() => ok(true, 'Visiter travels to Mon appart'), () => ok(false, 'Visiter travels to Mon appart'));
+await p.waitForTimeout(1200);
+
+await openMap();
+await tap('[data-map-district="center"]'); await settle();
+await tap('[data-map-go="club"]');
 await p.waitForFunction(() => window.game.s.location === 'club' && !window.game.s.transition, null, { timeout: 30000 })
   .then(() => ok(true, 'Visiter travels to the Games Club with the fade'), () => ok(false, 'Visiter travels to the Games Club'));
 ok(await p.evaluate(() => window.game.s.panel) !== 'places', 'map closes after travel to the club');
 
+// ---------- fallback art ----------
+await p.goto(url + (url.includes('?') ? '&' : '?') + 'fresh=1&mapart=baked'); await ready(); await p.waitForTimeout(1500);
+await openMap();
+ok(await p.locator('[data-map="root"]').getAttribute('data-map-art') === 'baked' && await p.locator('[data-map-district]').count() === 6, 'fallback (original art) still works with the same UI');
+
 ok(errs.length === 0, 'no console/page errors ' + errs.join(' | '));
 ok(bad.length === 0, 'no HTTP errors ' + bad.join(' '));
-console.log(`SUMMARY player-map ${fails ? 'FAIL' : 'PASS'} (${passes} passed, ${fails} failed)`);
+console.log(`SUMMARY player-map ${DEV} ${fails ? 'FAIL' : 'PASS'} (${passes} passed, ${fails} failed)`);
 await b.close();

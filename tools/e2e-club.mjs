@@ -1,6 +1,6 @@
 import { createRequire } from 'module'; import fs from 'fs'; const { chromium } = createRequire(import.meta.url)(process.env.PW ?? 'playwright-core');
 // Yoo Games Club end-to-end on a phone-landscape TOUCH viewport, real localStorage, real taps:
-//  A. home → Carte → Yoo Games Club → Visiter (fade) → table menu → setup → sit → FULL game vs bots → results
+//  A. home → Carte → Centre-ville → Yoo Games Club → Visiter (fade) → table menu → setup → sit → FULL game vs bots → results
 //     (bots = seated YooWorld avatars, no floating bot labels; active turn ring / chip / "À toi de jouer" / thinking dots)
 //  B. "Rejouer": same table, same setup, the same bot avatars stay seated
 //  C. leave during a bot turn: confirm dialog pauses the bots, "Rester" resumes, "Quitter" tears everything down
@@ -37,10 +37,11 @@ const perfRows = [];
 async function gotoClubByDock() {
   await p.tap('.dock button[data-map="dock"]');
   await p.waitForSelector('[data-map="root"].visible', { timeout: 10000 });
-  await p.tap('[data-map-place="club"]');
-  await p.waitForSelector('[data-map="card"]', { timeout: 5000 });
-  ok(await p.locator('[data-map="card"]').innerText().then((t) => t.includes('Yoo Games Club') && t.includes('Ouvert')), 'Carte lists Yoo Games Club as Ouvert');
-  const go = p.locator('[data-map="go"]');
+  // two-level map: city → Centre-ville district → Yoo Games Club card → Visiter
+  await p.tap('[data-map-district="center"]');
+  await p.waitForSelector('[data-map="root"][data-map-level="2"] [data-map-card="club"]', { timeout: 5000 });
+  ok(await p.locator('[data-map-card="club"]').innerText().then((t) => t.includes('Yoo Games Club') && t.includes('Ouvert')), 'Carte → Centre-ville lists Yoo Games Club as Ouvert');
+  const go = p.locator('[data-map-go="club"]');
   ok(await go.isEnabled(), 'Visiter is enabled for the Games Club');
   await go.tap();
   await p.waitForFunction(() => window.game.s.location === 'club' && !window.game.s.transition, null, { timeout: 30000 }).then(() => ok(true, 'arrived at the Games Club after the fade'), () => ok(false, 'arrived at the Games Club'));

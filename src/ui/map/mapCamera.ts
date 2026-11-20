@@ -29,3 +29,15 @@ export function camToPoint(xPct: number, yPct: number, s: number, vw: number, vh
 }
 
 export function pctToPx(pct: number, total: number) { return pct / 100 * total; }
+
+/** Fit a map-% rect into a sub-area of the view (e.g. above the card strip), scale kept within [minS, maxS]. */
+export function camToRect(r: { x: number; y: number; w: number; h: number }, area: { x: number; y: number; w: number; h: number }, mw: number, mh: number, maxS = 1, minS = 0): Cam {
+  const rw = r.w / 100 * mw, rh = r.h / 100 * mh;
+  const s = Math.max(minS, Math.min(maxS, area.w / rw, area.h / rh));
+  const cx = (r.x + r.w / 2) / 100 * mw, cy = (r.y + r.h / 2) / 100 * mh;
+  return { s, x: area.x + area.w / 2 - cx * s, y: area.y + area.h / 2 - cy * s };
+}
+
+/** Level-2 layout: top bar and bottom card strip heights (CSS px), mirrored in playerMap.css (--strip). */
+export const L2_TOP = 60;
+export const l2Strip = (vw: number, vh: number) => (vw >= 1000 && vh >= 600 ? 156 : 132);

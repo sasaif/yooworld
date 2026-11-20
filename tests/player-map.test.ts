@@ -1,70 +1,145 @@
 import { describe, expect, it } from 'vitest';
-import { canVisit, mapPlaceById, PLAYER_MAP, PLAYER_MAP_PLACES, PLAYER_MAP_UI, visitLabel } from '../src/data/playerMap';
-import { camToPoint, clampCam, fitCam, maxScale, pctToPx, zoomAt } from '../src/ui/map/mapCamera';
-import { isPlayable } from '../src/data/locations';
+import fs from 'node:fs';
+import {
+  canVisit, districtById, districtSummary, featuredPlaces, mapPlaceById, placeForLocation, placesIn, visitLabel,
+  PLAYER_MAP, PLAYER_MAP_DISTRICTS, PLAYER_MAP_PLACES, MAP_STATUS, type DistrictId,
+} from '../src/data/playerMap';
+import { camToPoint, camToRect, clampCam, fitCam, L2_TOP, l2Strip, maxScale, pctToPx, zoomAt } from '../src/ui/map/mapCamera';
+import { CITY_NAV, mapNavigation } from '../src/ui/map/mapNavigation';
+import { isPlayable, LOCATIONS } from '../src/data/locations';
 
-describe('player map data', () => {
-  it('lists 25 places with unique ids and hit / dot / anchor', () => {
-    expect(PLAYER_MAP_PLACES).toHaveLength(25);
-    expect(new Set(PLAYER_MAP_PLACES.map((p) => p.id)).size).toBe(25);
+const inMap = (p: { x: number; y: number }) => p.x > 0 && p.x < 100 && p.y > 0 && p.y < 100;
+const D = (id: DistrictId) => placesIn(id).map((p) => p.id);
+
+describe('player map: level 1 districts', () => {
+  it('has exactly the 6 approved districts, in order, with name-only badges', () => {
+    expect(PLAYER_MAP_DISTRICTS.map((d) => d.id)).toEqual(['residential', 'center', 'work', 'fun', 'beach', 'nature']);
+    expect(PLAYER_MAP_DISTRICTS.map((d) => d.name)).toEqual(['Résidentiel', 'Centre-ville', 'Travail', 'Loisirs', 'Plage', 'Nature']);
+    for (const d of PLAYER_MAP_DISTRICTS) {
+      expect(inMap(d.badge)).toBe(true);
+      expect(d.zones.length).toBeGreaterThan(0);
+      for (const z of [...d.zones, d.focus]) {
+        expect(z.w).toBeGreaterThan(0); expect(z.h).toBeGreaterThan(0);
+        expect(z.x).toBeGreaterThanOrEqual(0); expect(z.y).toBeGreaterThanOrEqual(0);
+        expect(z.x + z.w).toBeLessThanOrEqual(100); expect(z.y + z.h).toBeLessThanOrEqual(100);
+      }
+    }
+  });
+
+  it('district tap zones do not overlap each other', () => {
+    const zs = PLAYER_MAP_DISTRICTS.flatMap((d) => d.zones.map((z) => ({ d: d.id, ...z })));
+    for (const a of zs) for (const b of zs) {
+      if (a === b || a.d === b.d) continue;
+      const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+      expect(overlap, `${a.d} vs ${b.d}`).toBe(false);
+    }
+  });
+
+  it('shows Usine and Ferme as the only featured (big) pins, both in Travail and Bientôt — no Gold promise', () => {
+    expect(featuredPlaces().map((p) => p.id).sort()).toEqual(['factory', 'farm']);
+    for (const p of featuredPlaces()) {
+      expect(p.district).toBe('work'); expect(p.status).toBe('soon');
+      expect(inMap(p.label)).toBe(true);
+      expect(p.blurb).not.toMatch(/paie|Gold|gold|récompense|payé/i);
+    }
+  });
+});
+
+describe('player map: level 2 destinations', () => {
+  it('keeps every former place (21) with a unique id, a district, a thumb and a code label position', () => {
+    expect(PLAYER_MAP_PLACES).toHaveLength(21);
+    expect(new Set(PLAYER_MAP_PLACES.map((p) => p.id)).size).toBe(21);
     for (const p of PLAYER_MAP_PLACES) {
-      expect(p.name.length).toBeGreaterThan(0);
-      expect(p.hit.w).toBeGreaterThan(0); expect(p.hit.h).toBeGreaterThan(0);
-      expect(p.dot.x).toBeGreaterThan(0); expect(p.anchor.x).toBeGreaterThan(0);
-      expect(['open', 'jalon', 'soon']).toContain(p.status);
+      expect(districtById(p.district), p.id).toBeTruthy();
+      expect(Object.keys(MAP_STATUS)).toContain(p.status);
+      expect(inMap(p.label), p.id).toBe(true); expect(inMap(p.anchor), p.id).toBe(true);
+      expect(fs.existsSync('public' + p.thumb), p.thumb).toBe(true);
     }
   });
 
-  it('Mon appart, Yoo Plage and the Games Club are open and visitable', () => {
-    const open = PLAYER_MAP_PLACES.filter((p) => p.status === 'open');
-    expect(open.map((p) => p.id).sort()).toEqual(['beach', 'club', 'home']);
-    expect(canVisit(mapPlaceById('home')!, 'beach')).toBe(true);
-    expect(canVisit(mapPlaceById('beach')!, 'home')).toBe(true);
-    expect(canVisit(mapPlaceById('club')!, 'home')).toBe(true);
-    expect(canVisit(mapPlaceById('home')!, 'home')).toBe(false);
-    expect(canVisit(mapPlaceById('beach')!, 'beach')).toBe(false);
-    expect(canVisit(mapPlaceById('club')!, 'club')).toBe(false);
-    expect(visitLabel(mapPlaceById('home')!, 'home')).toBe('Tu y es');
+  it('maps destinations to districts as approved', () => {
+    expect(D('residential')).toEqual(['home']);
+    expect(D('center')).toEqual(['club', 'cafe', 'plaza', 'promenade', 'festival']);
+    expect(D('work')).toEqual(['factory', 'farm', 'depot', 'workshop']);
+    expect(D('fun')).toEqual(['disco', 'museum', 'park', 'minigolf', 'restaurant', 'hotel']);
+    expect(D('beach')).toEqual(['beach', 'pier']);
+    expect(D('nature')).toEqual(['gardens', 'camping', 'zoo']);
+    expect(mapPlaceById('pier')!.status).toBe('future');
+    for (const id of ['museum', 'park', 'minigolf', 'zoo', 'camping']) expect(mapPlaceById(id)!.status).toBe('future');
+  });
+
+  it('playable ⇔ a real playable scene: exactly Mon appart, Yoo Plage and the Games Club', () => {
+    const playable = PLAYER_MAP_PLACES.filter((p) => p.status === 'playable');
+    expect(playable.map((p) => p.id).sort()).toEqual(['beach', 'club', 'home']);
+    for (const p of PLAYER_MAP_PLACES) {
+      const real = !!p.travel && isPlayable(p.travel);
+      expect(p.status === 'playable', p.id).toBe(real);
+    }
+    // every playable scene in the game is reachable from the map
+    for (const l of LOCATIONS.filter((l) => l.status === 'playable')) expect(placeForLocation(l.id)?.id, l.id).toBeTruthy();
+  });
+
+  it('Visiter / Tu y es / Bientôt / Plus tard labels', () => {
     expect(visitLabel(mapPlaceById('beach')!, 'home')).toBe('Visiter');
-    expect(visitLabel(mapPlaceById('club')!, 'home')).toBe('Visiter');
-    expect(visitLabel(mapPlaceById('club')!, 'club')).toBe('Tu y es');
-    for (const p of open) {
-      expect(p.travel).toBeTruthy();
-      expect(isPlayable(p.travel!)).toBe(true);
+    expect(visitLabel(mapPlaceById('home')!, 'home')).toBe('Tu y es');
+    expect(canVisit(mapPlaceById('home')!, 'home')).toBe(false);
+    expect(visitLabel(mapPlaceById('factory')!, 'home')).toBe('Bientôt');
+    expect(visitLabel(mapPlaceById('pier')!, 'home')).toBe('Plus tard');
+    for (const p of PLAYER_MAP_PLACES.filter((x) => x.status !== 'playable')) for (const l of ['home', 'beach', 'club']) expect(canVisit(p, l)).toBe(false);
+  });
+
+  it('Games Club: in Centre-ville, first card, visitable from home and beach, "Tu y es" inside', () => {
+    const club = mapPlaceById('club')!;
+    expect(club.district).toBe('center'); expect(club.travel).toBe('club');
+    expect(placesIn('center')[0].id).toBe('club');
+    expect(canVisit(club, 'home')).toBe(true); expect(canVisit(club, 'beach')).toBe(true);
+    expect(visitLabel(club, 'club')).toBe('Tu y es');
+    expect(districtSummary('center')).toEqual({ playable: 1, soon: 3, future: 1 });
+  });
+
+  it('player-facing text says YoLand, never YooWorld, and promises no pay', () => {
+    const txt = fs.readFileSync('src/data/playerMapLocations.json', 'utf8') + fs.readFileSync('src/ui/map/PlayerMap.tsx', 'utf8');
+    expect(txt).not.toMatch(/YooWorld/);
+    expect(txt).toMatch(/YoLand/);
+    expect(fs.readFileSync('src/data/playerMapLocations.json', 'utf8')).not.toMatch(/paie|en ligne/i);
+  });
+});
+
+describe('player map art', () => {
+  it('uses the clean text-free art and keeps the original as fallback (both files present, same size)', () => {
+    expect(PLAYER_MAP.src).toBe('/playermap/map_clean.webp');
+    expect(PLAYER_MAP.fallback).toBe('/playermap/map.webp');
+    expect(PLAYER_MAP.width).toBe(1672); expect(PLAYER_MAP.height).toBe(941);
+    for (const f of [PLAYER_MAP.src, PLAYER_MAP.fallback]) {
+      const b = fs.readFileSync('public' + f);
+      expect(b.subarray(0, 4).toString()).toBe('RIFF'); expect(b.subarray(8, 12).toString()).toBe('WEBP');
+      expect(b.length).toBeLessThan(700_000);
     }
   });
+});
 
-  it('marks the Games Club as Ouvert and visitable via travelWithFade', () => {
-    const club = mapPlaceById('club')!;
-    expect(club.status).toBe('open');
-    expect(club.travel).toBe('club');
-    expect(canVisit(club, 'home')).toBe(true);
-    expect(visitLabel(club, 'home')).toBe('Visiter');
-    expect(isPlayable(club.travel!)).toBe(true);
-  });
-
-  it('does not offer Visiter for Bientôt places, even if a scene id exists later', () => {
-    const soon = PLAYER_MAP_PLACES.filter((p) => p.status === 'soon');
-    expect(soon.length).toBe(22);
-    for (const p of soon) expect(canVisit(p, 'home')).toBe(false);
-  });
-
-  it('places the Nature status dot to the right of the painted label, not over the N', () => {
-    const n = mapPlaceById('nature')!;
-    // painted "Nature" pill sits roughly at 16–24 % x, ~50 % y; the previous 23.86 % dot sat on its right edge
-    expect(n.dot.x).toBeGreaterThan(25);
-    expect(n.dot.x).toBeLessThan(30);
-    expect(n.dot.y).toBeGreaterThan(48);
-    expect(n.dot.y).toBeLessThan(54);
-  });
-
-  it('serves the WebP (not the 3 MB PNG) and has baked chrome hit targets', () => {
-    expect(PLAYER_MAP.src).toBe('/playermap/map.webp');
-    expect(PLAYER_MAP.width).toBe(1672);
-    expect(PLAYER_MAP.height).toBe(941);
-    expect(PLAYER_MAP_UI.hits.close.w).toBeGreaterThanOrEqual(44);
-    expect(PLAYER_MAP_UI.hits.zoomIn.h).toBeGreaterThanOrEqual(44);
-    expect(PLAYER_MAP_UI.hits.zoomOut.h).toBeGreaterThanOrEqual(44);
+describe('player map: level-2 framing', () => {
+  for (const [vw, vh] of [[852, 393], [1440, 900]]) {
+    it(`every district focus fits above the card strip at ${vw}×${vh}`, () => {
+      const W = PLAYER_MAP.width, H = PLAYER_MAP.height, fit = fitCam(vw, vh, W, H);
+      const area = { x: 0, y: L2_TOP, w: vw, h: vh - L2_TOP - l2Strip(vw, vh) };
+      for (const d of PLAYER_MAP_DISTRICTS) {
+        const c = clampCam(camToRect(d.focus, area, W, H, Math.min(1, fit.s * 2.2), fit.s), vw, vh - l2Strip(vw, vh), W, H);
+        expect(c.s).toBeGreaterThanOrEqual(fit.s - 1e-9);
+        // the non-future pins of the district land inside the view, above the strip
+        for (const p of placesIn(d.id).filter((x) => x.status !== 'future')) {
+          const x = c.x + p.label.x / 100 * W * c.s, y = c.y + p.label.y / 100 * H * c.s;
+          expect(x, `${d.id}/${p.id} x`).toBeGreaterThan(0); expect(x, `${d.id}/${p.id} x`).toBeLessThan(vw);
+          expect(y, `${d.id}/${p.id} y`).toBeGreaterThan(L2_TOP - 20); expect(y, `${d.id}/${p.id} y`).toBeLessThan(vh - l2Strip(vw, vh));
+        }
+      }
+    });
+  }
+  it('camToRect centres the rect in the area and respects maxS', () => {
+    const c = camToRect({ x: 25, y: 25, w: 50, h: 50 }, { x: 0, y: 0, w: 400, h: 200 }, 1000, 1000, 10);
+    expect(c.s).toBeCloseTo(0.4, 6);
+    expect(c.x + 500 * c.s).toBeCloseTo(200, 6); expect(c.y + 500 * c.s).toBeCloseTo(100, 6);
+    expect(camToRect({ x: 0, y: 0, w: 1, h: 1 }, { x: 0, y: 0, w: 400, h: 200 }, 1000, 1000, 1).s).toBe(1);
   });
 });
 
@@ -121,5 +196,31 @@ describe('player map camera', () => {
     const c = camToPoint(beach.anchor.x, beach.anchor.y, fit.s * 2.6, vw, vh, W, H);
     expect(c.x + pctToPx(beach.anchor.x, W) * c.s).toBeCloseTo(vw / 2, 6);
     expect(c.y + pctToPx(beach.anchor.y, H) * c.s).toBeCloseTo(vh / 2, 6);
+  });
+});
+
+// The component uses this exact reducer for district taps, card / pin selection, tabs, back and reopening.
+describe('player map: ephemeral two-level navigation', () => {
+  it('city → district → select location → back → city, with no third level', () => {
+    let s = mapNavigation(CITY_NAV, { type: 'district', id: 'center' });
+    expect(s).toEqual({ district: 'center', selected: null });
+    s = mapNavigation(s, { type: 'select', id: 'club' });
+    expect(s).toEqual({ district: 'center', selected: 'club' });
+    expect(mapNavigation(s, { type: 'city' })).toEqual(CITY_NAV);
+  });
+  it('featured Usine / Ferme pins preselect the card in Travail', () => {
+    for (const id of ['factory', 'farm']) expect(mapNavigation(CITY_NAV, { type: 'district', id: 'work', selected: id })).toEqual({ district: 'work', selected: id });
+  });
+  it('switching district clears the previous selection; cannot select a hidden or future location', () => {
+    const s = mapNavigation({ district: 'work', selected: 'factory' }, { type: 'district', id: 'center' });
+    expect(s.selected).toBe(null);
+    expect(mapNavigation(s, { type: 'select', id: 'factory' })).toEqual(s);
+    expect(mapNavigation(s, { type: 'select', id: 'festival' })).toEqual(s);
+    expect(mapNavigation(s, { type: 'select', id: 'club' }).selected).toBe('club');
+  });
+  it('blank tap deselects; reopen resets to the city', () => {
+    const s = { district: 'center' as const, selected: 'club' };
+    expect(mapNavigation(s, { type: 'select', id: null })).toEqual({ district: 'center', selected: null });
+    expect(mapNavigation(s, { type: 'city' })).toEqual(CITY_NAV);
   });
 });
