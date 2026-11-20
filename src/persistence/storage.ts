@@ -18,3 +18,12 @@ export const storage = {
   /** per-tab UI flags (rotate prompt skipped, default lieu used) */
   session: new EnvKV(SAVE_ENV, session, 'pref'),
 };
+/** Chat panel layout only (position / size of the movable chat panel). Its own namespace `ywchatui.<env>.<name>`,
+ *  outside every save keyspace (yooworld:*, yw.*, yw:e:*): never read by saves, backups or the economy. */
+export const CHAT_UI_PREFIX = 'ywchatui.';
+export const chatUiKey = (name: string) => `${CHAT_UI_PREFIX}${SAVE_ENV.tag}.${name}`;
+export const chatUi = {
+  getItem: (name: string) => { try { return local.getItem(chatUiKey(name)); } catch { return null; } },
+  setItem: (name: string, v: string) => { try { local.setItem(chatUiKey(name), v); } catch { /* private mode */ } },
+  removeItem: (name: string) => { try { local.removeItem(chatUiKey(name)); } catch { /* */ } },
+};

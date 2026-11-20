@@ -194,7 +194,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       {selected && <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.012}><ringGeometry args={[0.24, 0.29, 40]} /><meshBasicMaterial color={def.tagColor} transparent opacity={0.85} depthWrite={false} /></mesh>}
       <group ref={tag} position-y={1.12}>
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="tagwrap">
+          <div className="tagwrap" data-char={c.id}>
             <div ref={badge} className="expr-badge" aria-hidden="true" />
             <div ref={bubble} className="bubble" />
             <div ref={nameEl} className={'nametag' + (tagClass ? ' ' + tagClass : '')} style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">{npcLabel}</span>}</div>

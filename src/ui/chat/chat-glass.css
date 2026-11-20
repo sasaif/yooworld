@@ -165,97 +165,130 @@
 }
 .chat-opaque .chatbar { background: #fff; border-color: #f3c4e4; }
 
-/* Landscape phones: compact floating corner card, area kept ≤ 22 % of the screen (C5). */
-@media (orientation: landscape) and (max-height: 500px) {
-  .sheet.chat-sheet.chat-glass {
-    display: flex; flex-direction: column;
-    box-sizing: border-box;
-    top: auto;
-    bottom: calc(max(6px, var(--sab, 0px)) + 54px);
-    left: auto;
-    right: max(8px, var(--sar, 0px));
-    width: min(280px, 34vw);
-    /* Content-sized: the log shrinks/scrolls so the composer is never clipped (BUG-C1).
-       Cap keeps the card above the dock and around ≤ 22 % of the screen. */
-    height: auto;
-    min-height: 0;
-    max-height: min(260px, calc(var(--app-h, 100dvh) - 118px), calc(0.22 * var(--app-w, 100dvw) * var(--app-h, 100dvh) / min(280px, 34vw)));
-    padding: 8px 10px;
-    overflow: hidden;
-  }
-  .sheet.chat-sheet.chat-glass h3 { font-size: 13px; margin: 0 0 2px; flex: none; flex-shrink: 0; }
-  .sheet.chat-sheet.chat-glass .chat-scope { font-size: 10px; margin: 0 0 3px; line-height: 1.2; flex: none; flex-shrink: 0; }
-  .sheet.chat-sheet.chat-glass .chat-head,
-  .sheet.chat-sheet.chat-glass .chat-tabs,
-  .sheet.chat-sheet.chat-glass .chatbar,
-  .sheet.chat-sheet.chat-glass .quick,
-  .sheet.chat-sheet.chat-glass .chat-stickers { flex: none; flex-shrink: 0; }
-  .sheet.chat-sheet.chat-glass .chatlog {
-    flex: 1 1 auto; flex-shrink: 1;
-    min-height: 36px; min-width: 0;
-    max-height: none; overflow: auto;
-    margin-bottom: 4px; font-size: 13px;
-  }
-  .sheet.chat-sheet.chat-glass .chatbar input { min-height: 38px; }
-}
-
-/* Desktop / tablet: a slightly roomier floating panel, still not a full app window. */
-@media (orientation: landscape) and (min-height: 501px) {
-  .sheet.chat-sheet.chat-glass {
-    display: flex; flex-direction: column;
-    top: auto; left: auto;
-    right: max(16px, var(--sar, 0px));
-    bottom: calc(max(12px, var(--sab, 0px)) + 78px);
-    width: min(340px, 32vw);
-    height: auto;
-    min-height: 0;
-    max-height: min(380px, calc(var(--app-h, 100dvh) - 140px));
-  }
-  .sheet.chat-sheet.chat-glass .chatlog { flex: 1 1 auto; min-height: 96px; }
-}
-@media (min-width: 1100px) {
-  .chat-preview { bottom: calc(max(12px, var(--sab, 0px)) + 78px); right: max(16px, var(--sar, 0px)); }
-}
-
-/* Keyboard: composer docks above the keyboard (same inset contract as viewportFill).
- * The card stays inside the visual viewport (max-height: vv-h - 8). Horizontal placement
- * (right column) keeps the player's avatar + say() bubble visible. */
-.kb-open .sheet.chat-sheet.chat-glass {
-  top: auto;
-  bottom: calc(var(--kb-off, 0px) + 4px);
-  /* Hug content above the keyboard instead of filling the visual viewport
-     (which used to cover the top-right HUD chips at top: 4px). */
-  height: auto;
-  max-height: calc(var(--vv-h, 100dvh) - 8px);
-  min-height: 0;
-  padding: 4px 8px;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-/* Tight chrome so header + one log line + composer fit in vv-h - 8 (140 / 120 / 100). */
-.kb-open .sheet.chat-sheet.chat-glass .chat-head { display: none; }
-.kb-open .sheet.chat-sheet.chat-glass .chatlog { min-height: 36px; max-height: none; flex: 1 1 auto; min-width: 0; }
-.kb-open .sheet.chat-sheet.chat-glass .chat-nm { display: none; }
-.kb-open .sheet.chat-sheet.chat-glass .chat-msg { font-size: 12px; }
-.kb-open .sheet.chat-sheet.chat-glass .chat-bub { padding: 2px 7px; }
-.kb-open .sheet.chat-sheet.chat-glass .chatbar { padding: 1px 3px 1px 8px; flex: none; }
-.kb-open .sheet.chat-sheet.chat-glass .chatbar input { min-height: 32px; }
-.kb-open .sheet.chat-sheet.chat-glass .chatbar .btn { min-height: 30px; padding: 0 10px; }
-.kb-open .sheet.chat-sheet.chat-glass .chat-scope,
-.kb-open .sheet.chat-sheet.chat-glass .quick,
-.kb-open .sheet.chat-sheet.chat-glass .chat-stickers,
-.kb-open .sheet.chat-sheet.chat-glass .chat-tabs { display: none; }
-.kb-open .dock,
-.kb-open .joy,
-.kb-open .run-btn,
-.kb-open .mood-wrap {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
-}
-
 /* Incoming preview badge: tiny pop, skipped when motion is reduced. */
 .chat-preview .chat-unread { animation: chat-pop .28s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .chat-preview .chat-unread { animation: none; }
 }
+
+/* ===================== Vertical edition (feature/chat-vertical) =====================
+ * Speech bubbles first, history second. Geometry (left/top/width/height) comes from panelLayout.ts (inline style):
+ * narrow vertical card in the right column, movable (header) and resizable (grip, − / +), always fully on screen. */
+
+/* compact Chat button (closed by default) */
+.chat-preview.chat-fab { max-width: none; padding: 4px 10px 4px 6px; gap: 5px; }
+.chat-fab-ico { font-size: 15px; line-height: 1; }
+.chat-fab .chat-preview-line { font-weight: 800; font-size: 12px; }
+.chat-fab .chat-unread { position: absolute; top: -7px; right: -6px; box-shadow: 0 0 0 2px #fff; }
+
+.sheet.chat-sheet.chat-glass.chat-vertical {
+  position: absolute; box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 0;
+  padding: 6px 8px 7px; overflow: hidden;
+  border-radius: 24px 26px 22px 24px;
+  touch-action: none; /* drag / resize; the log re-enables vertical scrolling */
+  animation: chat-panel-in .2s ease-out;
+}
+.sheet.chat-sheet.chat-glass.chat-vertical.dragging { transition: none; box-shadow: inset 0 1px 0 #fff, 0 0 0 2px rgba(255,160,215,.55), 0 14px 26px rgba(90,20,110,.22); }
+@keyframes chat-panel-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sheet.chat-sheet.chat-glass.chat-vertical { animation: none; } }
+
+.chat-vertical h3.chat-drag { cursor: grab; flex: none; margin: 0 0 3px; font-size: 13px; min-height: 28px; gap: 3px; user-select: none; -webkit-user-select: none; }
+.chat-vertical.dragging h3.chat-drag { cursor: grabbing; }
+.chat-vertical .chat-fold { min-height: 28px; font-weight: 800; }
+.chat-vertical .chat-mode { font-size: 9.5px; padding: 2px 6px; margin-left: 2px; }
+.chat-vertical .chat-size, .chat-vertical h3 .x {
+  flex: none; width: 26px; height: 26px; min-height: 26px; padding: 0; border-radius: 99px;
+  border: 1px solid #fff9; background: rgba(255,255,255,.45); color: #5a3070;
+  font: 800 14px/1 system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.chat-vertical h3 .x { font-size: 12px; }
+/* resize grip: top-left corner (the panel lives on the right; the composer corner stays under the thumb) */
+.chat-grip {
+  position: absolute; left: 0; top: 0; width: 22px; height: 22px; z-index: 2; cursor: nwse-resize; touch-action: none;
+  border-top-left-radius: 22px;
+  background: radial-gradient(circle at 7px 7px, rgba(217,74,255,.55) 0 2px, transparent 2.5px),
+              radial-gradient(circle at 13px 7px, rgba(217,74,255,.4) 0 1.6px, transparent 2px),
+              radial-gradient(circle at 7px 13px, rgba(217,74,255,.4) 0 1.6px, transparent 2px);
+}
+.chat-vertical .chat-scope {
+  flex: none; display: flex; flex-wrap: nowrap; align-items: center; gap: 5px; min-width: 0;
+  margin: 0 0 4px; font-size: 10px; line-height: 1.2; white-space: nowrap; overflow: hidden;
+}
+.chat-vertical .chat-scope.open { white-space: normal; flex-wrap: wrap; }
+.chat-vertical .chat-scope .chat-loc { font-size: 10.5px; font-weight: 800; flex: none; }
+.chat-vertical .chat-scope .chat-players { margin-left: 0; flex: none; font-size: 9.5px; padding: 1px 6px; }
+.chat-vertical .chat-scope .chat-note { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #6a4a80; }
+.chat-vertical .chat-tabs { flex: none; margin: 0 0 4px; }
+.chat-vertical .chat-tab { padding: 2px 8px; }
+.sheet.chat-sheet.chat-glass.chat-vertical .chatlog {
+  flex: 1 1 auto; min-height: 0; max-height: none; margin: 0 0 5px; padding: 4px;
+  overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; font-size: 13px;
+  display: flex; flex-direction: column; gap: 5px;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 8px); mask-image: linear-gradient(180deg, transparent 0, #000 8px);
+}
+.chat-vertical .chat-row { flex: none; min-width: 0; }
+.chat-vertical .chat-msg { max-width: 92%; }
+.chat-vertical .chat-msg.mine { margin-left: auto; }
+.chat-vertical .chat-nm { font-size: 9px; }
+.chat-missed {
+  margin: 2px auto 5px; width: fit-content; padding: 1px 9px; border-radius: 99px;
+  font: 800 9.5px system-ui, sans-serif; color: #8a2a78; background: rgba(255,255,255,.62); border: 1px solid #ffc4e6;
+}
+.chat-tray { flex: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 5px; }
+.chat-tray button {
+  width: 28px; height: 28px; border-radius: 10px; border: 1px solid #fff8; background: rgba(255,255,255,.55);
+  font-size: 15px; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.chat-tray button.sticker { background: linear-gradient(180deg, #fff, #ffd6ee); }
+.sheet.chat-sheet.chat-glass.chat-vertical .chatbar { flex: none; padding: 2px 3px 2px 3px; gap: 4px; }
+.sheet.chat-sheet.chat-glass.chat-vertical .chatbar input { min-width: 0; width: 0; flex: 1 1 auto; min-height: 36px; font-size: 16px; }
+.sheet.chat-sheet.chat-glass.chat-vertical .chatbar .btn { flex: none; min-height: 34px; padding: 0 11px; font-size: 12.5px; }
+.chat-tray-btn {
+  flex: none; width: 32px; height: 32px; border-radius: 99px; border: 1px solid #fff; padding: 0;
+  background: rgba(255,255,255,.6); font-size: 16px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+
+/* typing: the game controls that would sit under the card / keyboard hide, and come back when it closes */
+.kb-open .dock,
+.kb-open .joy,
+.kb-open .run-btn,
+.kb-open .mood-wrap,
+.kb-open .chat-preview {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+/* keyboard open: the card is docked above it by panelLayout.keyboardPanel; keep log + composer */
+.kb-open .chat-vertical .chat-scope, .kb-open .chat-vertical .chat-tabs, .kb-open .chat-vertical .chat-tray, .kb-open .chat-vertical .chat-grip,
+.kb-open .chat-vertical .chat-size { display: none; }
+.kb-open .sheet.chat-sheet.chat-glass.chat-vertical { padding: 4px 7px 5px; animation: none; }
+.kb-open .chat-vertical h3.chat-drag { min-height: 24px; margin: 0 0 2px; cursor: default; }
+.kb-open .chat-vertical .chat-nm { display: none; }
+.kb-open .sheet.chat-sheet.chat-glass.chat-vertical .chatlog { margin-bottom: 3px; }
+.kb-open .sheet.chat-sheet.chat-glass.chat-vertical .chatbar input { min-height: 32px; }
+.kb-open .sheet.chat-sheet.chat-glass.chat-vertical .chatbar .btn { min-height: 30px; }
+.kb-open .chat-tray-btn { width: 28px; height: 28px; }
+.kb-min .sheet.chat-sheet.chat-glass.chat-vertical .chatlog { display: none; }
+
+/* ===================== Speech bubbles (primary chat surface) =====================
+ * Glass Candy look without backdrop-filter (cheap: no blur over the WebGL canvas), readable 2–3 lines,
+ * pop-in / fade-out; de-overlap offsets are applied with `translate` by bubbleLayer.ts (8 Hz). */
+.tagwrap .bubble {
+  background: linear-gradient(165deg, rgba(255,255,255,.96) 0%, rgba(255,226,242,.94) 60%, rgba(236,222,255,.94) 100%);
+  color: #3a2450; border: 1.5px solid #fff; border-radius: 16px 18px 16px 16px;
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(255,170,220,.45), 0 4px 10px rgba(90,20,110,.20);
+  padding: 4px 10px; font: 700 12.5px/1.25 system-ui, -apple-system, sans-serif;
+  white-space: normal; max-width: 190px; width: max-content; text-align: center; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  transform-origin: 50% 100%; transform: scale(.86) translateY(4px);
+  transition: opacity .22s ease, transform .24s cubic-bezier(.2,1.4,.4,1), translate .22s ease;
+}
+.tagwrap .bubble.on { transform: none; }
+/* moved off its speaker by the de-overlap: name prefix in the speaker's tag colour */
+.tagwrap .bubble.moved::before { content: attr(data-who) ' · '; color: var(--who, #8a2a78); font-weight: 900; }
+/* crowded spot (no free place found): one short line, full text stays in the history */
+.tagwrap .bubble.squeeze { -webkit-line-clamp: 1; max-width: 120px; font-size: 11.5px; padding: 3px 8px; }
+.tagwrap .bubble::after { display: none; }
+/* no tail: clipped by the line clamp; the bubble sits right on its speaker's name tag (clear attribution) */
+@media (prefers-reduced-motion: reduce) { .tagwrap .bubble { transition: opacity .2s; transform: none; } }
