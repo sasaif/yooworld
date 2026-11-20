@@ -4,7 +4,7 @@
  *  open + typing) at 852x393 / 667x375 / 1440x900, drag + resize clamped and persisted (ywchatui.*), no overlap with
  *  the top-right HUD, player avatar not covered at the default spot, controls restored after typing, neutral bubble
  *  cap (20 simulated senders, 120-message burst, replay without duplicates), BroadcastChannel same-browser
- *  simulation, 0 extra draws, no idle DOM churn in the panel.
+ *  simulation, Android resizes-content keyboard (layout viewport shrinks), 0 extra draws, no idle DOM churn in the panel.
  *  Everything "remote" here is a LOCAL SIMULATION (?chatSim): there is no network transport in the codebase.
  *  usage: node tools/e2e-chat-vertical.mjs [url] ; SHOTS=dir */
 import { createRequire } from 'module';
@@ -241,6 +241,35 @@ for (const d of DEVS) {
     await p.screenshot({ path: `${SHOTS}/beach_cap${cap}.png` });
     await ctx.close();
   }
+}
+// ---- 9. Android "resizes-content" keyboard: the LAYOUT viewport shrinks (innerHeight drops, visualViewport.height ≈
+//         innerHeight, so keyboardInset() alone sees no keyboard). Emulated with page.setViewportSize while focused. ----
+for (const [d, small] of [[DEVS[0], 200], [DEVS[1], 190]]) {
+  const { ctx, p } = await boot(d);
+  await p.evaluate(() => { window.game.sendChat('Salut ! 👋'); window.__chatSim.receive('m', 'Coucou, ça va ?'); window.game.setPanel('chat'); });
+  await p.waitForFunction(() => { const e = document.querySelector('.chat-sheet'); return e && getComputedStyle(e).visibility !== 'hidden'; }, null, { timeout: 15000 });
+  await p.waitForTimeout(500);
+  await p.focus('.chat-sheet input');
+  await p.waitForTimeout(300);
+  await p.setViewportSize({ width: d.w, height: small });
+  await p.waitForTimeout(900);
+  const c = await composer(p);
+  const m = await p.evaluate(() => { const x = document.querySelector('.chat-sheet .x')?.getBoundingClientRect(); const s = document.querySelector('.chat-sheet')?.getBoundingClientRect();
+    return { ih: innerHeight, vvh: Math.round(window.visualViewport.height), x: x && { t: x.top, b: x.bottom, l: x.left, r: x.right }, sheet: s && { t: s.top, b: s.bottom }, focus: document.activeElement?.tagName, kb: document.documentElement.classList.contains('kb-open') }; });
+  if (process.env.ANDROID_SHOT) await p.screenshot({ path: process.env.ANDROID_SHOT.replace('%s', d.name) });
+  await p.screenshot({ path: `${SHOTS}/${d.name}_android_resize.png` });
+  ok(fullyVisible(c), `${d.name}: Android resizes-content ${d.h}→${small} px, input focused: input + Envoyer 100 % visible`, { c, m });
+  const xIn = !!m.x && m.x.t >= -0.5 && m.x.b <= m.ih + 0.5 && m.x.l >= -0.5 && m.x.r <= d.w + 0.5;
+  ok(xIn && m.focus === 'INPUT', `${d.name}: Android resizes-content: header ✕ visible, focus kept`, m);
+  const sk = await state(p);
+  ok(sk.kb && !sk.vis.joy && !sk.vis.dock && !sk.vis.run && !ov(sk.sheet, { l: 0, t: m.ih, r: d.w, b: m.ih + 999 }), `${d.name}: Android resizes-content detected as keyboard (kb-open): joystick / Run / dock hidden, card inside ${small} px`, { kb: sk.kb, vis: sk.vis, sheet: sk.sheet });
+  // keyboard closes: full height back, panel back to its normal spot, controls restored
+  await p.evaluate(() => document.activeElement?.blur());
+  await p.setViewportSize({ width: d.w, height: d.h });
+  await p.waitForTimeout(900);
+  const st = await state(p); const c2 = await composer(p);
+  ok(!st.kb && fullyVisible(c2) && st.vis.joy && st.vis.dock, `${d.name}: Android keyboard closed → full height, composer visible, joystick + dock back`, { kb: st.kb, vis: st.vis, c2 });
+  await ctx.close();
 }
 // ---- 8. BroadcastChannel: 2 tabs of the same browser (same-browser simulation, NOT network multiplayer) ----
 {

@@ -7,7 +7,7 @@ import { AVATARS } from '../../data/avatars';
 import { locationById } from '../../data/locations';
 import { chatScopeNote, netBadge } from '../../net/netStatus';
 import { QUALITY } from '../../render/quality';
-import { keyboardInset } from '../../app/viewportFill';
+import { keyboardInsetNow } from '../../app/viewportFill';
 import { chatGlassFallback, setChatGlassFallback } from './chatGlass';
 import { installBubbleLayer } from './bubbleLayer';
 import {
@@ -76,7 +76,7 @@ function measureVp(): Vp {
   });
   const d = document.querySelector('.dock')?.getBoundingClientRect();
   const sar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sar')) || 0;
-  const kb = keyboardInset(window, typingNow());
+  const kb = keyboardInsetNow(typingNow());
   return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh, vvTop: kb.open ? Math.round(window.visualViewport?.offsetTop ?? 0) : 0 };
 }
 const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
