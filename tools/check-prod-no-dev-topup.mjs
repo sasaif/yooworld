@@ -1,3 +1,4 @@
+// Also: the DEV-only probes window.__avatarStats / window.__glam (services.ts) must be absent from prod, present in dev.
 // Proves the DEV-only 100 000 💎 test-player top-up (src/economy/devTopUp.ts + the DEV seed in bank.ts) is compiled OUT of
 // production bundles. usage: node tools/check-prod-no-dev-topup.mjs   (TMPDIR = scratch dir; both builds are deleted after)
 // 1) `vite build` (mode production: import.meta.env.DEV === false)  -> every marker must be ABSENT from dist/**/*.js
@@ -9,6 +10,8 @@ const MARKERS = [
   ['top-up txId', /topup:test-player:diamond/],
   ['top-up ledger memo', /Solde de TEST port/],
   ['100 000 literal (seed / top-up amount)', /(?<![\w.])(?:100000|1e5|100_000)(?![\w.])/],
+  ['DEV probe window.__avatarStats', /__avatarStats/],
+  ['DEV probe window.__glam', /__glam(?![\w$])/],
 ];
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
 const vite = path.join(root, 'node_modules/.bin/vite');

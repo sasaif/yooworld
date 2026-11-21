@@ -9,6 +9,7 @@ import { TradeLab } from './TradeLab';
 import { WalletPanel } from './WalletPanel';
 import { frameFor } from './ThumbStage';
 import type { CamFrame } from './AvatarFigure';
+import { shortfallText } from '../../fashion/shortfall';
 import './fashion.css';
 
 const BASE = import.meta.env.BASE_URL;
@@ -48,21 +49,23 @@ function Detail() {
   if (!it || isFree(it) || fashion.owns(it.id)) return null; const worn = st.draft.slots[it.slot] === it.id; const ok = fashion.canAfford(fashion.totals([it]));
   return <div className="st-detail"><div className="dt-txt"><b>{it.name}</b><small style={{ color: RARITY[it.rarity].color }}>{RARITY[it.rarity].label}{it.price?.currency === 'diamond' ? ' · lié au compte' : ''}{it.desc ? ' · ' + it.desc : ''}</small></div>
     <Price it={it} />{worn ? <button className="btn ghost" onClick={() => fashion.removeFromCart(it.id)}>Retirer</button> : <button className="btn ghost" onClick={() => fashion.tap(it.id)}>Essayer</button>}
-    <button className="btn buy" disabled={!ok} onClick={() => void fashion.buy([it.id])}>{ok ? 'Acheter' : 'Solde insuffisant'}</button></div>;
+    <button className="btn buy" disabled={!ok} data-short={ok ? undefined : '1'} onClick={() => void fashion.buy([it.id])}>{ok ? 'Acheter' : shortfallText(fashion.missing(fashion.totals([it])))}</button></div>;
 }
 function CartBar() {
   const st = useStore(fashion.store, (s) => s.studio)!; useStore(fashion.store, (s) => s.ecoRev); const cart = fashion.cart(); const t = fashion.totals(cart); void st;
   if (!cart.length) return <div className="st-cart empty"><span>✨ Touche un article pour l’essayer sur ton avatar. Combine plusieurs articles, puis achète la tenue complète.</span></div>;
   return <div className="st-cart"><span className="ct-n">🛍️ Essayage <b>{cart.length}</b></span><span className="ct-items">{cart.map((i) => <button key={i.id} className="ct-chip" onClick={() => fashion.removeFromCart(i.id)} title="Retirer">{i.name} ✕</button>)}</span>
-    <span className="ct-tot"><TotalsView t={t} /></span><button className="btn ghost sm" onClick={() => fashion.clearCart()}>Vider</button><button className="btn buy" onClick={() => fashion.askConfirm(true)}>Acheter la tenue</button></div>;
+    <span className="ct-tot"><TotalsView t={t} /></span><button className="btn ghost sm" onClick={() => fashion.clearCart()}>Vider</button>{fashion.canAfford(t)
+      ? <button className="btn buy" onClick={() => fashion.askConfirm(true)}>Acheter la tenue</button>
+      : <button className="btn buy" disabled data-short="1" title="Solde insuffisant pour la tenue">{shortfallText(fashion.missing(t))}</button>}</div>;
 }
 function ConfirmModal() {
   useStore(fashion.store, (s) => s.ecoRev); const cart = fashion.cart(); const t = fashion.totals(cart); const a = economy.snapshot().account; const ok = fashion.canAfford(t);
   return <div className="st-modal"><div className="md-card"><h3>Confirmer l’achat</h3>
     <ul className="md-list">{cart.map((i) => <li key={i.id}><span className="md-th"><Thumb it={i} /></span>{i.name}<small style={{ color: RARITY[i.rarity].color }}>{RARITY[i.rarity].label}</small><Price it={i} /></li>)}</ul>
-    <div className="md-sum"><div>Total <TotalsView t={t} /></div><div className="muted">Après achat : 🪙 {fmt(a.gold.balance - t.gold)} · 💎 {fmt(a.diamond.balance - t.diamond)}</div>
+    <div className="md-sum"><div>Total <TotalsView t={t} /></div>{ok ? <div className="muted">Après achat : 🪙 {fmt(a.gold.balance - t.gold)} · 💎 {fmt(a.diamond.balance - t.diamond)}</div> : <div className="md-short" data-short="1">{shortfallText(fashion.missing(t))}</div>}
       {t.diamond > 0 && <div className="muted">Les articles payés en 💎 restent liés à ton compte (non échangeables).</div>}<div className="muted">Soldes de TEST — aucun paiement réel.</div></div>
-    <div className="row"><button className="btn ghost" onClick={() => fashion.askConfirm(false)}>Annuler</button><button className="btn buy" disabled={!ok} onClick={() => void fashion.buyCart()}>{ok ? 'Confirmer l’achat' : 'Solde insuffisant'}</button></div></div></div>;
+    <div className="row"><button className="btn ghost" onClick={() => fashion.askConfirm(false)}>Annuler</button><button className="btn buy" disabled={!ok} onClick={() => void fashion.buyCart()}>{ok ? 'Confirmer l’achat' : shortfallText(fashion.missing(t))}</button></div></div></div>;
 }
 function LeavingModal() {
   const cart = fashion.cart(); const t = fashion.totals(cart);
@@ -70,7 +73,8 @@ function LeavingModal() {
     <div className="row wrap"><button className="btn ghost" onClick={() => fashion.store.set({ studio: { ...fashion.s.studio!, leaving: false, pending: undefined } })}>Continuer l’essayage</button>
       {fashion.s.studio?.pending ? <button className="btn" onClick={() => { const b = fashion.s.studio!.pending!; fashion.clearCart(); fashion.switchBody(b); }}>Changer d’avatar sans acheter</button>
         : <button className="btn" onClick={() => { fashion.clearCart(); void fashion.close('keep-owned'); }}>Quitter sans acheter</button>}
-      <button className="btn buy" onClick={() => fashion.store.set({ studio: { ...fashion.s.studio!, leaving: false, confirm: true } })}>Acheter</button></div></div></div>;
+      {fashion.canAfford(t) ? <button className="btn buy" onClick={() => fashion.store.set({ studio: { ...fashion.s.studio!, leaving: false, confirm: true } })}>Acheter</button>
+        : <button className="btn buy" disabled data-short="1">{shortfallText(fashion.missing(t))}</button>}</div></div></div>;
 }
 function Equipped() {
   const st = useStore(fashion.store, (s) => s.studio)!; const entries = Object.entries(st.draft.slots) as [Slot, string][];

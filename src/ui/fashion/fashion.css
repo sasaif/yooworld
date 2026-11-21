@@ -141,3 +141,6 @@
 @media (orientation: portrait) { .st { flex-direction:column; } .st-left { flex:0 0 42%; max-width:none; } .st-right { border-radius:20px 20px 0 0; } }
 /* large screens: scale the panel up instead of leaving it tiny */
 @media (min-width: 1200px) and (min-height: 760px) { .st-right { zoom: 1.3; } .st-left { max-width: 600px; flex-basis: 40%; } .st-head, .st-pills, .st-zoom { zoom: 1.2; } }
+/* balance too low (QA fashion-glam 21/11): « Il te manque X 💎 » instead of a negative balance */
+.md-short { color:#c0265a; font-weight:800; }
+.btn.buy[data-short] { white-space:normal; line-height:1.15; font-size:12px; opacity:.85; cursor:not-allowed; }

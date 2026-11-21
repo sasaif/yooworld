@@ -6,6 +6,7 @@ import type { EconomyService } from '../economy/EconomyService';
 import { newTxId } from '../economy/EconomyService';
 import { EconomyError, zeroTotals, type Totals } from '../economy/money';
 import type { Activity } from '../economy/rewards';
+import { shortfall } from './shortfall';
 /** Avatar-customisation + shop UI state. Talks to the economy ONLY through EconomyService
  *  (so the same UI works with the future server-authoritative RemoteEconomy). */
 export type StudioTab = 'shop' | 'owned' | 'equipped' | 'trade' | 'wallet';
@@ -56,6 +57,8 @@ export class FashionController {
   cart(): ItemDef[] { const st = this.s.studio; return st ? unownedItems(st.draft, this.owns) : []; }
   totals(items = this.cart()): Totals { const t = zeroTotals(); for (const i of items) if (i.price) t[i.price.currency] += i.price.amount; return t; }
   canAfford(t: Totals) { const a = this.eco.snapshot().account; return a.gold.balance >= t.gold && a.diamond.balance >= t.diamond; }
+  /** per currency, what the player lacks to pay `t` (0 = affordable) */
+  missing(t: Totals): Totals { const a = this.eco.snapshot().account; return shortfall(t, { gold: a.gold.balance, diamond: a.diamond.balance }); }
   askConfirm(on = true) { this.patch({ confirm: on }); }
   async buy(ids: string[]) {
     const st = this.s.studio; if (!st) return false;
