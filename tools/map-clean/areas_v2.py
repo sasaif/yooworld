@@ -75,34 +75,27 @@ def cafe(a: Art):
   hole = a.capsule('cafe', pad=3, shadow=4)
   ImageDraw.Draw(hole).rectangle((586, 368, 690, 384), fill=255)  # the cut "Café" lettering on the board
   a.fill(hole, (440, 250, 790, 440), ctx_mask=a.labels_mask(skip=('cafe',)))
-  L, d = a.layer(); ink = (70, 30, 18, 255)
-  a.poly(d, [(578, 383), (698, 383), (698, 357), (578, 357)], (132, 74, 44, 255), ink, 1.5)          # wood facade
-  for x in (592, 608, 668, 684):
-    a.line(d, [(x, 358), (x, 382)], (112, 60, 36, 255), 0.9)
-  # hip roof in the left wing's colours: shingle rows, darker towards the ridge
-  front, ridge = 357.5, 336.0
-  for i in range(22):
-    t = i / 21; y = ridge + t * (front - ridge); xl = 598 - t * 22; xr = 678 + t * 22
-    c = tuple(int(v) for v in np.array([118, 28, 18]) * (1 - t) + np.array([170, 58, 40]) * t) + (255,)
-    a.poly(d, [(xl, y), (xr, y), (xr + 1.1, y + 1.1), (xl - 1.1, y + 1.1)], c)
+  ink = (70, 30, 18)
+  # painted wood facade with soft plank lines
+  a.paint([(578, 357), (698, 357), (698, 383), (578, 383)], (150, 88, 52), (112, 60, 34), light=0.16, ao=0.3, outline=ink, ow=1.4,
+          lines=[[(x, 358), (x, 382)] for x in (590, 602, 674, 686)], line_alpha=0.45, seed=11)
+  # painted hip roof in the left wing's terracotta: darker at the ridge, lit from the left, soft shingle rows
+  front, ridge = 357.5, 336.0; rows = []
   for k in range(1, 5):
-    t = k / 5; y = ridge + t * (front - ridge); xl = 598 - t * 22; xr = 678 + t * 22
-    a.line(d, [(xl + 1, y), (xr - 1, y)], (96, 22, 14, 255), 0.9)
-    off = 4 if k % 2 else 0
-    for x in np.arange(xl + 4 + off, xr - 3, 8):
-      a.line(d, [(x, y), (x, y + (front - ridge) / 5 - 0.6)], (104, 26, 16, 160), 0.7)
-  a.poly(d, [(576, 358), (700, 358), (678, 336), (598, 336)], None, ink, 1.6)
-  a.line(d, [(598, 336.2), (678, 336.2)], (196, 92, 66, 255), 1.6)                                    # ridge cap
-  a.line(d, [(577, 357.4), (699, 357.4)], (204, 104, 70, 255), 1.0)
-  # text-free sign board with a coffee cup
-  a.poly(d, [(614, 361), (664, 361), (664, 380), (614, 380)], (240, 222, 188, 255), ink, 1.4)
-  a.poly(d, [(632.5, 365.5), (645.5, 365.5), (644, 374.5), (634, 374.5)], (255, 255, 255, 255), ink, 1.1)
-  a.ellipse(d, (643, 367, 649.5, 372.8), None, ink, 1.2)
-  a.ellipse(d, (629, 373.8, 649, 377.2), (210, 146, 100, 255), ink, 0.9)
+    t = k / 5; y = ridge + t * (front - ridge); xl = 598 - t * 22; xr = 678 + t * 22; rows.append([(xl + 1, y), (xr - 1, y)])
+    for x in np.arange(xl + 4 + (4 if k % 2 else 0), xr - 3, 8): rows.append([(x, y), (x, y + (front - ridge) / 5 - 0.8)])
+  a.paint([(598, 336), (678, 336), (700, 358), (576, 358)], (112, 30, 20), (184, 72, 46), light=0.2, ao=0.3, outline=ink, ow=1.6,
+          lines=rows, line_col=(92, 22, 14), line_alpha=0.5, highlight=[(578, 357), (698, 357)], seed=12)
+  a.paint([(598, 334.8), (678, 334.8), (678, 337.6), (598, 337.6)], (206, 104, 72), (160, 66, 44), light=0.1, ao=0.1, outline=ink, ow=1.0, seed=13)
+  # text-free sign board with a soft inner shadow, and the coffee cup
+  a.paint([(614, 361), (664, 361), (664, 380), (614, 380)], (250, 234, 204), (226, 204, 166), light=0.1, ao=0.35, outline=ink, ow=1.4, tex=3, seed=14)
+  L, d = a.layer()
+  a.poly(d, [(632.5, 365.5), (645.5, 365.5), (644, 374.5), (634, 374.5)], (255, 255, 255, 255), ink + (255,), 1.1)
+  a.ellipse(d, (643, 367, 649.5, 372.8), None, ink + (255,), 1.2)
+  a.ellipse(d, (629, 373.8, 649, 377.2), (210, 146, 100, 255), ink + (255,), 0.9)
   a.ellipse(d, (633.5, 365.2, 644.5, 367.8), (120, 62, 36, 255))
   a.put(L)
-  a.out.paste(a.out.crop((572, 332, 704, 386)).filter(ImageFilter.GaussianBlur(0.35)), (572, 332))
-  a.grain((572, 332, 704, 386), 1.8, 3)
+  a.out.paste(a.out.crop((572, 332, 704, 386)).filter(ImageFilter.GaussianBlur(0.3)), (572, 332))
 
 AREAS = {'club': club, 'festivals': festivals, 'cafe': cafe}
 
@@ -135,20 +128,17 @@ def disco(a: Art):
   road = a.O.crop((1290, 484, 1418, 503)).resize((145, 30), Image.Resampling.BICUBIC)
   lay.paste(road, (1270, 506))
   a.out = Image.composite(lay, a.out, ghost.filter(ImageFilter.GaussianBlur(2)))
-  L, d = a.layer(); ink = (46, 18, 86, 255)
-  for i in range(16):  # roof top, darker at the back
-    t = i / 15; y = 530 + t * 15
-    c = tuple(int(v) for v in np.array([70, 32, 128]) * (1 - t) + np.array([112, 56, 190]) * t) + (255,)
-    a.poly(d, [(1226 - t * 12, y), (1398 + t * 12, y), (1398 + t * 12, y + 1.2), (1226 - t * 12, y + 1.2)], c)
-  a.poly(d, [(1214, 546), (1410, 546), (1398, 530), (1226, 530)], None, ink, 1.5)
-  a.poly(d, [(1212, 545), (1412, 545), (1412, 554), (1212, 554)], (128, 64, 214, 255), ink, 1.4)  # parapet
-  a.line(d, [(1214, 547.3), (1410, 547.3)], (255, 140, 240, 255), 1.6)                             # neon
-  a.line(d, [(1214, 552.2), (1410, 552.2)], (98, 42, 168, 255), 1.0)
+  ink = (46, 18, 86)
+  # painted roof deck: dark at the back, lit from the left, with faint panel seams
+  a.paint([(1226, 530), (1398, 530), (1410, 546), (1214, 546)], (58, 26, 108), (112, 56, 186), light=0.22, ao=0.32, outline=ink, ow=1.5,
+          lines=[[(x, 531), (x - 2 + (x - 1312) * 0.07, 545)] for x in range(1244, 1400, 26)], line_col=(52, 22, 98), line_alpha=0.4, seed=21)
+  # parapet: vertical gradient, light top rim, neon tube with a soft pink halo
+  a.paint([(1212, 545), (1412, 545), (1412, 554.5), (1212, 554.5)], (150, 86, 232), (92, 40, 166), light=0.18, ao=0.25, outline=ink, ow=1.4,
+          highlight=[(1214, 545.8), (1410, 545.8)], seed=22)
+  a.glow([(1215, 548.6), (1409, 548.6)], (255, 120, 236), w=1.5, blur=2.6, strength=0.9)
   for x in (1250, 1374):  # two little rooftop spotlights
-    a.ellipse(d, (x - 5, 533, x + 5, 541), (60, 62, 84, 255), ink, 1.0)
-    a.ellipse(d, (x - 3, 533.5, x + 3, 537.5), (170, 246, 255, 255))
-  a.put(L)
-  a.grain((1205, 526, 1418, 556), 1.4, 5)
+    a.paint([(x - 5, 534), (x + 5, 534), (x + 4, 541), (x - 4, 541)], (92, 94, 120), (48, 50, 70), light=0.25, ao=0.2, outline=ink, ow=1.0, tex=2, seed=x)
+    a.glow([(x - 2.4, 535.6), (x + 2.4, 535.6)], (150, 240, 255), w=2.0, blur=2.0, strength=0.7)
 
 def place(a: Art):
   """Place centrale: the label hid the plaza's north edge between two benches. Paving is cloned from the plaza just
