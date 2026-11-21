@@ -571,6 +571,9 @@ if (want('v2b')) for (const [dev, rotate, rep] of [[DEVS[0], true, 1], [DEVS[0],
   const tag = `${dev.name} saved [126,88,225,243]${rotate ? ' portrait -> landscape' : ''} -> 568x320 #${rep}`;
   if (rotate) { await p.setViewportSize({ width: dev.h, height: dev.w }); await p.waitForTimeout(1200); await p.setViewportSize({ width: dev.w, height: dev.h }); await p.waitForTimeout(1200); }
   await p.setViewportSize({ width: 568, height: 320 });
+  // the clock starts when the page renders its first frame at the new size (a CPU-starved runner can deliver the resize
+  // event / first frame several 100 ms after setViewportSize resolves); max +3 s, never throws; checks unchanged
+  await p.evaluate(() => new Promise((res) => { const end = performance.now() + 3000; const f = () => (innerWidth === 568 && innerHeight === 320) || performance.now() > end ? res() : requestAnimationFrame(f); requestAnimationFrame(f); })).catch(() => {});
   const bad = []; let t = 0;
   for (const at of [400, 900, 1600, 4000]) { await p.waitForTimeout(at - t); t = at; const r = await coveredControls(p); const ctl = r.covered.filter((c) => !c.startsWith('avatar')); if (!r.open || ctl.length || !r.onScreen) bad.push({ at, ...r }); }
   if (QA_SHOTS) await p.screenshot({ path: `${QA_SHOTS}/v2b_${dev.name}_${rotate ? 'rot' : 'plain'}_${rep}_568x320.png` });

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { PerspectiveCamera, Vector3, type Camera } from 'three';
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
@@ -118,7 +119,7 @@ function measureVp(): Vp {
 }
 const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && zonesKey(a.avoid) === zonesKey(b.avoid) && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
 /** Re-measured on resize / orientation / visual viewport / keyboard / focus and every 400 ms (state only changes when a
- *  value changed). BUG-V2b: after a viewport change the controls and the camera (hence the avatar safe area) keep moving
+ *  value changed; viewport events commit synchronously, see `now`). BUG-V2b: after a viewport change the controls and the camera (hence the avatar safe area) keep moving
  *  for a while, so every viewport event also schedules settle passes (next frame, +250 ms, +700 ms, +1400 ms, +2400 ms) that bump
  *  `settle` -> the panel is re-placed against fresh zones + a fresh avatar snapshot even when nothing in `vp` changed.
  *  A ResizeObserver on the controls does the same when one of them changes size (wrap, font settle). */
@@ -132,8 +133,12 @@ function useViewport(active: boolean) {
     const run = () => { raf = 0; const n = measureVp(); setVp((o) => (o && sameVp(o, n) ? o : n)); };
     const on = () => { if (!raf) raf = requestAnimationFrame(run); };
     const pass = () => { const n = measureVp(); setVp((o) => (o && sameVp(o, n) ? o : n)); setSettle((k) => k + 1); };
+    // V2b (residual): a viewport event is handled in the frame's rendering steps; going through rAF + a default-priority
+    // React update painted the panel at its old rect on the new screen for one more frame (~200-400 ms on a starved phone).
+    // Measure and commit synchronously so the frame that first shows the new size already shows the re-placed panel.
+    const now = () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } const n = measureVp(); flushSync(() => setVp((o) => (o && sameVp(o, n) ? o : n))); };
     const onViewport = () => {
-      on();
+      now();
       if (!sraf) sraf = requestAnimationFrame(() => { sraf = 0; pass(); });
       timers.forEach(clearTimeout); timers = SETTLE_MS.map((ms) => window.setTimeout(pass, ms));
     };
