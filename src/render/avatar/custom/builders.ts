@@ -3,12 +3,13 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { AccModel, BeardStyle, HairStyle } from '../../../fashion/types';
 import { PART } from './parts';
 import type { Prepared } from './source';
+import { buildGlamGlasses, fitTemples, GLAM_GLASSES } from './glamGlasses';
 /** Geometry builders for customisable parts. Everything is authored in the TARGET avatar's bind-pose
  *  mesh space and parented to a bone attachment group (see CustomAvatar.attach), so it follows animation.
  *  Hair & beards are textured from the hair island of the shared atlas (recoloured by the compositor). */
 const HAIR_UV = { u0: 0.425, u1: 0.545, v0: 0.4, v1: 0.6 }; // safely inside the hair "leaf" island
 const ss = (a: number, b: number, x: number) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const hairUV = (a: number, b: number) => [HAIR_UV.u0 + (HAIR_UV.u1 - HAIR_UV.u0) * (((a % 1) + 1) % 1), HAIR_UV.v0 + (HAIR_UV.v1 - HAIR_UV.v0) * Math.min(1, Math.max(0, b))];
+export const hairUV = (a: number, b: number) => [HAIR_UV.u0 + (HAIR_UV.u1 - HAIR_UV.u0) * (((a % 1) + 1) % 1), HAIR_UV.v0 + (HAIR_UV.v1 - HAIR_UV.v0) * Math.min(1, Math.max(0, b))];
 
 /** Move a geometry from a source avatar's mesh space to the target's (head-bone aligned). */
 export function transferHead(g: THREE.BufferGeometry, from: Prepared, to: Prepared) {
@@ -60,7 +61,7 @@ function curtain(t: Prepared, yTop: number, yBot: number, az0: number, az1: numb
 function hairBall(c: THREE.Vector3, r: number) { const g = new THREE.IcosahedronGeometry(r, 2); const uv: number[] = []; const p = g.getAttribute('position');
   for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i).normalize(); const h = hairUV(Math.atan2(v.x, v.z) / (Math.PI * 2) + 0.5, v.y * 0.5 + 0.5); uv.push(h[0], h[1]); }
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.translate(c.x, c.y, c.z); return g; }
-const strip = (g: THREE.BufferGeometry) => { const o = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(o.attributes)) if (!['position', 'normal', 'uv'].includes(k)) o.deleteAttribute(k); if (!o.getAttribute('normal')) o.computeVertexNormals(); return o; };
+export const strip = (g: THREE.BufferGeometry) => { const o = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(o.attributes)) if (!['position', 'normal', 'uv'].includes(k)) o.deleteAttribute(k); if (!o.getAttribute('normal')) o.computeVertexNormals(); return o; };
 /** distance from C to the farthest vertex of g lying within ~12° of direction d */
 function rayR(g: THREE.BufferGeometry, C: THREE.Vector3, d: THREE.Vector3) { const p = g.getAttribute('position'); let best = 0.15; const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).sub(C); const l = v.length(); if (l > 1e-4 && v.dot(d) / l > 0.978) best = Math.max(best, l); } return best; }
@@ -207,11 +208,12 @@ export function buildLegShell(t: Prepared, shaft: 'boot' | 'high'): THREE.Buffer
   out.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); out.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4)); out.setIndex(I); return out;
 }
 // ---------------- accessories (vertex-coloured, merged: 1 draw call each + optional lens) ----------------
-const col = (g: THREE.BufferGeometry, c: string) => { const o = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(o.attributes)) if (k !== 'position' && k !== 'normal') o.deleteAttribute(k);
+export const col = (g: THREE.BufferGeometry, c: string) => { const o = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(o.attributes)) if (k !== 'position' && k !== 'normal') o.deleteAttribute(k);
   const cc = new THREE.Color(c); const a = new Float32Array(o.getAttribute('position').count * 3); for (let i = 0; i < a.length; i += 3) { a[i] = cc.r; a[i + 1] = cc.g; a[i + 2] = cc.b; } o.setAttribute('color', new THREE.BufferAttribute(a, 3)); return o; };
 const at = (g: THREE.BufferGeometry, p: THREE.Vector3 | [number, number, number], rot?: [number, number, number], s?: [number, number, number]) => { if (s) g.scale(...s); if (rot) g.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot))); const v = Array.isArray(p) ? p : [p.x, p.y, p.z]; g.translate(v[0], v[1], v[2]); return g; };
 function heartShape(s: number) { const h = new THREE.Shape(); h.moveTo(0, -0.9 * s); h.bezierCurveTo(-1.4 * s, 0.1 * s, -0.7 * s, 1.1 * s, 0, 0.4 * s); h.bezierCurveTo(0.7 * s, 1.1 * s, 1.4 * s, 0.1 * s, 0, -0.9 * s); return h; }
-export interface AccBuild { bone: 'Head' | 'Spine2' | 'Hips' | 'LeftHand' | 'RightHand' | 'Neck'; solid: THREE.BufferGeometry; lens?: { geo: THREE.BufferGeometry; color: string; opacity: number }; /** uses the avatar atlas (native backpack) */ textured?: boolean }
+export interface AccBuild { bone: 'Head' | 'Spine2' | 'Hips' | 'LeftHand' | 'RightHand' | 'Neck'; solid: THREE.BufferGeometry; lens?: { geo: THREE.BufferGeometry; color: string; opacity: number; vertexColors?: boolean; glow?: string };
+  /** glam P1 frame: procedural speckle material */ speck?: { frame: string; speck: string }; /** uses the avatar atlas (native backpack) */ textured?: boolean }
 /** How cap / beanie / straw hat sit on the head (procedural meshes, no asset edit).
  *  `yAboveBrow` = hatFit y0 minus the brow height (the dome starts here).
  *  `tilt` = rotation around X in radians: positive lifts the front of the brim so the
@@ -226,7 +228,8 @@ export const HAT_SIT: Record<'cap' | 'beanie' | 'strawhat', { yAboveBrow: number
   beanie: { yAboveBrow: 0.048, tilt: 0.05, th: 1.56, brimTilt: 0 },
   strawhat: { yAboveBrow: 0.042, tilt: 0.07, th: 1.55, brimTilt: 0.22 },
 };
-export function buildAccessory(model: AccModel, c1: string, c2: string | undefined, t: Prepared, f: Prepared, hairUnder: THREE.BufferGeometry | null): AccBuild | null {
+export function buildAccessory(model: AccModel, c1: string, c2: string | undefined, t: Prepared, f: Prepared, hairUnder: THREE.BufferGeometry | null,
+  glassLens2?: string, glassOpacity?: number, glassAccent?: string): AccBuild | null {
   const fe = t.parts.features; const C = t.cranium; const parts: THREE.BufferGeometry[] = []; const c2_ = c2 ?? c1;
   const eyes = [new THREE.Vector3(...fe.eyeP), new THREE.Vector3(...fe.eyeN)]; const eyeY = eyes[0].y; const fz = Math.min(t.faceZ(eyes[0].x, eyeY, 0.03), t.faceZ(0, eyeY, 0.02)) - 0.016;
   /** ellipsoid fitted on the hair under the hat: horizontal radius R, vertical extent H above the cranium centre */
@@ -236,6 +239,9 @@ export function buildAccessory(model: AccModel, c1: string, c2: string | undefin
     const hp = t.mesh.geometry.getAttribute('position'); const vp = t.parts.vertexPart; for (let i = 0; i < vp.length; i++) if (vp[i] === PART.SKIN_HEAD) add(hp.getX(i), hp.getY(i), hp.getZ(i));
     if (hairUnder) { const p = hairUnder.getAttribute('position'); for (let i = 0; i < p.count; i++) add(p.getX(i), p.getY(i), p.getZ(i)); }
     const R = (x1 - x0) / 2 * 1.13 + 0.006; return { R, Rz: (z1 - z0) / 2 * 1.13 + 0.006, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, H: (top - y0) * 1.12 + 0.01, top, y0 }; };
+  const glam = GLAM_GLASSES[model] ? buildGlamGlasses(model, c1, c2_, glassLens2 ?? c2_, glassAccent, t) : null;
+  if (glam) return { bone: 'Head', solid: glam.solid, lens: { geo: glam.lens, color: '#ffffff', opacity: glassOpacity ?? 0.8, vertexColors: true, glow: model.startsWith('glasses_yoville') || model.startsWith('glasses_terrazzo') ? c2_ : undefined },
+    speck: glam.speck ? { frame: c1, speck: glassAccent ?? '#1a6cff' } : undefined };
   switch (model) {
     case 'glasses_round': case 'sunglasses': case 'glasses_heart': {
       const lensGeo: THREE.BufferGeometry[] = []; const r = model === 'sunglasses' ? 0.047 : 0.044;
@@ -246,8 +252,9 @@ export function buildAccessory(model: AccModel, c1: string, c2: string | undefin
           const disc = new THREE.CircleGeometry(r, 28); if (model === 'sunglasses') disc.scale(1.08, 0.82, 1); lensGeo.push(at(disc, p.clone().add(new THREE.Vector3(0, 0, -0.001)), [0, Math.PI, 0])); }
       }
       parts.push(col(at(new THREE.CylinderGeometry(0.004, 0.004, Math.abs(eyes[0].x - eyes[1].x) * 1.02 - 2 * r + 0.012, 6), [0, eyeY + 0.006, fz], [0, 0, Math.PI / 2]), c1));
-      for (const sd of [1, -1]) { const ex = C.x + sd * Math.min(Math.abs(fe.earP[0]) - 0.004, t.headRadius(sd * Math.PI / 2, eyeY) + 0.007); const z0 = fz, z1 = fe.earP[2] - 0.01; const len = Math.abs(z1 - z0);
-        parts.push(col(at(new THREE.BoxGeometry(0.006, 0.007, len), [ex, eyeY, (z0 + z1) / 2]), c1)); parts.push(col(at(new THREE.BoxGeometry(Math.abs(ex) - Math.abs(eyes[0].x) - r + 0.006, 0.007, 0.006), [sd * (Math.abs(eyes[0].x) + r + (Math.abs(ex) - Math.abs(eyes[0].x) - r) / 2), eyeY, z0]), c1)); }
+      // temples (fix 2026-11-21): the old straight box ended INSIDE the middle of the ear; now fitted over the ear top and down behind it
+      const fb = new THREE.Box3(); for (const g of parts) { g.computeBoundingBox(); fb.union(g.boundingBox!); }
+      parts.push(col(fitTemples(t, Math.max(Math.abs(fb.min.x), Math.abs(fb.max.x)) - 0.002, eyeY, fz, 0.0032).geo.clone(), c1));
       const solid = mergeGeometries(parts)!; const lens = mergeGeometries(lensGeo.map((g) => strip(g)))!;
       return { bone: 'Head', solid, lens: { geo: lens, color: model === 'sunglasses' ? c1 : c2_, opacity: model === 'sunglasses' ? 0.82 : model === 'glasses_heart' ? 0.6 : 0.18 } };
     }

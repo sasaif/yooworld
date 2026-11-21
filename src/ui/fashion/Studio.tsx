@@ -12,7 +12,7 @@ import type { CamFrame } from './AvatarFigure';
 import './fashion.css';
 
 const BASE = import.meta.env.BASE_URL;
-export const Price = ({ it }: { it: ItemDef }) => it.price ? <span className={'pr ' + it.price.currency}>{CURRENCY_ICON[it.price.currency]} {fmt(it.price.amount)}</span> : <span className="pr free">Gratuit</span>;
+export const Price = ({ it }: { it: ItemDef }) => it.trial ? <span className="pr trial">Pas en vente</span> : it.price ? <span className={'pr ' + it.price.currency}>{CURRENCY_ICON[it.price.currency]} {fmt(it.price.amount)}</span> : <span className="pr free">Gratuit</span>;
 export const TotalsView = ({ t }: { t: Totals }) => <>{t.gold > 0 && <span className="pr gold">🪙 {fmt(t.gold)}</span>}{t.diamond > 0 && <span className="pr diamond">💎 {fmt(t.diamond)}</span>}{!t.gold && !t.diamond && <span className="pr free">Gratuit</span>}</>;
 export function Wallet({ compact = false }: { compact?: boolean }) {
   useStore(fashion.store, (s) => s.ecoRev); const a = economy.snapshot().account;
@@ -31,6 +31,7 @@ function Card({ it }: { it: ItemDef }) {
     <button className={`it-card r-${it.rarity}${worn ? ' on' : ''}${st.selected === it.id ? ' sel' : ''}${it.swatch ? ' swatch' : ''}`} onClick={() => fashion.tap(it.id)} data-item={it.id}>
       <span className="it-thumb"><Thumb it={it} /></span>
       {it.rarity !== 'common' && <span className="it-rar" style={{ background: RARITY[it.rarity].color }}>{RARITY[it.rarity].label}</span>}
+      {it.trial && <span className="it-trial">À l’essai</span>}
       <span className="it-name">{it.name}</span>
       <span className="it-foot">{owned && !free ? <span className="own">✓ Possédé</span> : <Price it={it} />}{worn && <span className="eq">{owned || free ? 'Équipé' : 'Essai'}</span>}</span>
     </button>

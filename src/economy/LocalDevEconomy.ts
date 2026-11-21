@@ -5,6 +5,7 @@ import type { Look } from '../fashion/types';
 import { EconomyError, assertAmount } from './money';
 import { post } from './ledger';
 import { initialState, TEST_PLAYER, type EconomyState } from './bank';
+import { applyTestTopUp } from './devTopUp'; // dev-only: tree-shaken out of production builds (call is behind import.meta.env.DEV)
 import { checkout } from './purchase';
 import { acceptTrade, confirmTrade, openTrade, rejectTrade, setOffer, type TradeOffer } from './trading';
 import { addActivity, claimDaily, type Activity } from './rewards';
@@ -32,7 +33,8 @@ export class LocalDevEconomy implements EconomyService {
     let s: EconomyState | null = null; let detail = '';
     try { s = JSON.parse(raw) as EconomyState; } catch (e) { detail = String((e as Error).message ?? e).slice(0, 120); }
     const v = (s as { version?: unknown } | null)?.version;
-    if (s && v === 1 && s.accounts?.[TEST_PLAYER]) { this.s = s; return; } // valid: nothing to write
+    if (s && v === 1 && s.accounts?.[TEST_PLAYER]) { // valid: nothing to write, except the one-shot TEST diamond top-up (same key)
+      this.s = s; if (import.meta.env.DEV) { let up = s; try { up = applyTestTopUp(s, now()); } catch { up = s; } if (up !== s) { this.s = up; this.save(); } } return; }
     const kind = s && typeof v === 'number' && v > 1 ? 'future_schema' : s ? 'invalid' : 'corrupt';
     this.problem = { key, kind, detail: detail || (kind === 'future_schema' ? `economy version ${String(v)} > 1 (newer build)` : 'unexpected economy shape') };
     backups?.keepRaw(key, raw, kind);

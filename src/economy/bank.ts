@@ -1,5 +1,5 @@
 import type { WalletState } from './ledger';
-import { emptyWallet } from './ledger';
+import { emptyWallet, post } from './ledger';
 import type { Trade } from './trading';
 /** Whole local economy state (one per device in LocalDevEconomy; owned by the server later). */
 export interface OwnedItem { itemId: string; acquiredAt: number; txId: string; currency: 'gold' | 'diamond' | 'free'; price: number;
@@ -17,8 +17,11 @@ export interface EconomyState { version: 1; accounts: Record<string, Account>; t
 export const TEST_PLAYER = 'test-player';
 export const TEST_FRIEND = 'test-friend';
 /** TEST balances requested for development (clearly labelled in the UI). */
-export const TEST_BALANCES = { [TEST_PLAYER]: { gold: 5000, diamond: 100 }, [TEST_FRIEND]: { gold: 2000, diamond: 0 } } as const;
-
+/** TEST balances requested for development. The 100 000 💎 test-player seed exists ONLY in dev builds: `import.meta.env.DEV`
+ *  is replaced by `false` at compile time in `vite build`, so a production bundle seeds 100 💎 and has no 100 000 literal
+ *  (checked by tools/check-prod-no-dev-topup.mjs). */
+export const TEST_DIAMONDS: number = import.meta.env.DEV ? 100000 : 100;
+export const TEST_BALANCES = { [TEST_PLAYER]: { gold: 5000, diamond: TEST_DIAMONDS }, [TEST_FRIEND]: { gold: 2000, diamond: 0 } } as const;
 export function newAccount(id: string, label: string, gold: number, diamond: number, at: number): Account {
   let g = emptyWallet('gold'), d = emptyWallet('diamond');
   if (gold) g = { ...g, balance: gold, entries: [{ txId: `seed:${id}:gold`, kind: 'test_grant', delta: gold, balanceAfter: gold, at, memo: 'Solde de TEST' }] };

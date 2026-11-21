@@ -10,15 +10,17 @@ export const THUMBS = new URLSearchParams(location.search).has('thumbs');
 export function frameFor(it: ItemDef): CamFrame {
   if (['face', 'eyes', 'brows', 'nose', 'mouth', 'beard'].includes(it.category)) return 'face';
   if (it.category === 'hair') return 'head'; if (it.category === 'pants') return 'legs'; if (it.category === 'shoes') return 'feet';
-  if (it.category === 'accessory') { const m = it.render.acc!; if (['glasses_round', 'sunglasses', 'glasses_heart', 'earrings_pearl', 'earrings_hoops', 'earrings_diamond'].includes(m)) return 'face';
+  if (it.category === 'accessory') { const m = it.render.acc!; if (m.startsWith('glasses_') || ['sunglasses', 'earrings_pearl', 'earrings_hoops', 'earrings_diamond'].includes(m)) return 'face';
     if (['cap', 'beanie', 'strawhat', 'crown', 'headphones'].includes(m)) return 'head'; if (['necklace_chain', 'necklace_heart', 'scarf'].includes(m)) return 'upper'; if (m === 'watch' || m === 'tote') return 'hand'; return 'body'; }
+  if (it.category === 'dress') return 'body';
   return 'upper';
 }
 export function thumbLook(it: ItemDef): Look {
   const body = it.body ?? (['beard'].includes(it.category) ? 'm' : 'f'); let l = DEFAULT_LOOK[body];
   l = unequip(unequip(l, 'acc.bag'), 'details.blush');
   if (it.category === 'tshirt') l = unequip(l, 'jacket');
-  if (it.category === 'hair' || it.render.acc === 'headphones') l = { ...l, slots: { ...l.slots, hairColor: body === 'f' ? 'haircol_chestnut' : 'haircol_brown' } };
+  if (it.category === 'hair' && it.tags?.includes('glam') && it.slot === 'hair') l = { ...l, slots: { ...l.slots, hairColor: 'haircol_black' } };
+  else if (it.category === 'hair' || it.render.acc === 'headphones') l = { ...l, slots: { ...l.slots, hairColor: body === 'f' ? 'haircol_chestnut' : 'haircol_brown' } };
   return equip(l, it.id);
 }
 function Cam({ frame, yaw }: { frame: CamFrame; yaw: number }) {
