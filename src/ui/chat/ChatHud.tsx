@@ -9,7 +9,7 @@ import { AVATARS } from '../../data/avatars';
 import { locationById } from '../../data/locations';
 import { chatScopeNote, netBadge } from '../../net/netStatus';
 import { QUALITY } from '../../render/quality';
-import { keyboardInsetNow } from '../../app/viewportFill';
+import { keyboardInsetNow, resetPageScroll } from '../../app/viewportFill';
 import { chatGlassFallback, setChatGlassFallback } from './chatGlass';
 import { installBubbleLayer } from './bubbleLayer';
 import {
@@ -220,6 +220,7 @@ export function ChatHud() {
   const unreadRef = useRef(0); unreadRef.current = unread;
   const log = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const head = useRef<HTMLHeadingElement>(null);
   const pinned = useRef(true);
   // `last` = the latest rect of this gesture, kept in the ref (not only in the `drag` state): see endGesture
@@ -298,7 +299,11 @@ export function ChatHud() {
   const who = Object.keys(world.chars).length;
   const skin = opaque ? ' chat-opaque' : '';
   const close = () => game.setPanel(null);
-  const send = (text: string) => { const t = text.trim(); if (!t) return; game.sendChat(t); setMsg(''); setTray(false); pinned.current = true; };
+  const send = (text: string) => {
+    const t = text.trim(); if (!t) return; game.sendChat(t); setMsg(''); setTray(false); pinned.current = true;
+    // iOS keyboard: the field keeps the focus after a send (keyboard stays up, no page jump), page back at 0,0
+    const el = input.current; if (el && document.activeElement === el) { el.focus({ preventScroll: true }); resetPageScroll(); }
+  };
   const roomLog = history;
 
   // geometry: user rect (persisted) clamped to the viewport and kept off the controls + avatar; keyboard: docked above it
@@ -417,8 +422,9 @@ export function ChatHud() {
       )}
       <form className="chatbar" onSubmit={(e) => { e.preventDefault(); send(msg); }}>
         <button type="button" className="chat-tray-btn" aria-expanded={tray} aria-label="Emojis et stickers" onClick={() => setTray((v) => !v)}>😊</button>
-        <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Écrire…" maxLength={200} dir="auto" enterKeyHint="send" />
-        <button className="btn primary" type="submit">Envoyer</button>
+        <input ref={input} value={msg} onChange={(e) => setMsg(e.target.value)} onFocus={() => resetPageScroll()} placeholder="Écrire…" maxLength={200} dir="auto" enterKeyHint="send" />
+        {/* tapping Envoyer while typing does not take the focus from the field (the keyboard stays up, no close/re-open jump) */}
+        <button className="btn primary" type="submit" onMouseDown={(e) => { if (document.activeElement === input.current) e.preventDefault(); }}>Envoyer</button>
       </form>
     </div>
   );

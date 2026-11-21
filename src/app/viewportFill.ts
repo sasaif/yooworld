@@ -43,6 +43,24 @@ export function keyboardInsetNow(typing: boolean) {
 /** Chat card layout while the keyboard is up, from the visible height (px): 'normal' = header + recent messages + input,
  *  'tight' (< 125 px) = recent message line + input (header hidden until the keyboard closes), 'min' (< 90 px) = input only. */
 export function keyboardLayout(open: boolean, vh: number): 'none' | 'normal' | 'tight' | 'min' { return !open ? 'none' : vh < 90 ? 'min' : vh < 125 ? 'tight' : 'normal'; }
+/**
+ * Page scroll lock (real-device bug, iPhone Safari, 21/11/2026 on uat@6d524ad): when the chat field gets the focus,
+ * iOS scrolls the DOCUMENT to bring the field above the keyboard even though html/body are position:fixed. The stage
+ * (canvas + HUD) then slides off the top and only the pink page background is left above the keyboard, and since the
+ * field keeps the focus after "Envoyer" the page stayed scrolled after every message. The game never scrolls the
+ * page: put it back at 0,0 (window, scrolling element, html/body) whenever it moved; the chat card is placed above
+ * the keyboard from the visual viewport instead (ChatHud keyboardPanel), so Safari has nothing left to scroll to.
+ * Returns true when something had to be reset.
+ */
+export function resetPageScroll(): boolean {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  let moved = false;
+  if (window.scrollX || window.scrollY) { moved = true; window.scrollTo(0, 0); }
+  for (const el of [document.scrollingElement, document.documentElement, document.body]) {
+    if (el && (el.scrollTop || el.scrollLeft)) { moved = true; el.scrollTop = 0; el.scrollLeft = 0; }
+  }
+  return moved;
+}
 const typingNow = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); };
 
 export function installViewportFill() {
@@ -52,23 +70,28 @@ export function installViewportFill() {
     raf = 0; const { w, h } = appViewport(window);
     const kb = keyboardInsetNow(typingNow());
     root.classList.toggle('kb-open', kb.open); const lay = keyboardLayout(kb.open, kb.vh); root.classList.toggle('kb-tight', lay === 'tight' || lay === 'min'); root.classList.toggle('kb-min', lay === 'min'); root.style.setProperty('--kb-off', kb.off + 'px'); root.style.setProperty('--vv-h', kb.vh + 'px');
-    // while the keyboard is up, the stage keeps its full height (the card moves above the keyboard instead) and Safari's
-    // own scroll to the focused field is left alone
+    // while the keyboard is up, the stage keeps its full height (the card moves above the keyboard instead); the page
+    // itself never stays scrolled, keyboard or not (resetPageScroll: Safari's scroll to the focused field hid the stage)
     root.style.setProperty('--app-h', (kb.open ? window.innerHeight : h) + 'px'); root.style.setProperty('--app-w', w + 'px');
-    if (!kb.open && (window.scrollX || window.scrollY)) window.scrollTo(0, 0);
+    resetPageScroll();
   };
+  // Safari scrolls the page synchronously on focus / while the keyboard animates: undo it right away (no frame wait),
+  // then re-measure (the visual viewport offset changes with it)
+  const onScroll = () => { resetPageScroll(); on(); };
   const on = () => { if (!raf) raf = requestAnimationFrame(apply); };
   const late = () => { on(); for (const ms of [120, 350, 700, 1200]) timers.push(setTimeout(on, ms)); };
   const noZoom = (e: Event) => e.preventDefault(); // Safari-only 'gesture*' events = page pinch-zoom
   apply();
   addEventListener('resize', on); addEventListener('orientationchange', late); addEventListener('pageshow', late);
-  window.visualViewport?.addEventListener('resize', on); window.visualViewport?.addEventListener('scroll', on);
+  addEventListener('scroll', onScroll, { passive: true });
+  window.visualViewport?.addEventListener('resize', on); window.visualViewport?.addEventListener('scroll', onScroll);
   screen.orientation?.addEventListener?.('change', late);
   document.addEventListener('focusin', late); document.addEventListener('focusout', late);
   document.addEventListener('gesturestart', noZoom, { passive: false }); document.addEventListener('gesturechange', noZoom, { passive: false });
   return () => {
     removeEventListener('resize', on); removeEventListener('orientationchange', late); removeEventListener('pageshow', late);
-    window.visualViewport?.removeEventListener('resize', on); window.visualViewport?.removeEventListener('scroll', on);
+    removeEventListener('scroll', onScroll);
+    window.visualViewport?.removeEventListener('resize', on); window.visualViewport?.removeEventListener('scroll', onScroll);
     screen.orientation?.removeEventListener?.('change', late);
     document.removeEventListener('focusin', late); document.removeEventListener('focusout', late);
     document.removeEventListener('gesturestart', noZoom); document.removeEventListener('gesturechange', noZoom);
