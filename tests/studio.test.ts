@@ -6,7 +6,8 @@ import { resolveLook, hasHat } from '../src/render/avatar/custom/spec';
 import { compositePixels, computeStats, patternAt } from '../src/render/avatar/custom/composite';
 import { PART } from '../src/render/avatar/custom/parts';
 import { ITEMS } from '../src/fashion/catalogue';
-import { initialState, newAccount, TEST_PLAYER, TEST_TOPUP } from '../src/economy/bank';
+import { initialState, newAccount, TEST_PLAYER } from '../src/economy/bank';
+import { TEST_TOPUP } from '../src/economy/devTopUp';
 import { post } from '../src/economy/ledger';
 
 const kv = () => { const m = new Map<string, string>(); return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }; };

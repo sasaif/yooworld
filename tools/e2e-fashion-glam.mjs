@@ -82,5 +82,53 @@ console.log('PERF SE before (default looks):', JSON.stringify(await snap()));
 for (const [label, l] of [['latex dress + goth bob + eyes + Terrazzo Wayfarer', looks[0][1]], ['latex sirène + goth pony + Terrazzo Demi-lune', looks[2][1]], ['evening dress + Terrazzo round (P1)', looks[3][1]], ['+ Terrazzo Pilote', ['acc_terrazzo_pilote']]]) {
   await buyEquip(q, l); await q.waitForTimeout(3500); console.log(`PERF SE after [${label}]:`, JSON.stringify(await snap())); }
 await se.ctx.close();
+// --- 4) TRIAL retro glasses v1 (G01–G06 × 4, « À l'essai »), iPhone 15 LANDSCAPE (852x393 @3; portrait shows the « Tourne ton appareil » overlay), default three-quarter camera.
+//     Not for sale (no price, no buy button, never in the cart) but equippable; each of the 24 equipped in game: temples over
+//     the ear, per-avatar + whole-scene draw calls / triangles vs no glasses. TRIAL_SHOTS=dir -> one shot per model + 24 crops.
+const TRIAL = ['biba', 'cateye', 'studio70', 'aviator', 'hexa', 'coeur'].flatMap((k, n) => [['rose', 'lilas', 'blanc', 'ecaille'], ['noir', 'cerise', 'perle', 'caramel'], ['miel', 'blanc', 'fuchsia', 'eau'],
+  ['or', 'argent', 'orrose', 'noir'], ['or', 'argent', 'cuivre', 'rose'], ['rose', 'rouge', 'lilas', 'blanc']][n].map((w) => `acc_${k}_${w}`));
+const TS = process.env.TRIAL_SHOTS; if (TS) fs.mkdirSync(TS, { recursive: true });
+{ const pt = await page(852, 393, 3); const r = pt.p;
+  await r.goto(url); await ready(r); await r.evaluate(() => localStorage.clear()); await r.reload(); await ready(r); await r.waitForTimeout(3500);
+  const d0 = await r.evaluate(() => window.economy.snapshot().account.diamond.balance);
+  const defs = await r.evaluate((ids) => ids.map((id) => window.fashion.itemsFor('accessory', 'f').find((i) => i.id === id) ?? null), TRIAL);
+  ok(defs.every((d) => d && d.trial === true && !d.price && d.tags.includes('trial')), '24 trial glasses listed for the f body, trial flag, no price');
+  // shop UI: badge, « Pas en vente », no buy button, cart stays empty
+  await r.tap('.dock .style-btn'); await r.waitForSelector('.st'); await r.waitForTimeout(2000);
+  await r.locator('.st-cats button', { hasText: 'Accessoires' }).first().tap(); await r.waitForTimeout(1500);
+  const cards = await r.evaluate((ids) => ids.map((id) => { const c = document.querySelector(`[data-item="${id}"]`); return c ? [!!c.querySelector('.it-trial'), c.querySelector('.pr')?.textContent ?? ''] : null; }), TRIAL);
+  ok(cards.every((c) => c && c[0] && c[1] === 'Pas en vente'), '24 shop cards show the « À l’essai » badge + « Pas en vente » ' + JSON.stringify(cards.filter((c) => !c || !c[0]).length));
+  const nonTrialBadges = await r.locator('.it-trial').count(); ok(nonTrialBadges === 24, `exactly 24 « À l’essai » badges in Accessoires (${nonTrialBadges})`);
+  const t0 = r.locator('[data-item="acc_biba_rose"]').first(); await t0.scrollIntoViewIfNeeded(); await t0.tap(); await r.waitForTimeout(1500);
+  ok(await r.locator('.st-detail .btn.buy').count() === 0 && await r.locator('.st-cart.empty').count() === 1 && await r.locator('.ct-chip').count() === 0, 'trial item worn in the studio: no buy button, try-on cart empty');
+  if (TS) await r.screenshot({ path: `${TS}/00_shop_trial_badges_iphone15.png` });
+  if (TS) { await r.locator('.st-cats button', { hasText: 'Accessoires' }).first().tap(); // studio close-up of every colourway (preview pane)
+    for (const id of TRIAL) { await r.evaluate((id) => { const f = window.fashion; if (f.s.studio.draft.slots['acc.glasses'] !== id) f.tap(id); }, id); await r.waitForTimeout(1300); await r.screenshot({ path: `${TS}/studio_${id}.png`, clip: { x: 30, y: 60, width: 250, height: 230 } }); }
+    await r.evaluate(() => { const f = window.fashion; if (f.s.studio.draft.slots['acc.glasses'] !== 'acc_biba_rose') f.tap('acc_biba_rose'); }); await r.waitForTimeout(800); }
+  await r.tap('.st-back'); await r.waitForTimeout(2000);
+  ok((await r.evaluate(() => window.fashion.s.looks.f.slots))['acc.glasses'] === 'acc_biba_rose', 'leaving the studio keeps the trial glasses equipped (no purchase)');
+  // baseline without glasses
+  const setG = (id) => r.evaluate(async (id) => { const f = window.fashion; f.open('f', 'accessory'); if (id) { if (f.s.studio.draft.slots['acc.glasses'] !== id) f.tap(id); } else if (f.s.studio.draft.slots['acc.glasses']) f.tap(f.s.studio.draft.slots['acc.glasses']); await f.saveDraft?.(); await f.close('keep-owned'); }, id);
+  const stat = async () => { await r.waitForTimeout(2200); return r.evaluate(() => { const a = window.__avatarStats().find((x) => x.body === 'f'); const i = window.__info; return { calls: a.calls, tris: a.tris, sceneCalls: i?.calls, sceneTris: i?.triangles, names: a.names.filter((n) => /glass|lens|frame|temple/i.test(n)) }; }); };
+  await setG(null); const none = await stat(); ok((await r.evaluate(() => window.fashion.s.looks.f.slots))['acc.glasses'] === undefined, 'baseline: no glasses equipped');
+  console.log('TRIAL baseline (no glasses):', JSON.stringify(none));
+  const rows = []; const proj2 = () => r.evaluate(() => { const a = window.__avatarStats().find((x) => x.body === 'f'), cam = window.__cam, V = cam.position.constructor;
+    const pj = (y) => { const q = new V((a.min[0] + a.max[0]) / 2, y, (a.min[2] + a.max[2]) / 2).project(cam); return [(q.x + 1) / 2 * innerWidth, (1 - q.y) / 2 * innerHeight]; }; return { foot: pj(a.min[1]), top: pj(a.max[1]) }; });
+  for (const id of TRIAL) { await setG(id); const s1 = await stat();
+    const saved = (await r.evaluate(() => window.fashion.s.looks.f.slots))['acc.glasses'];
+    const m = await r.evaluate(() => [...window.__glam.TEMPLE_FITS.values()].flat());
+    const fit = m.length >= 2 && m.every((x) => x.insideSamples === 0 && x.minClearance > 0); // every temple fitted so far (fits are cached per body + hinge)
+    const row = { id, dCalls: s1.calls - none.calls, dTris: s1.tris - none.tris, dSceneCalls: s1.sceneCalls - none.sceneCalls, dSceneTris: s1.sceneTris - none.sceneTris, sceneCalls: s1.sceneCalls }; rows.push(row);
+    ok(saved === id && row.dCalls > 0 && fit, `${id} equipped in game (+${row.dCalls} avatar draws, +${row.dTris} tris; scene ${s1.sceneCalls} calls; all ${m.length} fitted temples over the ear, min clearance ${Math.min(...m.map((x) => x.minClearance)).toFixed(4)} m)`);
+    if (TS) { const hd = await proj2(); const H = Math.abs(hd.foot[1] - hd.top[1]), cx = hd.foot[0], top = Math.max(0, hd.top[1] - 30);
+      if (TRIAL.indexOf(id) % 4 === 0) { await r.screenshot({ path: `${TS}/model_${id}.png` }); console.log(`  ${id}: avatar on screen ≈ ${Math.round(H)} CSS px`); }
+      await r.screenshot({ path: `${TS}/cw_${id}.png`, clip: { x: Math.max(0, cx - 60), y: top, width: 120, height: Math.min(393 - top, H + 50) } });
+      await r.screenshot({ path: `${TS}/head_${id}.png`, clip: { x: Math.max(0, cx - 22), y: hd.top[1] + 0.1 * H, width: 44, height: 0.3 * H } }); } }
+  console.log('TRIAL rows:', JSON.stringify(rows));
+  const mx = (k) => Math.max(...rows.map((x) => x[k])); console.log(`TRIAL max delta: avatar +${mx('dCalls')} draws / +${mx('dTris')} tris; scene +${mx('dSceneCalls')} calls / +${mx('dSceneTris')} tris; max scene calls ${mx('sceneCalls')}`);
+  ok(mx('dCalls') <= 4, `each trial pair adds <= 4 avatar draw calls (max ${mx('dCalls')})`);
+  ok(await r.evaluate(() => window.economy.snapshot().account.diamond.balance) === d0, 'no diamonds spent on trial glasses');
+  await r.reload(); await ready(r); await r.waitForTimeout(2000); ok((await r.evaluate(() => window.fashion.s.looks.f.slots))['acc.glasses'] === TRIAL.at(-1), 'last trial glasses still equipped after reload');
+  await pt.ctx.close(); }
 ok(errs.length === 0, 'no console errors ' + JSON.stringify(errs.slice(0, 3))); ok(bad.length === 0, 'no failed requests ' + JSON.stringify(bad.slice(0, 3)));
 await b.close();

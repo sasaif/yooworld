@@ -46,6 +46,8 @@ export interface ItemDef {
   rarity: Rarity; body?: Body; /** short line shown in the shop */ desc?: string;
   render: Render; /** swatch items (colours) are shown as round swatches */ swatch?: boolean;
   tags?: string[];
+  /** TRIAL item (« À l'essai »): visible and equippable by everyone for testing, NOT for sale (no price) until a price is set. */
+  trial?: boolean;
 }
 /** The saved appearance of one avatar body: slot -> item id. Missing optional slot = nothing equipped. */
 export interface Look { v: 1; body: Body; slots: Partial<Record<Slot, string>> }

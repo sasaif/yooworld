@@ -62,9 +62,12 @@ export const GLAM_EYES: ItemDef[] = [
     render: { makeup: 'shadow', color: '#5a1a2a', eyeLook: { iris: '#c0142e', shadow: '#5a1a2a', liner: '#0c0810', wing: true, lips: '#8a0a1e', brow: '#3a0a18' } } },
 ];
 type G = { id: string; way: string; frame: string; lens: string; lens2: string; opacity: number; accent?: string };
-const glasses = (model: AccModel, key: string, name: string, price: number, rarity: Rarity, ways: G[]): ItemDef[] => ways.map((w) => ({
-  id: `acc_${key}_${w.id}`, name: `${name} · ${w.way}`, category: 'accessory', slot: 'acc.glasses', rarity, price: D(price), tags: TAG,
+/** price = null -> TRIAL item: no price (not for sale, equippable by everyone), `trial: true`, tag 'trial'. */
+const glasses = (model: AccModel, key: string, name: string, price: number | null, rarity: Rarity, ways: G[]): ItemDef[] => ways.map((w) => ({
+  id: `acc_${key}_${w.id}`, name: `${name} · ${w.way}`, category: 'accessory', slot: 'acc.glasses', rarity,
+  ...(price === null ? { trial: true, tags: TRIAL_TAG, desc: 'À l’essai · pas encore en vente' } : { price: D(price), tags: TAG }),
   render: { acc: model, color: w.frame, color2: w.lens, lens2: w.lens2, opacity: w.opacity, trim: w.accent } }));
+const TRIAL_TAG = ['glam', 'trial'];
 export const GLAM_GLASSES: ItemDef[] = [
   // P1 Biba Terrazzo (final: P1-B, large blue chips, plum marbling ~25 %, slight glow on the blue flecks only)
   { id: 'acc_yoville_p1', name: 'Biba Terrazzo', category: 'accessory', slot: 'acc.glasses', rarity: 'legendary', price: D(50), tags: TAG, desc: 'Monture rose épaisse à éclats bleus',
@@ -83,24 +86,27 @@ export const GLAM_GLASSES: ItemDef[] = [
     { id: 'lilas', way: 'Lilas / menthe', frame: '#b48ee6', lens: '#4fc9a6', lens2: '#d6fff1', opacity: 0.88 },
     { id: 'cerise', way: 'Cerise / ambre', frame: '#c4122f', lens: '#d9832a', lens2: '#ffd89a', opacity: 0.9 },
     { id: 'ciel', way: 'Ciel / violet', frame: '#7cc6ef', lens: '#7a3fc2', lens2: '#dcbcff', opacity: 0.9 }]),
-  // round 1 retro glasses G01–G06 × 4 colourways (section 4), fixed temples
-  ...glasses('glasses_biba', 'biba', 'Biba Ronde', 25, 'rare', [
+  // round 1 retro glasses G01–G06 × 4 colourways (section 4), ear-resting temples. TRIAL (Alessandro 2026-11-21 08:09, « je prends tous »,
+  // via Expert): visible + equippable for testing, NOT for sale until he sets prices. Ids unchanged.
+  ...glasses('glasses_biba', 'biba', 'Biba Ronde', null, 'rare', [
     { id: 'rose', way: 'Rose / bleu', frame: '#f27fb8', lens: '#4fb3ef', lens2: '#c9ecff', opacity: 0.72 }, { id: 'lilas', way: 'Lilas / menthe', frame: '#b892e8', lens: '#5fcfae', lens2: '#d8fff2', opacity: 0.7 },
     { id: 'blanc', way: 'Blanc / rose', frame: '#f8f4f0', lens: '#ff8fc0', lens2: '#ffe0ee', opacity: 0.7 }, { id: 'ecaille', way: 'Écaille / ambre', frame: '#8a4f2c', lens: '#c9822d', lens2: '#ffd79a', opacity: 0.75 }]),
-  ...glasses('glasses_cateye', 'cateye', 'Riviera Cat-Eye', 30, 'epic', [
+  ...glasses('glasses_cateye', 'cateye', 'Riviera Cat-Eye', null, 'epic', [
     { id: 'noir', way: 'Noir / fumé', frame: '#1e1a22', lens: '#3c3a48', lens2: '#a7a4b8', accent: '#f4e7c8', opacity: 0.8 }, { id: 'cerise', way: 'Cerise / rose', frame: '#c4122f', lens: '#ff6f9c', lens2: '#ffd0de', accent: '#ffe08a', opacity: 0.72 },
     { id: 'perle', way: 'Perle / lilas', frame: '#f3ece6', lens: '#a98ee8', lens2: '#efe6ff', accent: '#ffd0e6', opacity: 0.68 }, { id: 'caramel', way: 'Caramel / bronze', frame: '#b5783f', lens: '#6d4a32', lens2: '#d9b48c', accent: '#ffe2a8', opacity: 0.78 }]),
-  ...glasses('glasses_70s', 'studio70', 'Studio 70 Oversize', 25, 'rare', [
+  ...glasses('glasses_70s', 'studio70', 'Studio 70 Oversize', null, 'rare', [
     { id: 'miel', way: 'Miel / ambre', frame: '#d9913d', lens: '#8b4a2b', lens2: '#ffc98a', opacity: 0.78 }, { id: 'blanc', way: 'Blanc / orange', frame: '#fbf6ef', lens: '#ff7a3d', lens2: '#ffd2a6', opacity: 0.74 },
     { id: 'fuchsia', way: 'Fuchsia / violet', frame: '#e0368a', lens: '#7a3fc2', lens2: '#e2b8ff', opacity: 0.75 }, { id: 'eau', way: 'Vert d’eau / bleu', frame: '#7fcab5', lens: '#2f6fb0', lens2: '#b6dcff', opacity: 0.74 }]),
-  ...glasses('glasses_aviator', 'aviator', 'Pilote Riviera', 25, 'rare', [
+  ...glasses('glasses_aviator', 'aviator', 'Pilote Riviera', null, 'rare', [
     { id: 'or', way: 'Or / vert', frame: '#d8b56a', lens: '#2b6e4f', lens2: '#9fd6b8', opacity: 0.78 }, { id: 'argent', way: 'Argent / bleu miroir', frame: '#d6dae4', lens: '#2c64c8', lens2: '#a8d6ff', opacity: 0.8 },
     { id: 'orrose', way: 'Or rose / rose', frame: '#e3a493', lens: '#ff6fa8', lens2: '#ffd6e6', opacity: 0.72 }, { id: 'noir', way: 'Noir / gris', frame: '#2a2630', lens: '#3a3a40', lens2: '#9a9aa4', opacity: 0.82 }]),
-  ...glasses('glasses_hexa', 'hexa', 'Hexa Disco', 20, 'rare', [
+  ...glasses('glasses_hexa', 'hexa', 'Hexa Disco', null, 'rare', [
     { id: 'or', way: 'Or / jaune', frame: '#d8b56a', lens: '#ffcf3f', lens2: '#fff1b0', opacity: 0.62 }, { id: 'argent', way: 'Argent / lavande', frame: '#d6dae4', lens: '#9c86e8', lens2: '#e6deff', opacity: 0.62 },
     { id: 'cuivre', way: 'Cuivre / pêche', frame: '#c07a4f', lens: '#ff9a6f', lens2: '#ffe0cc', opacity: 0.62 }, { id: 'rose', way: 'Rose / bleu', frame: '#f27fb8', lens: '#4fb3ef', lens2: '#c9ecff', opacity: 0.66 }]),
-  ...glasses('glasses_heart2', 'coeur', 'Cœur Candy', 30, 'epic', [
+  ...glasses('glasses_heart2', 'coeur', 'Cœur Candy', null, 'epic', [
     { id: 'rose', way: 'Rose / rose', frame: '#ff4f9a', lens: '#ff8fc0', lens2: '#ffe0ee', opacity: 0.7 }, { id: 'rouge', way: 'Rouge / noir', frame: '#c4122f', lens: '#2a2028', lens2: '#7a5a66', opacity: 0.82 },
     { id: 'lilas', way: 'Lilas / bleu', frame: '#b892e8', lens: '#4fb3ef', lens2: '#c9ecff', opacity: 0.7 }, { id: 'blanc', way: 'Blanc / pêche', frame: '#f8f4f0', lens: '#ff9a6f', lens2: '#ffe0cc', opacity: 0.68 }]),
 ];
+/** the 24 trial glasses (round 1, section 4) */
+export const TRIAL_GLASSES: ItemDef[] = GLAM_GLASSES.filter((i) => i.trial);
 export const GLAM_ITEMS: ItemDef[] = [...GLAM_DRESSES, ...GLAM_HAIR, ...GLAM_EYES, ...GLAM_GLASSES];
