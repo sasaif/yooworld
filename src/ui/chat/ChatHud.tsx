@@ -273,7 +273,12 @@ export function ChatHud() {
     if (!h) { lastHead.current = null; return; }
     const cur = headerBand(h);
     const o = lastHead.current;
-    if (o && (Math.abs(o.l - cur.l) > 0.5 || Math.abs(o.t - cur.t) > 0.5 || Math.abs(o.r - cur.r) > 0.5 || Math.abs(o.b - cur.b) > 0.5)) ghosts.current.push({ ...o, until: now + HEAD_GHOST_MS });
+    if (o && (Math.abs(o.l - cur.l) > 0.5 || Math.abs(o.t - cur.t) > 0.5 || Math.abs(o.r - cur.r) > 0.5 || Math.abs(o.b - cur.b) > 0.5)) {
+      // the old band stays on screen until the move is painted: start the window at that paint (next frame), not at
+      // the commit (on a loaded phone commit -> paint can take a few hundred ms)
+      const g: HeaderBand = { ...o, until: now + HEAD_GHOST_MS }; ghosts.current.push(g);
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => { g.until = Math.max(g.until ?? 0, performance.now() + HEAD_GHOST_MS); });
+    }
     lastHead.current = cur;
   });
 
