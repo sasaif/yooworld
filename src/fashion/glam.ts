@@ -1,5 +1,5 @@
 import type { AccModel, DressId, ItemDef, Rarity } from './types';
-/** Glam collection, approved by Alessandro on 2026-11-21 ("Je valide tous, met tous ça en diamond", prices 20–50 💎).
+/** Glam collection, approved by Alessandro on 2026-11-21 ("Je valide tous, met tous ça en diamond", prices 20–50 💎; Rétro Bonbon 200 💎 per Alessandro 21/11 08:47).
  *  DATA ONLY: new ids in existing slots (top / hair / hairColor / makeup.eyes / acc.glasses), so the saved
  *  Look {v:1, body, slots} format is unchanged and every existing look renders exactly as before.
  *  Sources: art/proposals/fashion (FASHION_PROPOSAL.md sections 3, 4, 11–15; proto/src/designs.js, goth2.js). */
@@ -79,7 +79,7 @@ export const GLAM_GLASSES: ItemDef[] = [
     id, name, category: 'accessory', slot: 'acc.glasses', rarity: 'legendary', price: D(price), tags: TAG, desc,
     render: { acc, color: '#e27fb0', color2: '#57b6ea', lens2: '#c4ecff', opacity: 0.93, trim: '#1a6cff' } })),
   // YoVille-reference frame, 6 colour mixes (section 11), temples resting on the ears (section 12)
-  ...glasses('glasses_yoville', 'yoville', 'Rétro Bonbon', 35, 'epic', [
+  ...glasses('glasses_yoville', 'yoville', 'Rétro Bonbon', 200, 'epic', [
     { id: 'mauve', way: 'Mauve / ciel', frame: '#ce98b3', lens: '#6fc0f0', lens2: '#c8efff', opacity: 0.95 },
     { id: 'blanc', way: 'Blanc / noir', frame: '#e3e7ea', lens: '#241b18', lens2: '#5a4a44', opacity: 0.94 },
     { id: 'noir', way: 'Noir / rose', frame: '#1e1a22', lens: '#ff7fb8', lens2: '#ffd6e8', opacity: 0.88 },

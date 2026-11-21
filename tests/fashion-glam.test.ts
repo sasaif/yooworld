@@ -26,9 +26,11 @@ describe('Glam collection catalogue (approved 2026-11-21)', () => {
     for (const n of GLAM_ITEMS.map((i) => i.name)) expect(n).not.toMatch(/ray-?ban|police|yoworld|yoville/i);
     expect(ITEMS.acc_yoville_p1.render).toMatchObject({ acc: 'glasses_yoville_p1', color: '#e27fb0', trim: '#1a6cff' });
   });
-  it('is all Diamonds, priced 20–50 (except the 24 trial glasses), valid, additive and only in existing save slots', () => {
+  it('is all Diamonds, priced 20–50 (except the 24 trial glasses and Rétro Bonbon at 200 💎), valid, additive and only in existing save slots', () => {
     expect(validateCatalogue(CATALOGUE)).toEqual([]);
-    for (const i of GLAM_ITEMS.filter((x) => !x.trial)) { expect(i.price?.currency).toBe('diamond'); expect(i.price!.amount).toBeGreaterThanOrEqual(20); expect(i.price!.amount).toBeLessThanOrEqual(50); expect(ITEMS[i.id]).toBe(i); }
+    const bonbon = GLAM_ITEMS.filter((x) => x.name.startsWith('Rétro Bonbon')); expect(bonbon).toHaveLength(6);
+    for (const i of bonbon) { expect(i.price).toEqual({ currency: 'diamond', amount: 200 }); expect(ITEMS[i.id]).toBe(i); }
+    for (const i of GLAM_ITEMS.filter((x) => !x.trial && !x.name.startsWith('Rétro Bonbon'))) { expect(i.price?.currency).toBe('diamond'); expect(i.price!.amount).toBeGreaterThanOrEqual(20); expect(i.price!.amount).toBeLessThanOrEqual(50); expect(ITEMS[i.id]).toBe(i); }
     expect(new Set(GLAM_ITEMS.map((i) => i.slot))).toEqual(new Set(['top', 'hair', 'hairColor', 'makeup.eyes', 'acc.glasses']));
     expect(CATEGORIES.find((c) => c.id === 'dress')?.label).toBe('Robes');
     for (const l of Object.values(DEFAULT_LOOK)) for (const id of Object.values(l.slots)) expect(ITEMS[id!].tags?.includes('glam')).toBeFalsy();
@@ -67,7 +69,7 @@ describe('Retro glasses v1 = TRIAL items (Alessandro 2026-11-21 « je prends tou
       expect(i.render.lens2).toMatch(/^#[0-9a-f]{6}$/i); expect(i.render.opacity).toBeGreaterThan(0.5); expect(i.render.opacity).toBeLessThan(1); }
     // nothing else is trial: Terrazzo ×4, Rétro Bonbon ×6 and every dress keep their diamond prices
     expect(GLAM_ITEMS.filter((i) => i.trial)).toHaveLength(24); expect(Object.values(ITEMS).filter((i) => i.trial)).toHaveLength(24);
-    expect(['acc_yoville_p1', 'acc_terrazzo_wayfarer', 'acc_terrazzo_pilote', 'acc_terrazzo_demilune', 'acc_yoville_mauve'].map((id) => ITEMS[id].price)).toEqual([50, 45, 45, 40, 35].map((amount) => ({ currency: 'diamond', amount })));
+    expect(['acc_yoville_p1', 'acc_terrazzo_wayfarer', 'acc_terrazzo_pilote', 'acc_terrazzo_demilune', 'acc_yoville_mauve'].map((id) => ITEMS[id].price)).toEqual([50, 45, 45, 40, 200].map((amount) => ({ currency: 'diamond', amount })));
     for (const d of GLAM_DRESSES) { expect(d.price?.currency).toBe('diamond'); expect(d.price!.amount).toBeGreaterThanOrEqual(20); expect(d.price!.amount).toBeLessThanOrEqual(50); }
   });
   it('are NOT for sale: no price, never in a cart, never charged, never granted as a purchase', () => {
