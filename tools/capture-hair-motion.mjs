@@ -10,7 +10,11 @@ const url = process.argv[2] ?? 'http://127.0.0.1:5794/'; const FR = process.env.
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const W = 852, Hh = 393, SC = 3, CW = 250, CH = 200; const meta = {};
 const SCRIPT = [['REPOS', 24, null], ['MARCHE', 84, [1, 0, false]], ['VIRAGE 90° (course)', 66, [0, 1, true]], ['ARRÊT → REPOS', 60, 'stop']];
-for (const hair of ['buns', 'long']) for (const hm of [0, 1]) {
+// CASES=buns,long,long_cap,buns_cap,long_phones (default buns,long): hat / headphones cases equip acc.hat / acc.head2
+const CASES = (process.env.CASES ?? 'buns,long').split(',');
+const LOOK = { buns: {}, long: { hair: 'hair_long', hairColor: 'haircol_brown' }, long_cap: { hair: 'hair_long', hairColor: 'haircol_brown', 'acc.hat': 'acc_cap' },
+  buns_cap: { 'acc.hat': 'acc_cap' }, long_phones: { hair: 'hair_long', hairColor: 'haircol_brown', 'acc.head2': 'acc_headphones' } };
+for (const hair of CASES) for (const hm of [0, 1]) {
   const ctx = await b.newContext({ viewport: { width: W, height: Hh }, deviceScaleFactor: SC, isMobile: true, hasTouch: true });
   await ctx.addInitScript(() => { try { sessionStorage.setItem('yw.portrait', '1'); } catch { /* */ }
     let vt = 0, virt = false; const rp = performance.now.bind(performance); const rr = window.requestAnimationFrame.bind(window); let cbs = [];
@@ -19,7 +23,7 @@ for (const hair of ['buns', 'long']) for (const hm of [0, 1]) {
     window.__virt = () => { vt = rp(); virt = true; }; window.__step = (ms) => { vt += ms; const c = cbs; cbs = []; c.forEach((f) => f(vt)); }; window.__steps = (n) => { for (let i = 0; i < n; i++) window.__step(1000 / 60); }; });
   const p = await ctx.newPage(); const cdp = await ctx.newCDPSession(p); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto(url + `?fresh=1&lieu=appart&hairmotion=${hm}`, { timeout: 120000 }); await p.waitForFunction(() => window.game?.s.ready && window.__hair, null, { timeout: 180000 }); await p.waitForTimeout(2500);
-  await p.evaluate((hair) => { if (hair === 'long') { const L = window.fashion.s.looks; window.fashion.store.set({ looks: { ...L, f: { ...L.f, slots: { ...L.f.slots, hair: 'hair_long', hairColor: 'haircol_brown' } } } }); } }, hair);
+  await p.evaluate((sl) => { if (Object.keys(sl).length) { const L = window.fashion.s.looks; window.fashion.store.set({ looks: { ...L, f: { ...L.f, slots: { ...L.f.slots, ...sl } } } }); } }, LOOK[hair]);
   await p.evaluate(() => window.__virt()); await p.evaluate(() => window.game.travel('beach')); await p.evaluate(() => window.__steps(150));
   // same start for every run: clear spot, facing the camera's right
   await p.evaluate(() => { const c = window.__world.chars.f; c.path = []; c.mode = 'idle'; window.__start = { x: c.pos.x, z: c.pos.z }; });
@@ -38,4 +42,4 @@ for (const hair of ['buns', 'long']) for (const hm of [0, 1]) {
   }
   meta[`${hair}_${hm}`] = ph; console.log('captured', hair, hm, n, 'frames, errors', errs.length); await ctx.close();
 }
-fs.writeFileSync(`${FR}/meta.json`, JSON.stringify(meta)); await b.close();
+let old = {}; try { old = JSON.parse(fs.readFileSync(`${FR}/meta.json`, 'utf8')); } catch { /* */ } fs.writeFileSync(`${FR}/meta.json`, JSON.stringify({ ...old, ...meta })); await b.close();

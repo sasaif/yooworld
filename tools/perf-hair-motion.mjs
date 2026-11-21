@@ -8,12 +8,12 @@ import { createRequire } from 'module'; import fs from 'fs'; import os from 'os'
  *     static / spring (budget 8 = shipped default) / spring with every rig updated (max=20). 60 deterministic frames at dt 1/30.
  * usage: node tools/perf-hair-motion.mjs [baseUrl] ; OUT=file.json ; THR=4
  */
-const base = process.argv[2] ?? 'http://127.0.0.1:5794/'; const OUT = process.env.OUT; const THR = +(process.env.THR ?? 4);
-const DEV = { 'iPhone SE': { w: 667, h: 375, dpr: 2 }, 'iPhone 15': { w: 852, h: 393, dpr: 3 } };
+const base = process.argv[2] ?? 'http://127.0.0.1:5794/'; const OUT = process.env.OUT; const THR_ENV = process.env.THR ? +process.env.THR : null; let THR = 4; // default per device: SE 6x, 15 4x (THR=n forces one rate)
+const DEV = { 'iPhone SE': { w: 667, h: 375, dpr: 2, thr: 6 }, 'iPhone 15': { w: 852, h: 393, dpr: 3, thr: 4 } };
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const stat = (a) => { const s = [...a].sort((x, y) => x - y); const q = (p) => s[Math.min(s.length - 1, Math.floor(p * s.length))] ?? 0; return { mean: +(s.reduce((x, y) => x + y, 0) / Math.max(1, s.length)).toFixed(3), p50: +q(0.5).toFixed(3), p95: +q(0.95).toFixed(3), n: s.length }; };
-const res = { note: 'EMULATION: headless Chrome + SwiftShader (no GPU) + device emulation + CDP CPU throttle ' + THR + 'x. Not a real iPhone. Shared box.', date: new Date().toISOString(), game: [], crowd: [] };
-for (const [dev, d] of Object.entries(DEV)) {
+const res = { note: 'EMULATION: headless Chrome + SwiftShader (no GPU) + device emulation + CDP CPU throttle ' + (THR_ENV ?? 'SE 6x / 15 4x') + '. Not a real iPhone. Shared box.', date: new Date().toISOString(), game: [], crowd: [] };
+for (const [dev, d] of Object.entries(DEV)) { THR = THR_ENV ?? d.thr;
   for (const hm of [0, 1]) {
     const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: d.dpr, isMobile: true, hasTouch: true });
     await ctx.addInitScript(() => { try { sessionStorage.setItem('yw.portrait', '1'); } catch { /* */ } });
