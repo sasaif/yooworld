@@ -1,0 +1,15 @@
+# Phase C parameters (copy to server/.local/phase-c.params — git-ignored — and fill in). IDs, hosts, no secrets.
+CF_ACCOUNT_ID=<32 hex, Cloudflare dashboard → Account ID>
+UAT_API_HOST=<api-uat.your-domain>
+UAT_APP_HOST=<uat.your-domain>
+PROD_API_HOST=<api.your-domain>
+PROD_APP_HOST=<your-domain>
+EMAIL_PROVIDER=<resend|postmark|ses|mailgun|smtp — PENDING ALESSANDRO>
+UAT_EMAIL_FROM=<no-reply@uat.your-domain — PENDING ALESSANDRO>
+PROD_EMAIL_FROM=<no-reply@your-domain — PENDING ALESSANDRO>
+UAT_HYPERDRIVE_API_ID=<output of infra/cloudflare/hyperdrive.sh uat>
+UAT_HYPERDRIVE_AUTH_ID=
+UAT_HYPERDRIVE_ADMIN_ID=
+PROD_HYPERDRIVE_API_ID=
+PROD_HYPERDRIVE_AUTH_ID=
+PROD_HYPERDRIVE_ADMIN_ID=

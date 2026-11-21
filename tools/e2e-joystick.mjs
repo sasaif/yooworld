@@ -74,37 +74,43 @@ function speedOver(ss, t0, t1) { const a = ss.find((s) => s.t >= t0), bb = [...s
  *  The window is sized so the avatar is still inside the clear part of the lane at its end (distance already walked
  *  while the finger glided in + 0.3 s settle + window ≤ lane − margin), so the measurement can never include the
  *  avatar arriving at the furniture / wall at the end of the lane. A run is re-done (max 2×, logged) only when the
- *  measurement itself is unusable: no frame inside the window (renderer stall) or fewer than 3 frames. Being
- *  blocked inside the verified-clear lane is NOT retried: it is reported as a real collision bug. */
+ *  measurement itself is unusable (renderer stall): no usable speed (NaN) or fewer than 2 frames in the window. Each
+ *  retry DOUBLES the window (2×, then 4× the base window) on the longest verified-clear lane for that direction; if the
+ *  lane cannot hold the doubled window, the window is capped by the lane and the cap is logged. A measurement that is
+ *  still NaN / 0 frames after the retries is returned as is and FAILS its check (never skipped, never borrowed from
+ *  another direction). Being blocked inside the verified-clear lane is NOT retried: it is a real collision bug. */
 const END_MARGIN = 0.25; const retries = [];
 // CI (4-vCPU runner, SwiftShader, ~3-5 fps): a teleport is followed by one or two very long frames, and a 0.6-0.9 s window
-// regularly holds < 3 frames. Only UNUSABLE measurements are re-done (never a wrong speed / heading / blocked result), so
-// more attempts change nothing about what passes; each start also waits until the renderer has drawn 2 fresh frames.
-const MAX_ATTEMPTS = Number(process.env.LANE_ATTEMPTS ?? 6);
+// regularly holds few frames. Only UNUSABLE measurements are re-done (never a wrong speed / heading / blocked result), within
+// the director's cap above (max 2 logged retries, doubled window each); each start also waits for 2 fresh rendered frames.
 /** wait (≤ 5 s) until the page has rendered n new animation frames */
 const renderedFrames = (n) => p.evaluate((n) => new Promise((res) => { let k = 0; const t = setTimeout(res, 5000); const f = () => { if (++k >= n) { clearTimeout(t); res(); } else requestAnimationFrame(f); }; requestAnimationFrame(f); }), n);
 async function laneRun({ a, d, dir, st, target, maxWin, tag }) {
-  let out = null;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  let out = null; const st0 = st;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const winX = 2 ** attempt;                                     // 1×, then 2×, then 4× the base window
+    if (attempt) { const need = MAX * (target ?? 1) * (0.3 + maxWin * winX / 1000) + END_MARGIN + 0.6; st = await openStart(dir, Math.max(st0.r, need)); if (st.r < st0.r) st = st0; }
     await place(st.x, st.z, Math.atan2(dir[0], dir[1])); await p.waitForTimeout(150); await renderedFrames(2); await resetSamples(); lastA = lastB = null; lastWall = NaN; longFrames = 0;
     await stickTo(d, a, 1, 2); const m0 = await mv(); const t0 = m0.t;
     const walked = Math.max(0, (m0.pos[0] - st.x) * dir[0] + (m0.pos[1] - st.z) * dir[1]); const v = Math.max(0.15, MAX * (target ?? m0.factor));
-    // window: maxWin, stretched to ≥ 4 frame times on a starved renderer (CI ~3 fps: 900 ms held 0-2 frames), but never
-    // longer than the verified-clear lane allows. A longer steady-state window measures the same speed with more frames.
-    const room = st.r - END_MARGIN - walked - v * 0.3; const win = Math.max(250, Math.min(Math.max(maxWin, 4 * frameMs), room / v * 1000));
+    // window: maxWin, stretched to ≥ 4 frame times on a starved renderer (CI ~3 fps: 900 ms held 0-2 frames), then doubled
+    // per retry, but never longer than the verified-clear lane allows. A longer steady-state window measures the same speed.
+    const room = st.r - END_MARGIN - walked - v * 0.3; const base = Math.max(maxWin, 4 * frameMs); const want = base * winX; const win = Math.max(250, Math.min(want, room / v * 1000));
+    if (attempt) console.log(`  retry ${tag} #${attempt}: window ${Math.round(win)} ms (asked ${Math.round(want)} ms = ${winX}× base${win < want ? `, capped by the clear lane ${st.r.toFixed(2)} m` : ''})`);
     await p.waitForTimeout(300 + win + 150); const m = await mv(); await up(1); await p.waitForTimeout(350);
     const ss = await samples(); const tEnd = t0 + 300 + win; const sp = steadySpeed(ss, m.d, tEnd);
     const inWin = lastA && lastB ? ss.filter((s) => s.t >= lastA.t && s.t <= lastB.t) : [];
     const endProg = lastB ? (lastB.x - st.x) * dir[0] + (lastB.z - st.z) * dir[1] : NaN;
     const blocked = inWin.some((s) => s.bl);
-    out = { sp, ss, m, t0, win, tEnd, walked, endProg, blocked, frames: inWin.length, attempt };
+    out = { sp, ss, m, t0, win, tEnd, walked, endProg, blocked, frames: inWin.length, attempt, st };
     if (process.env.DUMP) fs.writeFileSync(`/tmp/dump_${devName}_${tag}.json`, JSON.stringify({ st, ...out }));
     // a starved renderer can make the finger glide itself take seconds: the avatar is then already near the end of the clear
     // lane before the window opens and the window (min 250 ms) runs past it into the furniture / wall that ends the lane.
     // That run measured outside the verified-clear lane, so it is unusable (re-done), not a collision result.
     const outOfLane = Number.isFinite(endProg) && endProg > st.r - END_MARGIN / 2;
-    const why = d <= 0.1 ? null : !Number.isFinite(sp) ? 'no frame in the measurement window (renderer stall)' : inWin.length < 3 ? `only ${inWin.length} frames in the window` : outOfLane ? `window ended ${endProg.toFixed(2)} m along a ${st.r.toFixed(2)} m clear lane (slow glide)` : null;
-    if (!why) break; retries.push({ tag, attempt, why }); console.log(`  retry ${tag}: ${why}`);
+    const why = d <= 0.1 ? null : !Number.isFinite(sp) ? 'no usable speed in the measurement window (renderer stall)' : inWin.length < 2 ? `only ${inWin.length} frame(s) in the window` : outOfLane ? `window ended ${endProg.toFixed(2)} m along a ${st.r.toFixed(2)} m clear lane (slow glide)`  : null;
+    if (!why) break; retries.push({ tag, attempt, why, frames: inWin.length, win: Math.round(win) });
+    console.log(`  ${attempt < 2 ? 'stall' : 'giving up on'} ${tag} (attempt ${attempt + 1}/3, ${inWin.length} frames, window ${Math.round(win)} ms): ${why}`);
   }
   return out;
 }
@@ -131,8 +137,8 @@ for (const a of angles) {
   // on-screen direction of travel vs stick angle
   const scr = await p.evaluate(([a0, a1]) => { const V = window.__cam.position.constructor; const p0 = new V(a0[0], 0, a0[1]).project(window.__cam), p1 = new V(a1[0], 0, a1[1]).project(window.__cam); return Math.atan2((p1.y - p0.y) * innerHeight, (p1.x - p0.x) * innerWidth) * 180 / Math.PI; }, [[first.x, first.z], [last.x, last.z]]);
   const scrErr = Math.abs(((scr - a) + 540) % 360 - 180);
-  report.dirs.push({ stickDeg: a, diagonal: a % 90 !== 0, speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), worldErrDeg: +err.toFixed(1), screenErrDeg: +scrErr.toFixed(1), lane: +st.r.toFixed(2), windowMs: Math.round(R.win), endInLane: +R.endProg.toFixed(2), frames: R.frames, blocked: R.blocked, retries: R.attempt });
-  ok(sp > 0.9 * MAX && sp < 1.06 * MAX && err < 8 && scrErr < 10 && !R.blocked, `direction ${a}° → ${sp.toFixed(2)} m/s (${Math.round(sp / MAX * 100)} %), heading error ${err.toFixed(1)}° world / ${scrErr.toFixed(1)}° on screen`, { lane: +st.r.toFixed(2), end: +R.endProg.toFixed(2), win: Math.round(R.win), frames: R.frames, blocked: R.blocked });
+  report.dirs.push({ stickDeg: a, diagonal: a % 90 !== 0, speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), worldErrDeg: +err.toFixed(1), screenErrDeg: +scrErr.toFixed(1), lane: +R.st.r.toFixed(2), windowMs: Math.round(R.win), endInLane: +R.endProg.toFixed(2), frames: R.frames, blocked: R.blocked, retries: R.attempt });
+  ok(sp > 0.9 * MAX && sp < 1.06 * MAX && err < 8 && scrErr < 10 && !R.blocked, `direction ${a}° → ${sp.toFixed(2)} m/s (${Math.round(sp / MAX * 100)} %), heading error ${err.toFixed(1)}° world / ${scrErr.toFixed(1)}° on screen`, { lane: +R.st.r.toFixed(2), end: +R.endProg.toFixed(2), win: Math.round(R.win), frames: R.frames, blocked: R.blocked });
 }
 const straight = report.dirs.filter((d) => !d.diagonal).map((d) => d.speed), diag = report.dirs.filter((d) => d.diagonal).map((d) => d.speed);
 const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length; report.straightAvg = +avg(straight).toFixed(3); report.diagAvg = +avg(diag).toFixed(3);
@@ -141,6 +147,7 @@ if (diag.length && straight.length) ok(Math.max(...diag) <= MAX * 1.06 && Math.a
 // ---------- 3. speed bands ----------
 const bands = FULL ? [[0.05, 'zone morte', 0], [0.15, 'lent (bord bas)', null], [0.225, 'lent', 0.30], [0.30, 'lent (bord haut)', null], [0.5, 'normal', 0.60], [0.6, 'normal (bord haut)', null], [0.775, 'rapide', 0.85], [0.95, 'max', 1.0], [1.25, 'max (butée)', 1.0]]
   : [[0.05, 'zone morte', 0], [0.225, 'lent', 0.30], [0.5, 'normal', 0.60], [0.775, 'rapide', 0.85], [1.25, 'max (butée)', 1.0]];
+const RIM_TOL = 1e-3; // rim/max check ONLY: the clamped stick reads d = 1 up to float rounding of the knob position
 const bandDir = 90 + 45; // pick one well-open direction for all bands
 const bdir = await worldDir(bandDir); const bst = await openStart(bdir, 3.4);
 const NEW = !!(await mv()).smooth; // new model (walk / run separation): band targets = the live intensity curve (walkProfile WALK_ANCHORS)
@@ -149,9 +156,10 @@ for (const [d, name, target0] of bands) {
   // 'butée' = the finger slides past the rim (1.25 × the travel radius): the stick must clamp to exactly d = 1
   const R = await laneRun({ a: bandDir, d, dir: bdir, st: bst, target, maxWin: 1200, tag: `band${d}` }); const { sp, ss, m, t0 } = R;
   const an = ss.filter((s) => s.t > t0 + 300 && s.t <= R.tEnd && s.anim).pop()?.anim;
-  report.bands.push({ d, name, target, inputD: +m.d.toFixed(3), factor: +m.factor.toFixed(3), speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), lane: +bst.r.toFixed(2), windowMs: Math.round(R.win), frames: R.frames, blocked: R.blocked, anim: an && { s: +an.s.toFixed(3), walk: +an.w.toFixed(2), run: +an.r.toFixed(2), walkTS: +an.wts.toFixed(3), runTS: +an.rts.toFixed(3) } });
+  report.bands.push({ d, name, target, inputD: +m.d.toFixed(3), rawD: m.d, factor: +m.factor.toFixed(3), speed: +sp.toFixed(3), wallClockSpeed: +lastWall.toFixed(3), longFrames, pctMax: Math.round(sp / MAX * 100), lane: +bst.r.toFixed(2), windowMs: Math.round(R.win), frames: R.frames, blocked: R.blocked, anim: an && { s: +an.s.toFixed(3), walk: +an.w.toFixed(2), run: +an.r.toFixed(2), walkTS: +an.wts.toFixed(3), runTS: +an.rts.toFixed(3) } });
   if (target === 0) ok(sp < 0.01 && m.speed === 0, `dead zone ${d * 100}% → no movement (${sp.toFixed(3)} m/s)`);
-  else if (d > 1) ok(m.d === 1 && Math.abs(sp / MAX - target) < 0.06 && !R.blocked, `${name}: finger past the rim → d=${m.d.toFixed(3)}, ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target 100 %)`);
+  else if (d > 1) { console.log(`  raw d (${name}) = ${m.d.toFixed(6)} (|d − 1| = ${Math.abs(m.d - 1).toExponential(2)})`); report.rimRawD = m.d;
+    ok(Math.abs(m.d - 1) <= RIM_TOL && Math.abs(sp / MAX - target) < 0.06 && !R.blocked, `${name}: finger past the rim → d=${m.d.toFixed(6)} (|d−1| ≤ ${RIM_TOL}), ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target 100 %)`); }
   else if (target != null) ok(Math.abs(sp / MAX - target) < 0.06 && !R.blocked, `${name} band d=${d}: ${sp.toFixed(2)} m/s = ${Math.round(sp / MAX * 100)} % of max (target ≈${Math.round(target * 100)} %)`);
   else ok(sp > 0 && !R.blocked, `${name} d=${d}: ${sp.toFixed(2)} m/s (${Math.round(sp / MAX * 100)} %)`);
 }

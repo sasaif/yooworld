@@ -163,9 +163,24 @@ async function untilBotThinking() {
   return false;
 }
 ok(await untilBotThinking(), 'reached a bot turn');
-await p.tap('[data-club="quit"]'); await p.waitForTimeout(300);
-const c0 = await ev(() => ({ seq: window.club.s.session?.host.engine.seq, turn: window.club.s.session?.host.state.turn }));
-ok(await p.locator('[data-club="leave-confirm"]').isVisible() && c0.turn !== 0, `Quitter during a bot turn (Bot ${c0.turn}): confirm dialog`); await shot('5_leave_confirm');
+// Race guard (test side only, bots NOT slowed further): on a slow runner the bot can finish its move between the bot-turn
+// check and the Quitter tap, so the dialog opens on the player's turn. Right before the tap, wait (bounded) for a confirmed
+// bot turn; after the tap, re-check. If the turn was back to the player when the dialog opened, close it, wait for the
+// next bot turn and retry: at most 2 retries, each logged. Still on the player's turn after that = the check below FAILS.
+const confirmedBotTurn = (ms = 15000) => p.waitForFunction(() => { const h = window.club.s.session?.host; return !!h && h.state.turn !== null && h.state.turn !== 0 && h.thinking > 0; }, null, { timeout: ms }).then(() => true, () => false);
+let c0 = null;
+for (let attempt = 0; attempt <= 2; attempt++) {
+  if (!(await confirmedBotTurn()) && !(await untilBotThinking())) { console.log(`  quit-race: attempt ${attempt + 1}/3: no bot turn within the timeout`); continue; }
+  await p.tap('[data-club="quit"]'); await p.waitForTimeout(300);
+  c0 = await ev(() => ({ seq: window.club.s.session?.host.engine.seq, turn: window.club.s.session?.host.state.turn }));
+  const dialog = await p.locator('[data-club="leave-confirm"]').isVisible();
+  if (dialog && c0.turn !== 0) break;
+  console.log(`  quit-race: attempt ${attempt + 1}/3: dialog ${dialog ? 'opened' : 'not open'} on turn ${c0.turn} (turn back to the player before the dialog)${attempt < 2 ? ' -> close, wait for the next bot turn, retry' : ' -> giving up'}`);
+  if (attempt === 2) break;
+  if (dialog) { await p.tap('[data-club="stay"]'); await p.waitForFunction(() => !window.club.s.confirmLeave, null, { timeout: 10000 }).catch(() => {}); }
+  await untilBotThinking();
+}
+ok(await p.locator('[data-club="leave-confirm"]').isVisible() && c0 && c0.turn !== 0, `Quitter during a bot turn (Bot ${c0?.turn}): confirm dialog`); await shot('5_leave_confirm');
 await p.waitForTimeout(2200);
 ok(await ev(() => window.club.s.session?.host.engine.seq) === c0.seq && await ev(() => window.club.s.session?.host.isPaused && !window.club.s.session.host.hasTimer), 'bots are paused while the dialog is open (no move, no timer)');
 await p.tap('[data-club="stay"]'); await p.waitForTimeout(2300);

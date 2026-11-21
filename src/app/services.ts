@@ -5,6 +5,8 @@ import { LocalStorageRepository } from '../persistence/LocalStorageRepository';
 import { OfflineTransport } from '../net/NetworkTransport';
 import { simTransportFromSearch } from '../net/SimTransport';
 import { installChatSim } from '../dev/chatSim';
+import { liveNetConfig } from '../net/live/netFlag';
+import { LiveTransport } from '../net/live/LiveTransport';
 import { LocalDevEconomy } from '../economy/LocalDevEconomy';
 import { FashionController } from '../fashion/FashionController';
 import { newTxId } from '../economy/EconomyService';
@@ -16,12 +18,19 @@ export const backups = new SaveBackups(storage.data, storage.env.id, storage.env
 /** DEV economy: local TEST balances only (5 000 Or / 100 Diamants), never real money. */
 export const economy = new LocalDevEconomy(storage.data, 'eco:dev', Date.now, backups);
 export const fashion = new FashionController(economy);
-/** ?chatSim=1 | bc: LOCAL SIMULATION transport for chat tests (still offline, never network play). Default: offline. */
-const simNet = typeof location !== 'undefined' ? simTransportFromSearch(location.search) : null;
-export const game = new GameController(new LocalStorageRepository(storage.data, '', backups, { env: storage.env.id, buildId: storage.env.buildId }), simNet ?? new OfflineTransport(),
+/** QA trial-merge resolution (local only): `?net=1` LiveTransport wins; otherwise ?chatSim=1 | bc LOCAL SIMULATION; default offline. */
+const NET_CFG = liveNetConfig(location.search, import.meta.env.VITE_YW_API_URL as string | undefined);
+export const live = NET_CFG ? new LiveTransport(NET_CFG) : null;
+const simNet = !live && typeof location !== 'undefined' ? simTransportFromSearch(location.search) : null;
+export const game = new GameController(new LocalStorageRepository(storage.data, '', backups, { env: storage.env.id, buildId: storage.env.buildId }), live ?? simNet ?? new OfflineTransport(),
   { balance: () => economy.goldBalance(), spend: (amount, memo) => { try { economy.spendGoldSync(amount, memo, newTxId('furniture')); return true; } catch { return false; } } },
   { beforeReset: (reason) => backups.snapshot(reason) });
 if (simNet) installChatSim(game, simNet);
+if (live) {
+  live.attach({ location: () => game.s.location, changed: () => game.store.set({}),
+    local: () => { const c = world.chars[game.s.activeChar]; return c ? { x: c.pos.x, z: c.pos.z } : null; } });
+  (window as unknown as Record<string, unknown>).__live = live; // e2e handle (flag on only)
+}
 /** P0.B: after a clean boot, keep a restore point of this env (deduplicated, ring of 3). */
 let bootSnap = false;
 game.store.subscribe(() => { if (game.s.ready && !game.s.temporary && !bootSnap) { bootSnap = true; if (!economy.problem) backups.snapshot('boot'); } });

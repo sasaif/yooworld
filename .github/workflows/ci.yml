@@ -16,7 +16,8 @@ jobs:
   test:
     name: test (${{ matrix.group }})
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # job ceiling kept at 90 min (backend-foundation, run 76 hit 60 min serially); groups normally finish far below it
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -100,6 +101,8 @@ jobs:
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'world' }}
         timeout-minutes: 20
         run: DEV=iphone15 PLAYERS=4 node tools/e2e-club.mjs http://127.0.0.1:5230/
+      # Step time only: under SwiftShader the 12 fresh runs (2 scenes x 2 devices x RUNS=3) take ~3.5-4.2 min on a busy
+      # runner (run 75: 3m32 pass, then 4m13 timed out). Same RUNS / FRAMES, same --check (+20 % guard, apartment < 120).
       - name: Perf baseline (draw calls)
         if: ${{ always() && steps.preview.outcome == 'success' && matrix.group == 'perf' }}
         timeout-minutes: 12
@@ -152,5 +155,43 @@ jobs:
           name: seats-${{ matrix.char }}
           path: |
             ci-shots/**/*.json
+          retention-days: 7
+          if-no-files-found: warn
+  # server/ (Phase B backend, LOCAL ONLY): typecheck, unit + DB + security + backup suites against a private
+  # Postgres (npm package embedded-postgres, started by the tests), then the workerd e2e (wrangler dev --local).
+  # No secrets, no cloud account, no deploy. Independent of the client job above.
+  server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: server
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.12'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+        timeout-minutes: 5
+      - name: Server type check
+        timeout-minutes: 5
+        run: npm run typecheck
+      - name: Server unit + DB + security + backup suites (incl. Dominoes contract test)
+        id: unit
+        timeout-minutes: 10
+        run: npm test
+      - name: Server workerd e2e (wrangler dev --local)
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: server-test-results
+          path: server/test-results/**
           retention-days: 7
           if-no-files-found: warn
