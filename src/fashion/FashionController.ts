@@ -1,6 +1,6 @@
 import { Store } from '../core/store';
 import { CATEGORIES, ITEMS, OPTIONAL_SLOTS, fitsBody, isFree } from './catalogue';
-import { DEFAULT_LOOK, cloneLook, equip, revertUnowned, sameLook, unequip, unownedItems } from './look';
+import { DEFAULT_LOOK, cloneLook, equip, equipOutfit, revertUnowned, sameLook, unequip, unownedItems } from './look';
 import type { Body, ItemDef, Look, ShopCategory, Slot } from './types';
 import type { EconomyService } from '../economy/EconomyService';
 import { newTxId } from '../economy/EconomyService';
@@ -10,7 +10,7 @@ import type { Activity } from '../economy/rewards';
  *  (so the same UI works with the future server-authoritative RemoteEconomy). */
 export type StudioTab = 'shop' | 'owned' | 'equipped' | 'trade' | 'wallet';
 export interface Studio { body: Body; base: Look; draft: Look; cat: ShopCategory; tab: StudioTab; selected: string | null; confirm: boolean; leaving: boolean; compare: boolean; pending?: Body }
-export interface FashionState { looks: Record<Body, Look>; studio: Studio | null; msg: { text: string; kind: 'ok' | 'err' | 'gold'; at: number } | null; ecoRev: number }
+export interface FashionState { looks: Record<Body, Look>; studio: Studio | null; msg: { text: string; kind: 'ok' | 'err' | 'gold'; at: number } | null; ecoRev: number; /** a purchase is in flight (buy buttons disabled) */ buying?: boolean }
 const ERR: Partial<Record<string, string>> = {
   insufficient_funds: 'Solde insuffisant', already_owned: 'Déjà dans tes articles', duplicate_in_cart: 'Article en double', empty_cart: 'Panier vide', not_transferable: 'Les diamants ne sont pas échangeables',
   trade_state: 'Action impossible à cette étape', reward_cooldown: 'Déjà réclamée — reviens plus tard', invalid_amount: 'Montant invalide', trade_self: 'Choisis un autre compte',
@@ -46,7 +46,7 @@ export class FashionController {
     const st = this.s.studio; const it = ITEMS[id]; if (!st || !it) return;
     if (!fitsBody(it, st.body)) return this.say('Réservé à l’avatar homme', 'err');
     const worn = st.draft.slots[it.slot] === id;
-    const draft = worn && OPTIONAL_SLOTS.includes(it.slot) ? unequip(st.draft, it.slot) : equip(st.draft, id);
+    const draft = worn && OPTIONAL_SLOTS.includes(it.slot) ? unequip(st.draft, it.slot) : equipOutfit(st.draft, id, st.base);
     this.patch({ draft, selected: id });
   }
   unequipSlot(slot: Slot) { const st = this.s.studio; if (st) this.patch({ draft: unequip(st.draft, slot) }); }
@@ -57,10 +57,19 @@ export class FashionController {
   totals(items = this.cart()): Totals { const t = zeroTotals(); for (const i of items) if (i.price) t[i.price.currency] += i.price.amount; return t; }
   canAfford(t: Totals) { const a = this.eco.snapshot().account; return a.gold.balance >= t.gold && a.diamond.balance >= t.diamond; }
   askConfirm(on = true) { this.patch({ confirm: on }); }
+  /** One purchase at a time: a second tap / click while a checkout is in flight is ignored (each call would mint a new
+   *  txId, so the economy's idempotency cannot dedupe it). The bought items are worn (outfit-coherent: buying shorts
+   *  takes a dress off) and the look is saved. */
+  private buying = false;
   async buy(ids: string[]) {
-    const st = this.s.studio; if (!st) return false;
-    try { await this.eco.checkout(ids, newTxId('checkout')); const n = ids.length; this.say(n > 1 ? `🎉 ${n} articles achetés !` : `🎉 ${ITEMS[ids[0]].name} acheté !`, 'ok'); this.patch({ confirm: false }); await this.saveDraft(); return true; }
-    catch (e) { this.say(errText(e), 'err'); return false; }
+    const st = this.s.studio; if (!st || this.buying || !ids.length) return false;
+    this.buying = true; this.store.set({ buying: true });
+    try {
+      await this.eco.checkout(ids, newTxId('checkout')); const n = ids.length; this.say(n > 1 ? `🎉 ${n} articles achetés !` : `🎉 ${ITEMS[ids[0]].name} acheté !`, 'ok');
+      const cur = this.s.studio; if (cur) this.patch({ confirm: false, draft: ids.reduce((l, id) => (fitsBody(ITEMS[id], l.body) ? equipOutfit(l, id, cur.base) : l), cur.draft) });
+      await this.saveDraft(); return true;
+    } catch (e) { this.say(errText(e), 'err'); return false; }
+    finally { this.buying = false; this.store.set({ buying: false }); }
   }
   buyCart() { return this.buy(this.cart().map((i) => i.id)); }
   /** saves the draft as the avatar look (only owned/free items are kept) */

@@ -45,10 +45,11 @@ function Grid({ items }: { items: ItemDef[] }) {
 function SlotOff({ slot }: { slot: Slot }) { const st = useStore(fashion.store, (s) => s.studio)!; if (!st.draft.slots[slot]) return null; return <button className="slot-off" onClick={() => fashion.unequipSlot(slot)}>Retirer</button>; }
 function Detail() {
   const st = useStore(fashion.store, (s) => s.studio)!; useStore(fashion.store, (s) => s.ecoRev); const it = st.selected ? ITEMS[st.selected] : null;
+  const busy = useStore(fashion.store, (s) => !!s.buying);
   if (!it || isFree(it) || fashion.owns(it.id)) return null; const worn = st.draft.slots[it.slot] === it.id; const ok = fashion.canAfford(fashion.totals([it]));
   return <div className="st-detail"><div className="dt-txt"><b>{it.name}</b><small style={{ color: RARITY[it.rarity].color }}>{RARITY[it.rarity].label}{it.price?.currency === 'diamond' ? ' · lié au compte' : ''}{it.desc ? ' · ' + it.desc : ''}</small></div>
     <Price it={it} />{worn ? <button className="btn ghost" onClick={() => fashion.removeFromCart(it.id)}>Retirer</button> : <button className="btn ghost" onClick={() => fashion.tap(it.id)}>Essayer</button>}
-    <button className="btn buy" disabled={!ok} onClick={() => void fashion.buy([it.id])}>{ok ? 'Acheter' : 'Solde insuffisant'}</button></div>;
+    <button className="btn buy" disabled={!ok || busy} onClick={() => void fashion.buy([it.id])}>{ok ? 'Acheter' : 'Solde insuffisant'}</button></div>;
 }
 function CartBar() {
   const st = useStore(fashion.store, (s) => s.studio)!; useStore(fashion.store, (s) => s.ecoRev); const cart = fashion.cart(); const t = fashion.totals(cart); void st;
@@ -57,12 +58,12 @@ function CartBar() {
     <span className="ct-tot"><TotalsView t={t} /></span><button className="btn ghost sm" onClick={() => fashion.clearCart()}>Vider</button><button className="btn buy" onClick={() => fashion.askConfirm(true)}>Acheter la tenue</button></div>;
 }
 function ConfirmModal() {
-  useStore(fashion.store, (s) => s.ecoRev); const cart = fashion.cart(); const t = fashion.totals(cart); const a = economy.snapshot().account; const ok = fashion.canAfford(t);
+  useStore(fashion.store, (s) => s.ecoRev); const busy = useStore(fashion.store, (s) => !!s.buying); const cart = fashion.cart(); const t = fashion.totals(cart); const a = economy.snapshot().account; const ok = fashion.canAfford(t);
   return <div className="st-modal"><div className="md-card"><h3>Confirmer l’achat</h3>
     <ul className="md-list">{cart.map((i) => <li key={i.id}><span className="md-th"><Thumb it={i} /></span>{i.name}<small style={{ color: RARITY[i.rarity].color }}>{RARITY[i.rarity].label}</small><Price it={i} /></li>)}</ul>
     <div className="md-sum"><div>Total <TotalsView t={t} /></div><div className="muted">Après achat : 🪙 {fmt(a.gold.balance - t.gold)} · 💎 {fmt(a.diamond.balance - t.diamond)}</div>
       {t.diamond > 0 && <div className="muted">Les articles payés en 💎 restent liés à ton compte (non échangeables).</div>}<div className="muted">Soldes de TEST — aucun paiement réel.</div></div>
-    <div className="row"><button className="btn ghost" onClick={() => fashion.askConfirm(false)}>Annuler</button><button className="btn buy" disabled={!ok} onClick={() => void fashion.buyCart()}>{ok ? 'Confirmer l’achat' : 'Solde insuffisant'}</button></div></div></div>;
+    <div className="row"><button className="btn ghost" onClick={() => fashion.askConfirm(false)}>Annuler</button><button className="btn buy" disabled={!ok || busy} onClick={() => void fashion.buyCart()}>{ok ? 'Confirmer l’achat' : 'Solde insuffisant'}</button></div></div></div>;
 }
 function LeavingModal() {
   const cart = fashion.cart(); const t = fashion.totals(cart);

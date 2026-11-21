@@ -15,6 +15,19 @@ export function equip(l: Look, itemId: string): Look {
   if (!fitsBody(it, l.body)) throw new Error('item not for this body');
   return { ...l, slots: { ...l.slots, [it.slot]: itemId } };
 }
+/** A dress lives in the 'top' slot and covers the legs and the jacket. */
+export const isDressId = (id: string | undefined) => !!id && ITEMS[id]?.category === 'dress';
+/** Studio equip: like `equip`, plus outfit coherence — equipping trousers / shorts, a jacket or a tee takes a dress off
+ *  (black-dress bug, uat 21/11: a dress left in 'top' hid the bought shorts and was saved / bought with them). The 'top'
+ *  slot falls back to `fallback`'s top when that is not a dress, else to the body's default tee. */
+export function equipOutfit(l: Look, itemId: string, fallback: Look): Look {
+  const out = equip(l, itemId); const it = ITEMS[itemId];
+  if ((it.slot === 'pants' || it.slot === 'jacket') && isDressId(out.slots.top)) {
+    const fb = fallback.slots.top && !isDressId(fallback.slots.top) ? fallback.slots.top : DEFAULT_LOOK[l.body].slots.top;
+    return { ...out, slots: { ...out.slots, top: fb } };
+  }
+  return out;
+}
 /** Remove an optional slot (required slots keep their base option). */
 export function unequip(l: Look, slot: Slot): Look {
   if (!OPTIONAL_SLOTS.includes(slot)) return l;
