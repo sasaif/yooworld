@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
@@ -17,7 +17,7 @@ import { useStore } from '../core/store';
 import { Hud } from '../ui/Hud';
 import { Stats } from '../render/Stats';
 import { PerfCollectorGate, PerfLayer } from '../render/perf/PerfOverlay';
-import { fashion, game } from './services';
+import { fashion, game, live } from './services';
 import { club } from './clubService';
 import { ClubView } from '../render/club/ClubView';
 import { ClubOverlay } from '../ui/club/ClubOverlay';
@@ -41,6 +41,8 @@ import { installMoveDebug } from '../game/movement/debug';
 import { trackPointerKind } from '../input/moveSettings';
 import { storage } from '../persistence/storage';
 
+/** `?net=1` only (dev): remote players from the local server; the module is not even loaded when the flag is off. */
+const RemotePlayers = live ? lazy(() => import('../render/net/RemotePlayers')) : null;
 const LIEU_KEY = 'lieuDefaultUsed'; // per-tab flag, namespaced per save env
 function startAt() {
   let used = false; try { used = storage.session.getItem(LIEU_KEY) === '1'; } catch { /* */ }
@@ -103,6 +105,7 @@ export default function App() {
             <Character key={a.id} c={world.chars[a.id]} def={a} look={looks[a.id as 'f' | 'm']} selected={active === a.id && !SHOT && !atTable} controlled={active === a.id && !SHOT} onSelect={() => game.setActive(a.id)} />
           ))}
           {ready && <AmbientNpcs />}
+          {RemotePlayers && live && ready && beach && <RemotePlayers net={live} />}
         </Suspense>
         <Stats />
         <PerfCollectorGate />

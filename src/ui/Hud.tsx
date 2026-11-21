@@ -4,7 +4,8 @@ import { camStore, CAM_VIEW_LABEL, nextCamView, toggleCamView } from '../app/cam
 import { useEffect, useState } from 'react';
 import { useStore } from '../core/store';
 import { storage } from '../persistence/storage';
-import { game, fashion } from '../app/services';
+import { game, fashion, live } from '../app/services';
+import { onlinePlayers } from '../net/live/remoteAvatar';
 import { Wallet } from './fashion/Studio';
 import { AVATARS } from '../data/avatars';
 import { FURNITURE, CATEGORY_LABEL, RARITY_COLOR, type Category } from '../data/furniture';
@@ -201,8 +202,14 @@ function FinishesSheet() {
   );
 }
 /** Connectivity badge: 'Mode local' (offline prototype) until a real server is connected; tap = what it means. */
+/** `?net=1` only: player count of the live room, refreshed twice a second. Flag off (`live` null): no timer, 0. */
+function useLiveOnline() {
+  const [n, setN] = useState(0);
+  useEffect(() => { const l = live; if (!l) return; const t = setInterval(() => setN(onlinePlayers(l.sync)), 500); return () => clearInterval(t); }, []);
+  return n;
+}
 function NetChip() {
-  const [open, setOpen] = useState(false); const b = netBadge(game.net.status);
+  const [open, setOpen] = useState(false); const online = useLiveOnline(); const b = live ? netBadge(game.net.status, online) : netBadge(game.net.status);
   useEffect(() => { if (!open) return; const t = setTimeout(() => setOpen(false), 6000); return () => clearTimeout(t); }, [open]);
   return (
     <span className="netwrap">

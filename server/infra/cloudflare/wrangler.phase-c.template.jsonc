@@ -1,0 +1,58 @@
+// PHASE C TEMPLATE — NOT USED BY ANY COMMAND IN PHASE B. Rendered by `node infra/cloudflare/render-wrangler.mjs`
+// into `.local/wrangler.phase-c.jsonc` (git-ignored) from parameters Alessandro supplies; nothing is created by
+// rendering. Every dollar-brace parameter must be provided (the renderer refuses missing / placeholder values).
+// Secrets are NEVER in this file: `wrangler secret put <NAME> --env <uat|prod>` (see docs/PHASE_C_RUNBOOK.md §4).
+{
+  "name": "yoland-api-local",
+  "main": "../../src/cf/worker.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "${CF_ACCOUNT_ID}",
+  "workers_dev": false,
+  "vars": { "ENV_TAG": "local" },
+  "durable_objects": { "bindings": [
+    { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" },
+    { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }, { "name": "OUTBOX", "class_name": "OutboxDO" }
+  ] },
+  "migrations": [ { "tag": "v1", "new_sqlite_classes": ["RoomDO", "DirectoryDO", "TableDO"] }, { "tag": "v2", "new_sqlite_classes": ["TradeDO"] }, { "tag": "v3", "new_sqlite_classes": ["PresenceDO"] }, { "tag": "v4", "new_sqlite_classes": ["OutboxDO"] } ],
+  "env": {
+    "uat": {
+      "name": "yoland-api-uat",
+      "workers_dev": false,
+      "routes": [ { "pattern": "${UAT_API_HOST}", "custom_domain": true } ],
+      "vars": { "ENV_TAG": "uat", "BETTER_AUTH_URL": "https://${UAT_API_HOST}", "APP_ORIGIN": "https://${UAT_APP_HOST}",
+                "TURNSTILE_MODE": "turnstile", "WS_MAX_LIFETIME_S": "86400", "EMAIL_PROVIDER": "${EMAIL_PROVIDER}", "EMAIL_FROM": "${UAT_EMAIL_FROM}" },
+      // Hyperdrive: one config per role (app_api / app_auth / admin_ops), each pointing at the uat Neon branch.
+      "hyperdrive": [
+        { "binding": "HD_API", "id": "${UAT_HYPERDRIVE_API_ID}" },
+        { "binding": "HD_AUTH", "id": "${UAT_HYPERDRIVE_AUTH_ID}" },
+        { "binding": "HD_ADMIN", "id": "${UAT_HYPERDRIVE_ADMIN_ID}" }
+      ],
+      // ops check (alerts, recon, metrics flush) + retention job (finalize_deletions + auth erasure): every 5 min
+      "triggers": { "crons": ["*/5 * * * *"] },
+      "observability": { "enabled": true, "head_sampling_rate": 1 },
+      "durable_objects": { "bindings": [
+        { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" },
+        { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }, { "name": "OUTBOX", "class_name": "OutboxDO" }
+      ] }
+    },
+    "prod": {
+      "name": "yoland-api-prod",
+      "workers_dev": false,
+      "routes": [ { "pattern": "${PROD_API_HOST}", "custom_domain": true } ],
+      "vars": { "ENV_TAG": "prod", "BETTER_AUTH_URL": "https://${PROD_API_HOST}", "APP_ORIGIN": "https://${PROD_APP_HOST}",
+                "TURNSTILE_MODE": "turnstile", "WS_MAX_LIFETIME_S": "86400", "EMAIL_PROVIDER": "${EMAIL_PROVIDER}", "EMAIL_FROM": "${PROD_EMAIL_FROM}" },
+      "hyperdrive": [
+        { "binding": "HD_API", "id": "${PROD_HYPERDRIVE_API_ID}" },
+        { "binding": "HD_AUTH", "id": "${PROD_HYPERDRIVE_AUTH_ID}" },
+        { "binding": "HD_ADMIN", "id": "${PROD_HYPERDRIVE_ADMIN_ID}" }
+      ],
+      "triggers": { "crons": ["*/5 * * * *"] },
+      "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+      "durable_objects": { "bindings": [
+        { "name": "ROOM", "class_name": "RoomDO" }, { "name": "DIRECTORY", "class_name": "DirectoryDO" },
+        { "name": "TABLE", "class_name": "TableDO" }, { "name": "TRADE", "class_name": "TradeDO" }, { "name": "PRESENCE", "class_name": "PresenceDO" }, { "name": "OUTBOX", "class_name": "OutboxDO" }
+      ] }
+    }
+  }
+}
