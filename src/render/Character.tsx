@@ -16,6 +16,8 @@ import { LIE_PITCH, lieRoot, sitRoot } from '../game/interact/anchors';
 import { SitPose } from './avatar/sitPose';
 import { LOUNGER_ANCHOR } from '../data/interactionRegistry';
 import { avoidOffset, hudObstacles } from '../ui/tagAvoid';
+import { driveHair, hairEntry, hairRegistry } from './avatar/hair/hairMotion';
+import { resetRig } from './avatar/hair/hairRig';
 import { beginSeat, motionSeat, newSeatMotion, newSeatPose, presetOf, seatPose, smooth, stepSeat, type SeatPhase } from '../game/interact/seatMotion';
 
 useGLTF.preload(ANIM_LIBRARY);
@@ -44,6 +46,8 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
   useEffect(() => { if (lite) built.holder.traverse((o) => { if ((o as THREE.Mesh).isMesh) { o.castShadow = false; if (o.name.endsWith('_outline')) o.visible = false; } }); }, [built, lite, look]);
   const face = useMemo(() => ({ anim: new FaceAnimator(), expr: new ExpressionLayer(c.id, expressionBus), idx: faceMorphIndex(built.faces) }), [built, c.id]); const badge = useRef<HTMLDivElement>(null);
   const dance = useRef(0);
+  /** hair motion: last root position / location, to detect a travel or respawn */
+  const hairTrack = useRef({ loc: '' as string, x: 0, z: 0 });
   const blob = useRef<THREE.Mesh>(null); const ring = useRef<THREE.Mesh>(null);
   /** seat / bed blend: root goes from `from` to `to` (and the body tilts onto its back when lying), t in s */
   const pose = useRef({ from: new THREE.Vector3(), to: new THREE.Vector3(), t: 0, dur: 0, pitch: 0, bag: 1 });
@@ -82,6 +86,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     animDebug[c.id] = { speed, idle: w.idle, walk: w.walk, run: w.run, walkTS: b.walkTS, runTS: b.runTS, clip: 'loco', mode: motion.profile.classic ? 'classic' : mode };
   };
   useEffect(() => { built.actions.idle.play(); cur.current = 'idle'; return () => { built.mixer.stopAllAction(); }; }, [built]);
+  useEffect(() => () => { delete hairRegistry[c.id]; }, [c.id]);
 
   useFrame((state, dtRaw) => {
     // same frame-time clamp as the analog controller (0.25 s): on a slow device (< 20 fps) the clips and the tap-to-move
@@ -168,6 +173,12 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
     built.holder.position.y = Math.abs(Math.sin(beat)) * 0.035 * k;
     built.holder.rotation.z = Math.sin(beat) * 0.07 * k;
     built.holder.rotation.y = (def.facing === 'negZ' ? Math.PI : 0) + Math.sin(beat / 2) * 0.35 * k;
+    // secondary hair motion: after the mixer, the seated pose and the dance groove (= final head pose), before render.
+    // Held at rest while seated / lying / standing up; static styles (and buns under a hat) have no rig.
+    // A travel / respawn (location change or a jump of the root) snaps the hair to rest instead of whipping it.
+    const hr = built.hair(); const he = hairEntry(c.id, hr); const HT = hairTrack.current;
+    const jumped = world.location !== HT.loc || Math.hypot(s.pos.x - HT.x, s.pos.z - HT.z) > 0.75; HT.loc = world.location; HT.x = s.pos.x; HT.z = s.pos.z;
+    if (hr.rig) { if (jumped) resetRig(hr.rig); driveHair(he, dt, state.camera, state.size.height, state.clock.elapsedTime, { priority: controlled, frozen: s.mode === 'sitting' || s.mode === 'standing' || M.phase !== 'none' || P.pitch > 0.01 }); }
     const lk = P.pitch / LIE_PITCH; // 0 upright … 1 lying
     if (blob.current) { blob.current.scale.setScalar(Math.max(0.001, 1 - lk * 1.6)); blob.current.visible = lk < 0.6; } if (ring.current) ring.current.visible = lk < 0.2;
     // name tag: above the head, also when lying (the group is tilted, so lift it along the body instead)

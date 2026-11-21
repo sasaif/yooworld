@@ -10,12 +10,16 @@ import { resolveLook, hasHat, HAT_MODELS, type RenderSpec } from './spec';
 import { applyHairSheen } from './hairSheen';
 import { buildAccessory, buildBeard, buildHair, buildJacketExtra, buildLegShell } from './builders';
 import type { Prepared } from './source';
+import { attachTie, rigHair, type HairRig } from '../hair/hairRig';
+import { hairMotionPlan } from '../hair/descriptors';
 type GLTFLike = { scene: THREE.Group; animations: THREE.AnimationClip[] };
 /** A customisable avatar instance: the animated body (shared geometry + procedural face morphs, per-instance
  *  composited texture) plus fitted attachments rebuilt by applyLook(). Used by the game and the studio preview. */
 export interface CustomAvatar {
   holder: THREE.Group; root: THREE.Group; mixer: THREE.AnimationMixer; actions: Record<ClipKey, THREE.AnimationAction>; faces: THREE.SkinnedMesh[];
   applyLook(look: Look): void; spec(): RenderSpec | null; dispose(): void;
+  /** secondary hair motion rig of the current hairstyle (null = static style / hat case); rebuilt with the hair */
+  hair(): { rig: HairRig | null; key: string; style: string };
 }
 const mask = { current: null as { size: number; data: Uint8Array } | null };
 export const setAtlasMask = (m: { size: number; data: Uint8Array }) => { mask.current = m; };
@@ -43,7 +47,8 @@ export function buildCustomAvatar(src: Prepared, fem: Prepared, mal: Prepared, l
   const bagMat = new THREE.MeshLambertMaterial({ map: tex, emissive: new THREE.Color('#3b2a30'), emissiveMap: tex });
   const accMat = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 60, specular: new THREE.Color('#5a4a50'), emissive: new THREE.Color('#2a1c22') });
   let live: THREE.Object3D[] = []; let ownGeo: THREE.BufferGeometry[] = []; let ownMat: THREE.Material[] = []; let cur: RenderSpec | null = null; let lastKey = '';
-  const clear = () => { live.forEach((o) => o.removeFromParent()); ownGeo.forEach((g) => g.dispose()); ownMat.forEach((m) => m.dispose()); live = []; ownGeo = []; ownMat = []; };
+  let hairRig: HairRig | null = null; let hairKey = '';
+  const clear = () => { hairRig = null; hairKey = ''; live.forEach((o) => o.removeFromParent()); ownGeo.forEach((g) => g.dispose()); ownMat.forEach((m) => m.dispose()); live = []; ownGeo = []; ownMat = []; };
   const add = (parent: THREE.Object3D, o: THREE.Object3D) => { o.traverse((c) => { const m = c as THREE.Mesh; if (m.isMesh) { m.castShadow = true; m.frustumCulled = false; } }); parent.add(o); live.push(o); return o; };
   function applyLook(look: Look) {
     const spec = resolveLook(look); cur = spec;
@@ -59,8 +64,12 @@ export function buildCustomAvatar(src: Prepared, fem: Prepared, mal: Prepared, l
     const key = JSON.stringify([spec.hair, spec.beard, spec.jacket?.extra, spec.jacket?.color, spec.jacket?.trim, spec.shoes.shaft, spec.shoes.color, spec.acc]);
     if (key === lastKey) return; lastKey = key; clear();
     const hat = hasHat(spec); const wear = spec.acc.find((a) => HAT_MODELS.includes(a.model) || a.model === 'headphones')?.model ?? ''; const hb = buildHair(spec.hair, hat, src, fem, mal, wear);
-    add(attach('Head'), new THREE.Mesh(hb.hair, hairMat));
-    for (const t of hb.ties) { const g = new THREE.TorusGeometry(t.r, 0.006, 6, 16); const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: spec.hairColor === '#ff4fb0' ? '#ffd23f' : '#ff4f9a' })); m.position.copy(t.pos); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), t.axis); ownGeo.push(g); ownMat.push(m.material as THREE.Material); add(attach('Head'), m); }
+    const hairMesh = add(attach('Head'), new THREE.Mesh(hb.hair, hairMat)) as THREE.Mesh;
+    // secondary motion: skinned copy of the hair on virtual spring bones (identical at rest); static styles / hat cases → null
+    const plan = hairMotionPlan(spec.hair, hat, spec.acc.some((a) => a.model === 'headphones'), src, fem);
+    hairRig = plan ? rigHair(hairMesh, plan.desc, plan.opts) : null; hairKey = plan?.key ?? '';
+    if (hairRig) live.push(hairRig.mesh, ...hairRig.bones);
+    for (const t of hb.ties) { const g = new THREE.TorusGeometry(t.r, 0.006, 6, 16); const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: spec.hairColor === '#ff4fb0' ? '#ffd23f' : '#ff4f9a' })); m.position.copy(t.pos); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), t.axis); ownGeo.push(g); ownMat.push(m.material as THREE.Material); add(attach('Head'), m); if (hairRig) attachTie(hairRig, m); }
     const bg = buildBeard(spec.beard, src);
     if (bg) { const m = new THREE.SkinnedMesh(bg, beardMat); m.bind(bm.skeleton, bm.bindMatrix); m.morphTargetInfluences = bm.morphTargetInfluences; m.morphTargetDictionary = bm.morphTargetDictionary; bm.parent!.add(m); live.push(m); ownGeo.push(bg); m.frustumCulled = false; m.castShadow = true; }
     if (spec.jacket && spec.jacket.extra !== 'none') { const g = buildJacketExtra(spec.jacket.extra, spec.jacket.color, spec.jacket.trim, src); ownGeo.push(g); add(attach('Spine2'), new THREE.Mesh(g, accMat)); }
@@ -71,6 +80,6 @@ export function buildCustomAvatar(src: Prepared, fem: Prepared, mal: Prepared, l
       if (b.lens) { ownGeo.push(b.lens.geo); const lm = new THREE.MeshPhongMaterial({ color: b.lens.color, transparent: true, opacity: b.lens.opacity, shininess: 90, side: THREE.DoubleSide, depthWrite: false }); ownMat.push(lm); add(attach(b.bone), new THREE.Mesh(b.lens.geo, lm)); }
     }
   }
-  return { holder, root, mixer, actions, faces, applyLook, spec: () => cur,
+  return { holder, root, mixer, actions, faces, applyLook, spec: () => cur, hair: () => ({ rig: hairRig, key: hairKey, style: cur?.hair ?? '' }),
     dispose() { clear(); tex.dispose(); hairMat.dispose(); bagMat.dispose(); beardMat.dispose(); accMat.dispose(); mixer.stopAllAction(); } };
 }

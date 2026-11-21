@@ -17,7 +17,8 @@ export function Stats() {
       scene.traverse((o) => {
         if (!o.userData.avatarId) return;
         const box = new THREE.Box3(); o.updateWorldMatrix(true, true);
-        o.traverse((m) => { const s = m as THREE.SkinnedMesh; if (s.isSkinnedMesh) { s.computeBoundingBox(); box.union(s.boundingBox!.clone().applyMatrix4(s.matrixWorld)); } });
+        o.traverse((m) => { const s = m as THREE.SkinnedMesh; if (s.isSkinnedMesh && !s.userData.hairMotion) { // the spring hair copy was a rigid mesh before: keep the body metrics unchanged
+           s.computeBoundingBox(); box.union(s.boundingBox!.clone().applyMatrix4(s.matrixWorld)); } });
         if (box.isEmpty()) return;
         let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity; const v = new THREE.Vector3();
         for (let k = 0; k < 8; k++) {
