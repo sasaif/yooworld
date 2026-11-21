@@ -13,7 +13,7 @@ import { keyboardInsetNow } from '../../app/viewportFill';
 import { chatGlassFallback, setChatGlassFallback } from './chatGlass';
 import { installBubbleLayer } from './bubbleLayer';
 import {
-  keyboardPanel, movePanel, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
+  chatLayoutFrom, keyboardPanel, movePanel, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, rightDockRect, stepPanel,
   type PanelPrefs, type PanelViewport, type Rect, type Zone,
 } from './panelLayout';
 import type { ChatMessage } from '../../game/social/social';
@@ -193,6 +193,19 @@ function ChatButton({ opaque, unread, last }: { opaque: boolean; unread: number;
     </button>
   );
 }
+/** Plan B (right-dock): collapsed state = slim vertical tab flush to the right edge (no drag). */
+function ChatDockTab({ opaque, unread, last }: { opaque: boolean; unread: number; last: ChatMessage | undefined }) {
+  const name = last ? speakerName(last.from) : '';
+  return (
+    <button type="button" className={'chat-preview chat-dock-tab' + (opaque ? ' chat-opaque' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
+      aria-label={`Ouvrir le chat${last ? `. Dernier message de ${name} : ${last.text}` : ''}${unread ? `. ${unread} non lus` : ''}`}
+      onClick={() => game.setPanel('chat')}>
+      <span className="chat-fab-ico" aria-hidden>💬</span>
+      <span className="chat-dock-tab-label" aria-hidden>Chat</span>
+      {unread > 0 && <span className="chat-unread" data-unread={unread}>{unread > 99 ? '99+' : unread}</span>}
+    </button>
+  );
+}
 function EmptyTab({ title, body }: { title: string; body: string }) {
   return <div className="chat-empty"><b>{title}</b><p>{body}</p></div>;
 }
@@ -206,6 +219,9 @@ export function ChatHud() {
   const history = useHistory();
   const opaque = useOpaque();
   const open = panel === 'chat';
+  // plan B layout switch (OFF by default: CHAT_LAYOUT_DEFAULT / ?chatLayout=right); read once per mount
+  const [layout] = useState(() => chatLayoutFrom(typeof location !== 'undefined' ? location.search : ''));
+  const right = layout === 'right-dock';
   const { vp, settle } = useViewport(open && ready && mode === 'play');
   const [unread, setUnread] = useState(0);
   const [missedFrom, setMissedFrom] = useState<{ id: string; n: number } | null>(null);
@@ -232,6 +248,12 @@ export function ChatHud() {
   const lastHead = useRef<HeaderBand | null>(null);
   const ghosts = useRef<HeaderBand[]>([]);
 
+  // right-dock: lets the stylesheet keep the joystick visible while the docked chat is open (the column never covers it)
+  useLayoutEffect(() => {
+    if (!right) return;
+    const root = document.documentElement; root.classList.toggle('chat-dock-open', open); root.dataset.chatLayout = 'right-dock';
+    return () => { root.classList.remove('chat-dock-open'); delete root.dataset.chatLayout; };
+  }, [right, open]);
   // speech bubbles keep working whatever the panel does (director tick + de-overlap, ~8 Hz)
   useEffect(() => installBubbleLayer(), []);
   // reception never depends on the panel: count what arrives while it is closed
@@ -268,8 +290,8 @@ export function ChatHud() {
     // threshold (BUG-V7: a settle pass moved the panel +20,+32 under a pending gesture, which then started from a stale
     // rect / the finger was no longer on the header): the skipped pass is replayed when the gesture ends (`regest`)
     if (gesture.current) return;
-    const r = rectFromPrefs(prefs, withAvatar(vp)); setPlaced((o) => (sameRect(o, r) ? o : r));
-  }, [open, vp, prefs, settle, regest]);
+    const r = right ? rightDockRect(vp) : rectFromPrefs(prefs, withAvatar(vp)); setPlaced((o) => (sameRect(o, r) ? o : r));
+  }, [open, vp, prefs, settle, regest, right]);
 
   // remember where the header was painted: a finger aimed at it may be hit-tested after the panel moved (re-place
   // after a HUD / viewport change, a few px), so for a short while the previous header band still starts a drag
@@ -289,7 +311,7 @@ export function ChatHud() {
   });
 
   if (!ready || mode !== 'play') return null;
-  if (!open) return <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
+  if (!open) return right ? <ChatDockTab opaque={opaque} unread={unread} last={history[history.length - 1]} /> : <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
 
   const local = netBadge(game.net.status).tone === 'local';
   const sim = (game.net as { simulated?: boolean }).simulated === true;
@@ -302,13 +324,13 @@ export function ChatHud() {
   const roomLog = history;
 
   // geometry: user rect (persisted) clamped to the viewport and kept off the controls + avatar; keyboard: docked above it
-  const base: Rect | null = vp ? (drag ?? placed ?? rectFromPrefs(prefs, vp)) : null;
-  const rect: Rect | null = base && vp ? (vp.kb ? keyboardPanel(base, vp, vp.vvH, 150, vp.vvTop) : base) : null;
+  const base: Rect | null = vp ? (right ? placed ?? rightDockRect(vp) : drag ?? placed ?? rectFromPrefs(prefs, vp)) : null;
+  const rect: Rect | null = base && vp ? (vp.kb ? keyboardPanel(base, vp, vp.vvH, right ? base.h : 150, vp.vvTop) : base) : null;
   const style = rect ? { left: rect.x, top: rect.y, width: rect.w, height: rect.h, right: 'auto', bottom: 'auto', maxHeight: 'none', margin: 0 } : { visibility: 'hidden' as const };
   // drag handle = the whole header bar except ✕ (BUG-V4); on its buttons (▾ Chat, − +) a drag starts after 6 px, a
   // plain tap stays a tap. Every intermediate and final rect goes through fitPanel (never over a control / avatar).
   const startGesture = (kind: 'move' | 'size') => (e: RPointerEvent<HTMLElement>) => {
-    if (!base || !vp || vp.kb || gesture.current) return;
+    if (right || !base || !vp || vp.kb || gesture.current) return;
     const t = e.target as HTMLElement;
     if (kind === 'move' && t.closest('.x')) return;
     const onButton = kind === 'move' && !!t.closest('button');
@@ -324,7 +346,7 @@ export function ChatHud() {
   // HEAD_GHOST_MS also counts.
   const routeHeader = (e: RPointerEvent<HTMLElement>) => {
     const h = head.current; const t = e.target as HTMLElement;
-    if (!h || h.contains(t) || t.closest('.chat-grip')) return;
+    if (right || !h || h.contains(t) || t.closest('.chat-grip')) return;
     const now = performance.now();
     const bands = [headerBand(h), ...ghosts.current.filter((g) => (g.until ?? 0) > now)];
     if (!bands.some((b) => inHeaderBand(b, e.clientX, e.clientY))) return;
@@ -366,17 +388,22 @@ export function ChatHud() {
   const gestureProps = { onPointerMove: onGesture, onPointerUp: endGesture, onPointerCancel: endGesture };
 
   return (
-    <div ref={sheet} className={'sheet chat-sheet chat-glass chat-vertical' + skin + (drag ? ' dragging' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
+    <div ref={sheet} className={'sheet chat-sheet chat-glass chat-vertical' + (right ? ' chat-right-dock' : '') + skin + (drag ? ' dragging' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
       data-kb={vp?.kb ? '1' : '0'} style={style} role="dialog" aria-label="Chat" onPointerDownCapture={routeHeader} onClickCapture={swallowDragClick}>
-      <span className="chat-grip" role="separator" aria-label="Redimensionner le chat (glisser)" title="Glisser pour agrandir ou réduire"
-        onPointerDown={startGesture('size')} {...gestureProps} />
+      {!right && <span className="chat-grip" role="separator" aria-label="Redimensionner le chat (glisser)" title="Glisser pour agrandir ou réduire"
+        onPointerDown={startGesture('size')} {...gestureProps} />}
+      {right ? <h3 ref={head} className="chat-dock-head">
+        <button type="button" className="chat-fold" onClick={close} aria-expanded="true" aria-label="Réduire le chat">▸ Chat</button>
+        <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? (sim ? 'Mode local · simulation' : 'Mode local · hors ligne') : netBadge(game.net.status).short}</span>
+        <button type="button" className="x" onClick={close} aria-label="Fermer le chat">✕</button>
+      </h3> :
       <h3 ref={head} className="chat-drag" onPointerDown={startGesture('move')} {...gestureProps} onDoubleClick={resetPos} title="Glisser pour déplacer · double-clic : position d’origine">
         <button type="button" className="chat-fold" onClick={close} aria-expanded="true" aria-label="Réduire le chat">▾ Chat</button>
         <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? (sim ? 'Mode local · simulation' : 'Mode local · hors ligne') : netBadge(game.net.status).short}</span>
         <button type="button" className="chat-size" aria-label="Réduire la taille du chat" onClick={() => step(-1)}>−</button>
         <button type="button" className="chat-size" aria-label="Agrandir le chat" onClick={() => step(1)}>+</button>
         <button type="button" className="x" onClick={close} aria-label="Fermer le chat">✕</button>
-      </h3>
+      </h3>}
       <p className={'chat-scope' + (noteOpen ? ' open' : '')} onClick={() => setNoteOpen(!noteOpen)}>
         <span className="chat-loc">📍 {place}</span>
         <span className="chat-players" title={local ? 'Avatars locaux sur cet appareil (pas de joueurs en ligne)' : 'Joueurs présents'}>👥 {who}{local ? ' avatars' : ''}</span>

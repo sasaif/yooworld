@@ -149,3 +149,54 @@ export function parsePrefs(raw: string | null): PanelPrefs | null {
     return ok(p.dr) && ok(p.top) && ok(p.w) && ok(p.h) ? { dr: p.dr!, top: p.top!, w: p.w!, h: p.h! } : null;
   } catch { return null; }
 }
+
+/* ===================== Plan B: 'right-dock' layout (feature/chat-vertical-fallback) =====================
+ * OFF by default. A fixed vertical column flush to the right edge (safe-area aware), under the top HUD chips and above
+ * the dock; no drag / resize, collapses to a slim tab. Enabled only by `?chatLayout=right` or CHAT_LAYOUT_DEFAULT. */
+export type ChatLayout = 'float' | 'right-dock';
+/** single switch for the fallback: keep 'float' (current behaviour) unless the plan B is activated */
+export const CHAT_LAYOUT_DEFAULT: ChatLayout = 'float';
+/** `?chatLayout=right` (or `right-dock`) turns the fallback on, `?chatLayout=float` forces the current panel. */
+export function chatLayoutFrom(search: string, fallback: ChatLayout = CHAT_LAYOUT_DEFAULT): ChatLayout {
+  let v: string | null = null;
+  try { v = new URLSearchParams(search).get('chatLayout'); } catch { v = null; }
+  if (v === 'right' || v === 'right-dock') return 'right-dock';
+  if (v === 'float') return 'float';
+  return fallback;
+}
+/** gap from the right edge (on top of the safe-area inset) */
+export const DOCK_EDGE = 4;
+/** narrowest usable column (header ▾ Chat + ✕, composer input + send) */
+export const DOCK_MIN_W = 148;
+/** column width: ~min(42vw, 260px) in portrait, min(34vw, 260px) in landscape (keeps the scene centre visible) */
+export function dockWidth(vp: Pick<PanelViewport, 'vw' | 'vh'>): number {
+  const k = vp.vw > vp.vh ? 0.34 : 0.42;
+  return Math.max(Math.min(DOCK_MIN_W, vp.vw - 2 * DOCK_EDGE), Math.min(260, Math.round(vp.vw * k)));
+}
+/** Right-dock column: x flush right, top under the top chips, bottom above the dock; every hard zone that shares the
+ *  column trims it (a zone in the lower half raises the bottom, one in the upper half lowers the top), then the column
+ *  narrows from the left if a zone still cuts it. Soft zones (avatar) are ignored: the column never moves. */
+export function rightDockRect(vp: PanelViewport, gap = ZONE_GAP): Rect {
+  const sar = vp.sar ?? 0; const edge = Math.max(DOCK_EDGE, sar);
+  let w = dockWidth(vp); const right = vp.vw - edge;
+  let top = Math.max(PANEL_MARGIN, vp.topMin), bottom = vp.vh - PANEL_MARGIN;
+  const hard = (vp.avoid ?? []).filter((z) => !z.soft);
+  const zones = [...hard];
+  if (vp.dock) zones.push({ l: vp.dock.l, t: vp.dock.t, r: vp.dock.r, b: vp.vh });
+  const mid = vp.vh / 2;
+  for (let pass = 0; pass < 2; pass++) {
+    const x = right - w;
+    for (const z of zones) {
+      if (!(z.r + gap > x && z.l - gap < right)) continue; // not in the column
+      if (z.b + gap <= top || z.t - gap >= bottom) continue;
+      if ((z.t + z.b) / 2 >= mid) bottom = Math.min(bottom, z.t - gap); else top = Math.max(top, z.b + gap);
+    }
+    if (bottom - top >= PANEL_KB_MIN_H + 40) break;
+    // too short: narrow the column to pass beside the zones that cut it, then retry once from the full height
+    const cut = zones.filter((z) => z.l - gap < right && z.r + gap > right - w).map((z) => right - (z.r + gap)).filter((v) => v >= DOCK_MIN_W);
+    if (!cut.length) break;
+    w = Math.min(w, Math.max(...cut)); top = Math.max(PANEL_MARGIN, vp.topMin); bottom = vp.vh - PANEL_MARGIN;
+  }
+  const h = Math.max(Math.min(PANEL_KB_MIN_H, vp.vh - 2 * PANEL_MARGIN), Math.round(bottom - top));
+  return { x: Math.round(right - w), y: Math.round(top), w: Math.round(w), h };
+}

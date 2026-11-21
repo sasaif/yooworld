@@ -294,3 +294,55 @@
 .tagwrap .bubble::after { display: none; }
 /* no tail: clipped by the line clamp; the bubble sits right on its speaker's name tag (clear attribution) */
 @media (prefers-reduced-motion: reduce) { .tagwrap .bubble { transition: opacity .2s; transform: none; } }
+
+/* ===================== Plan B: right-dock layout (OFF by default, ?chatLayout=right) =====================
+ * Fixed column flush right (geometry from panelLayout.rightDockRect, inline style), no drag / resize, larger text,
+ * collapses to a slim tab on the right edge. Nothing below applies unless .chat-right-dock / .chat-dock-tab exist. */
+.sheet.chat-sheet.chat-glass.chat-vertical.chat-right-dock {
+  touch-action: auto; padding: 4px 6px 6px;
+  border-radius: 20px 6px 6px 20px; border-right-width: 1px;
+}
+.chat-right-dock h3.chat-dock-head {
+  flex: none; display: flex; align-items: center; flex-wrap: nowrap; gap: 3px; min-width: 0;
+  margin: 0 0 2px; padding: 0; min-height: 36px; font-size: 13px; white-space: nowrap;
+}
+.chat-right-dock .chat-fold { flex: none; min-height: 30px; font-weight: 800; }
+.chat-right-dock .chat-mode { font-size: 10px; }
+.chat-right-dock h3 .x {
+  flex: none; width: 30px; height: 30px; min-height: 30px; padding: 0; border-radius: 99px; margin-left: auto;
+  border: 1px solid #fff9; background: rgba(255,255,255,.5); color: #5a3070;
+  font: 800 13px/1 system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.chat-right-dock .chat-scope { font-size: 10.5px; }
+.chat-right-dock .chat-tabs { gap: 3px; overflow-x: auto; scrollbar-width: none; }
+.chat-right-dock .chat-tab { flex: 1 1 auto; min-width: 0; padding: 3px 4px; font-size: 11px; text-align: center; white-space: nowrap; }
+.sheet.chat-sheet.chat-glass.chat-vertical.chat-right-dock .chatlog { font-size: 14px; padding: 3px 2px; }
+.chat-right-dock .chat-msg { max-width: 100%; }
+.chat-right-dock .chat-av { width: 20px; height: 20px; font-size: 10px; }
+.chat-right-dock .chat-nm { font-size: 11px; }
+.chat-right-dock .chat-bub { font-size: 14px; line-height: 1.3; padding: 4px 9px; }
+.chat-right-dock .chat-empty b { font-size: 13px; }
+.chat-right-dock .chat-empty p { font-size: 13px; }
+/* composer: narrow column -> icon send button (the label stays for screen readers via aria-label / text) */
+.sheet.chat-sheet.chat-glass.chat-vertical.chat-right-dock .chatbar { gap: 3px; padding: 2px; }
+.sheet.chat-sheet.chat-glass.chat-vertical.chat-right-dock .chatbar .btn { padding: 0; width: 38px; min-height: 36px; font-size: 0; }
+.sheet.chat-sheet.chat-glass.chat-vertical.chat-right-dock .chatbar .btn::after { content: "➤"; font-size: 16px; line-height: 1; }
+.chat-right-dock .chat-tray-btn { width: 30px; height: 30px; }
+.kb-open .chat-right-dock h3.chat-dock-head { min-height: 30px; }
+.kb-open .chat-right-dock .chat-nm { display: block; }
+
+/* collapsed: slim vertical tab flush to the right edge (inside the safe area), mid-height (clear of the top chips and the bottom controls) */
+.chat-preview.chat-dock-tab,
+.chat-preview.chat-dock-tab.chat-opaque {
+  right: var(--sar, 0px); left: auto; top: 50%; bottom: auto; transform: translateY(-50%);
+  max-width: none; width: 34px; min-height: 92px; padding: 8px 0; box-sizing: border-box;
+  flex-direction: column; justify-content: center; gap: 4px;
+  border-radius: 18px 0 0 18px; border-right: 0;
+}
+.chat-dock-tab .chat-fab-ico { font-size: 16px; }
+.chat-dock-tab-label { writing-mode: vertical-rl; transform: rotate(180deg); font: 800 13px system-ui, -apple-system, sans-serif; letter-spacing: .02em; }
+.chat-dock-tab .chat-unread { position: absolute; top: -8px; left: -6px; box-shadow: 0 0 0 2px #fff; }
+
+/* the docked column never covers the joystick (live forbidden zone), so it stays usable while the chat is open */
+.chat-dock-open .joy.panel-open:not(.joy-hidden) { opacity: .82; visibility: visible; pointer-events: auto; }
+.chat-dock-open .joy.panel-open.on:not(.joy-hidden) { opacity: 1; }
