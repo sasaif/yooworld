@@ -293,6 +293,10 @@ for (const [d, small] of want('android') ? [[DEVS[0], 200], [DEVS[1], 190]] : []
   await p.evaluate(() => document.activeElement?.blur());
   await p.setViewportSize({ width: d.w, height: d.h });
   await p.waitForTimeout(900);
+  // the controls fade back in (.joy: opacity .2s transition from 0): on a CPU-starved runner the first computed frame of
+  // the transition can still read opacity 0 after 900 ms -> give it up to 3 s more (same assertion below)
+  await p.waitForFunction(() => { const v = (s) => { const e = document.querySelector(s); if (!e) return false; const cs = getComputedStyle(e); return cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity !== 0; };
+    return !document.documentElement.classList.contains('kb-open') && v('.joy') && v('.dock'); }, null, { timeout: 3000, polling: 100 }).catch(() => {});
   const st = await state(p); const c2 = await composer(p);
   ok(!st.kb && fullyVisible(c2) && st.vis.joy && st.vis.dock, `${d.name}: Android keyboard closed → full height, composer visible, joystick + dock back`, { kb: st.kb, vis: st.vis, c2 });
   await ctx.close();
