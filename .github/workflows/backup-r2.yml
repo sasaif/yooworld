@@ -1,0 +1,140 @@
+# Phase C — encrypted Postgres backup to Cloudflare R2 + restore drill (B4).
+# MANUAL ONLY and INERT until Alessandro sets it up: no schedule, no push trigger; workflow_dispatch only works once
+# the file is on the default branch; every job is gated on a typed confirmation and on GitHub Environments whose
+# secrets do not exist yet (see server/docs/PHASE_C_RUNBOOK.md §5). A `schedule:` trigger is added in Phase C only
+# after a first successful manual run + restore drill.
+name: backup-r2 (manual, Phase C)
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment (uat | prod)'
+        required: true
+        type: choice
+        options: [uat, prod]
+      confirm:
+        description: 'Type RUN-BACKUP to run'
+        required: true
+        type: string
+      restore_drill:
+        description: 'Also restore the fresh backup into a throwaway Postgres and verify it (B4)'
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: backup-${{ inputs.env }}
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: ${{ inputs.confirm == 'RUN-BACKUP' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: backup-${{ inputs.env }}         # secrets: BACKUP_DATABASE_URL (role backup_ro, sslmode=require),
+                                                 # AGE_RECIPIENTS (owner offline key + drill key, space-separated),
+                                                 # R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (bucket-scoped, write-only token)
+    outputs:
+      key: ${{ steps.up.outputs.key }}
+    steps:
+      - name: Tools (pg_dump 17, age)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q && sudo apt-get install -yq postgresql-client-17 age
+      - name: Dump (custom format, consistent snapshot) + manifest
+        env: { DB: '${{ secrets.BACKUP_DATABASE_URL }}' }
+        run: |
+          set -euo pipefail
+          test -n "$DB"
+          /usr/lib/postgresql/17/bin/pg_dump "$DB" -Fc -Z 6 --no-password -f yoland.dump
+          psql "$DB" -XAtc "select json_object_agg(t, n) from (select format('%I.%I', schemaname, relname) t, n_live_tup n from pg_stat_user_tables where schemaname in ('auth','eco','social','prog','mod','audit','app')) x" > manifest.json
+          psql "$DB" -XAtc "select json_build_object('ledger_tx', (select count(*) from eco.ledger_tx), 'ledger_entries', (select count(*) from eco.ledger_entries), 'audit', (select count(*) from audit.log))" > counts.json
+          ls -l yoland.dump
+      - name: Encrypt (age, recipients only — no private key in CI for the backup job)
+        env: { RCP: '${{ secrets.AGE_RECIPIENTS }}' }
+        run: |
+          set -euo pipefail
+          args=(); for r in $RCP; do args+=(-r "$r"); done
+          age "${args[@]}" -o yoland.dump.age yoland.dump && shred -u yoland.dump
+          tar cf meta.tar manifest.json counts.json && age "${args[@]}" -o meta.tar.age meta.tar && rm meta.tar
+      - name: Upload to R2
+        id: up
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          EP: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          key="${{ inputs.env }}/$(date -u +%Y/%m/%d)/yoland-$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          aws s3 cp yoland.dump.age "s3://$BUCKET/$key.dump.age" --endpoint-url "$EP" --only-show-errors
+          aws s3 cp meta.tar.age   "s3://$BUCKET/$key.meta.tar.age" --endpoint-url "$EP" --only-show-errors
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+          sha256sum yoland.dump.age
+
+  restore-drill:
+    needs: backup
+    if: ${{ inputs.restore_drill }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: backup-restore-drill            # REQUIRED REVIEWER: Alessandro. secrets: AGE_DRILL_IDENTITY (drill key only),
+                                                 # R2 read-only token R2_RO_ACCESS_KEY_ID / R2_RO_SECRET_ACCESS_KEY, R2_ACCOUNT_ID, R2_BUCKET
+    services:
+      pg:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: drill-only, POSTGRES_DB: drill }
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v5
+        with: { sparse-checkout: server/db/migrations }
+      - name: Tools
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -q && sudo apt-get install -yq postgresql-client-17 age
+      - name: Download + decrypt
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_RO_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_RO_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          EP: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+          ID: ${{ secrets.AGE_DRILL_IDENTITY }}
+        run: |
+          set -euo pipefail
+          k="${{ needs.backup.outputs.key }}"
+          aws s3 cp "s3://$BUCKET/$k.dump.age" . --endpoint-url "$EP" --only-show-errors
+          aws s3 cp "s3://$BUCKET/$k.meta.tar.age" . --endpoint-url "$EP" --only-show-errors
+          umask 077; printf '%s\n' "$ID" > id.txt
+          age -d -i id.txt -o yoland.dump "$(basename "$k").dump.age"
+          age -d -i id.txt "$(basename "$k").meta.tar.age" | tar x
+          shred -u id.txt
+      - name: Restore into the throwaway database (roles first, then the dump)
+        env: { PGPASSWORD: drill-only }
+        run: |
+          set -euo pipefail
+          U=postgresql://postgres@127.0.0.1:5432/drill
+          psql "$U" -v ON_ERROR_STOP=1 -f server/db/migrations/0001_roles.sql
+          /usr/lib/postgresql/17/bin/pg_restore -d "$U" --exit-on-error --no-password yoland.dump
+      - name: Verify (reconciliation 0, audit chain intact, ledger/audit counts equal)
+        env: { PGPASSWORD: drill-only }
+        run: |
+          set -euo pipefail
+          U=postgresql://postgres@127.0.0.1:5432/drill
+          psql "$U" -XAtc "select eco.recon_summary()" | tee recon.json
+          psql "$U" -XAtc "select audit.verify_chain()" | tee chain.json
+          psql "$U" -XAtc "select json_build_object('ledger_tx', (select count(*) from eco.ledger_tx), 'ledger_entries', (select count(*) from eco.ledger_entries), 'audit', (select count(*) from audit.log))" > counts.restored.json
+          python3 - <<'PY'
+          import json
+          r=json.load(open('recon.json')); c=json.load(open('chain.json'))
+          a=json.load(open('counts.json')); b=json.load(open('counts.restored.json'))
+          bad=[k for k,v in r.items() if isinstance(v,(int,float)) and v!=0]
+          assert not bad, f'reconciliation not zero: {bad}'
+          assert c.get('broken')==0, f'audit chain broken: {c}'
+          assert a==b, f'counts differ: {a} vs {b}'
+          print('RESTORE DRILL OK', a)
+          PY

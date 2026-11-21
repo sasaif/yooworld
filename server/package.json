@@ -1,0 +1,47 @@
+{
+  "name": "@yoland/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "YoLand backend foundation (Phase B, LOCAL ONLY). API Worker + EconomyGate (Postgres SECURITY DEFINER functions).",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "db:start": "node scripts/pg-local.mjs start",
+    "db:stop": "node scripts/pg-local.mjs stop",
+    "db:status": "node scripts/pg-local.mjs status",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:reset": "node scripts/migrate.mjs --reset",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run test/unit",
+    "test:db": "vitest run test/db",
+    "test:security": "vitest run test/security",
+    "test:e2e": "vitest run -c vitest.e2e.config.ts",
+    "dev": "wrangler dev --local",
+    "dev:user": "node scripts/dev-user.mjs"
+  },
+  "dependencies": {
+    "better-auth": "1.7.27",
+    "hono": "^4.13.19",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261120.1",
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "@types/pg-copy-streams": "^1.2.5",
+    "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "^5.1.1",
+    "age-encryption": "^0.3.1",
+    "aws4fetch": "^1.0.20",
+    "embedded-postgres": "^18.7.0-beta.19",
+    "pg-copy-streams": "^7.0.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1",
+    "wrangler": "^4.165.0",
+    "ws": "^8.23.0"
+  }
+}
