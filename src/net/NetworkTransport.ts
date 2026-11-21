@@ -5,7 +5,9 @@ export type NetMessage =
   | { t: 'presence'; playerId: string; name: string; appearance: unknown; x: number; z: number; yaw: number }
   | { t: 'move'; playerId: string; path: [number, number][]; run: boolean }
   | { t: 'sit'; playerId: string; itemUid: string; slot: number }
-  | { t: 'chat'; playerId: string; text: string; at: number }
+  /** `id`: globally unique message id (sender id + counter), used to de-duplicate replays after a reconnect;
+   *  `at`: sender timestamp (ms) used for ordering (a server would stamp its own authoritative time). */
+  | { t: 'chat'; playerId: string; text: string; at: number; id?: string }
   | { t: 'emote'; playerId: string; emote: string }
   | { t: 'furniture'; roomId: string; op: 'place' | 'move' | 'remove' | 'toggle'; payload: unknown }
   | { t: 'leave'; playerId: string };

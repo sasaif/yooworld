@@ -70,6 +70,16 @@ describe('full-screen stage size (mauve band bug)', () => {
 
 import { keyboardInset } from '../src/app/viewportFill';
 import { fullRoomZoom, zoomLimits as zl } from '../src/render/cameraFit';
+describe('Android resizes-content keyboard (layout viewport shrinks)', () => {
+  it('is detected against the pre-focus height, iOS results unchanged', () => {
+    const and = { innerHeight: 200, visualViewport: { height: 200, offsetTop: 0, scale: 1 } };
+    expect(keyboardInset(and, true, 393)).toEqual({ open: true, off: 0, vh: 200, resized: true });
+    expect(keyboardInset(and, true).open).toBe(false); // no pre-focus height: old behaviour
+    expect(keyboardInset(and, false, 393).open).toBe(false); // not typing
+    expect(keyboardInset({ innerHeight: 340, visualViewport: { height: 340, offsetTop: 0, scale: 1 } }, true, 393).open).toBe(false); // toolbar only
+    expect(keyboardInset({ innerHeight: 393, visualViewport: { height: 170, offsetTop: 0, scale: 1 } }, true, 393)).toEqual({ open: true, off: 223, vh: 170 }); // iOS
+  });
+});
 describe('chat above the on-screen keyboard (keyboardInset)', () => {
   it('reports the keyboard height only while typing and when the visual viewport really shrank', () => {
     expect(keyboardInset({ innerHeight: 393, visualViewport: { height: 170, offsetTop: 0, scale: 1 } }, true)).toEqual({ open: true, off: 223, vh: 170 });

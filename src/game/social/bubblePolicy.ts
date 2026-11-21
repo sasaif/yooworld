@@ -1,39 +1,48 @@
-/** Speech-bubble visibility for a busy room (~20 concurrent users).
- *  Pure policy, behind the chat message interface. Does not replace world.say(). */
-export const BUBBLE_CAP = 6;
-export type BubblePriority = 'self' | 'nearby' | 'friends' | 'other';
-export interface BubbleCandidate { id: string; text: string; at: number; priority: BubblePriority }
+import { CHAT_CONFIG } from './chatConfig';
+/** Speech-bubble visibility for a busy room (~20 concurrent users). Pure, neutral policy.
+ *
+ *  Same rules for every speaker: friends get NO priority, non-friends are never hidden for not being friends.
+ *   1. one bubble per avatar (its latest message);
+ *   2. your own message always shows (on your screen; every player gets the same rule on theirs);
+ *   3. bubbles already on screen keep their slot until they expire (no flicker, first come first served);
+ *   4. free slots go to waiting messages by proximity band (nearer first), then arrival order (earlier first);
+ *   5. speakers that are off screen take no slot (there is no space to show them).
+ *  Messages that get no slot are NOT dropped: they are in the chat history and wait in `queued`.
+ *  The cap comes from CHAT_CONFIG.maxVisibleBubbles (single config place). */
+export const BUBBLE_CAP = CHAT_CONFIG.maxVisibleBubbles;
 
-const RANK: Record<BubblePriority, number> = { self: 0, nearby: 1, friends: 2, other: 3 };
-
-/** One bubble per avatar (latest text). Fill the cap in priority order: self > nearby > friends > others.
- *  Leftover "other" avatars collapse (ids returned in `collapsedIds`, to be shown as "…"). */
-export function pickSpeechBubbles(candidates: BubbleCandidate[], cap = BUBBLE_CAP): { shown: BubbleCandidate[]; collapsedIds: string[] } {
-  const latest = new Map<string, BubbleCandidate>();
-  for (const c of candidates) {
-    const prev = latest.get(c.id);
-    if (!prev || c.at >= prev.at) latest.set(c.id, c);
-  }
-  const groups: Record<BubblePriority, BubbleCandidate[]> = { self: [], nearby: [], friends: [], other: [] };
-  for (const c of latest.values()) groups[c.priority].push(c);
-  for (const list of Object.values(groups)) list.sort((a, b) => b.at - a.at);
-
-  const shown: BubbleCandidate[] = [];
-  for (const key of ['self', 'nearby', 'friends'] as const) {
-    for (const c of groups[key]) if (shown.length < cap) shown.push(c);
-  }
-  const others = groups.other;
-  const slots = cap - shown.length;
-  if (others.length <= slots) return { shown: shown.concat(others), collapsedIds: [] };
-  // Keep one slot for a collapse marker when possible so leftover others are represented.
-  if (slots <= 0) return { shown, collapsedIds: others.map((c) => c.id) };
-  const keep = Math.max(0, slots - 1);
-  return { shown: shown.concat(others.slice(0, keep)), collapsedIds: others.slice(keep).map((c) => c.id) };
+export interface BubbleCandidate {
+  id: string; text: string;
+  /** arrival order (monotonic sequence or timestamp) */ seq: number;
+  /** distance to the local player / camera focus, world metres (Infinity when unknown) */ dist: number;
+  /** already displayed (keeps its slot) */ visible?: boolean;
+  /** false = speaker is off screen */ onScreen?: boolean;
 }
+export interface BubblePick { shown: BubbleCandidate[]; queued: BubbleCandidate[]; offscreen: BubbleCandidate[] }
 
-export function bubblePriority(id: string, selfId: string, nearbyIds: readonly string[] = [], friendIds: readonly string[] = []): BubblePriority {
-  if (id === selfId) return 'self';
-  if (nearbyIds.includes(id)) return 'nearby';
-  if (friendIds.includes(id)) return 'friends';
-  return 'other';
+export function pickSpeechBubbles(candidates: readonly BubbleCandidate[], opts: { cap?: number; selfId?: string; bandM?: number } = {}): BubblePick {
+  const cap = Math.max(0, Math.floor(opts.cap ?? CHAT_CONFIG.maxVisibleBubbles));
+  const band = opts.bandM ?? CHAT_CONFIG.proximityBandM;
+  const latest = new Map<string, BubbleCandidate>();
+  for (const c of candidates) { const p = latest.get(c.id); if (!p || c.seq >= p.seq) latest.set(c.id, c); }
+  const all = [...latest.values()];
+  const offscreen = all.filter((c) => c.onScreen === false && c.id !== opts.selfId);
+  const live = all.filter((c) => !(c.onScreen === false && c.id !== opts.selfId));
+  const bandOf = (c: BubbleCandidate) => (Number.isFinite(c.dist) ? Math.floor(Math.max(0, c.dist) / Math.max(1e-6, band)) : Number.MAX_SAFE_INTEGER);
+  const waitOrder = (a: BubbleCandidate, b: BubbleCandidate) => bandOf(a) - bandOf(b) || a.seq - b.seq || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+  const self = live.find((c) => c.id === opts.selfId);
+  const keep = live.filter((c) => c.visible && c !== self).sort((a, b) => a.seq - b.seq);
+  const wait = live.filter((c) => !c.visible && c !== self).sort(waitOrder);
+  const shown: BubbleCandidate[] = [];
+  if (self && cap > 0) shown.push(self);
+  // own message takes a slot: if the screen was full, the farthest / oldest kept bubble gives way (it stays in history)
+  const keepRoom = Math.max(0, cap - shown.length);
+  const kept = keep.length > keepRoom ? [...keep].sort(waitOrder).slice(0, keepRoom) : keep;
+  const bumped = keep.filter((c) => !kept.includes(c));
+  shown.push(...kept);
+  const queued: BubbleCandidate[] = [];
+  for (const c of wait) { if (shown.length < cap) shown.push(c); else queued.push(c); }
+  if (self && cap === 0) queued.unshift(self);
+  return { shown, queued: [...bumped, ...queued].sort(waitOrder), offscreen };
 }

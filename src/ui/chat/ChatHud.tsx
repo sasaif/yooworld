@@ -1,18 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as RMouseEvent, type PointerEvent as RPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
+import { PerspectiveCamera, Vector3, type Camera } from 'three';
 import { useStore } from '../../core/store';
 import { game } from '../../app/services';
-import { storage } from '../../persistence/storage';
+import { chatUi } from '../../persistence/storage';
 import { world } from '../../game/world';
 import { AVATARS } from '../../data/avatars';
 import { locationById } from '../../data/locations';
 import { chatScopeNote, netBadge } from '../../net/netStatus';
 import { QUALITY } from '../../render/quality';
+import { keyboardInsetNow } from '../../app/viewportFill';
 import { chatGlassFallback, setChatGlassFallback } from './chatGlass';
+import { installBubbleLayer } from './bubbleLayer';
+import {
+  keyboardPanel, movePanel, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
+  type PanelPrefs, type PanelViewport, type Rect, type Zone,
+} from './panelLayout';
 import type { ChatMessage } from '../../game/social/social';
 import './chat-glass.css';
 
-const CHAT_COLLAPSED = 'chatCollapsed';
-const writeCollapsed = (v: boolean) => { try { storage.prefs.setItem(CHAT_COLLAPSED, v ? '1' : '0'); } catch { /* private mode */ } };
+/** Option C + Glass Candy, vertical edition: speech bubbles first (above avatars), history second.
+ *  Closed by default (compact Chat button + unread badge); opening shows a narrow vertical panel that can be moved
+ *  (drag the header) and resized (grip / − +), persisted under ywchatui.<env>.panel. Closing never stops reception:
+ *  ChatStore keeps the history and BubbleDirector keeps showing bubbles. */
+const PANEL_KEY = 'panel';
+const readPrefs = () => parsePrefs(chatUi.getItem(PANEL_KEY));
+const writePrefs = (p: PanelPrefs | null) => { if (p) chatUi.setItem(PANEL_KEY, JSON.stringify(p)); else chatUi.removeItem(PANEL_KEY); };
 
 const EMOJIS = ['😊', '✨', '❤️', '🎉', '👋'];
 const STICKERS = [
@@ -21,37 +34,29 @@ const STICKERS = [
   { id: 'wave', glyph: '🌈', label: 'Sticker arc-en-ciel' },
   { id: 'candy', glyph: '🍬', label: 'Sticker bonbon' },
 ];
-
 type Tab = 'room' | 'nearby' | 'friends';
-
 const CANDY = ['pink', 'lav', 'mint', 'sun', 'blue', 'teal'] as const;
-function candyOf(id: string) {
-  let n = 0; for (let i = 0; i < id.length; i++) n = (n + id.charCodeAt(i) * (i + 1)) % CANDY.length;
-  return CANDY[n];
-}
-
+function candyOf(id: string) { let n = 0; for (let i = 0; i < id.length; i++) n = (n + id.charCodeAt(i) * (i + 1)) % CANDY.length; return CANDY[n]; }
+export const speakerName = (id: string) => world.chars[id]?.name ?? game.virtualSpeakers.get(id)?.name ?? id;
 function portrait(from: string, name: string) {
   const av = (AVATARS as Record<string, { tagColor: string } | undefined>)[from];
   const letter = (name || from || '?').trim().charAt(0).toUpperCase() || '?';
   return { letter, color: av?.tagColor ?? '#c9a0d8' };
 }
-
-function localCount() { return Object.keys(world.chars).length; }
+function ChatPortrait({ from, name }: { from: string; name: string }) {
+  const p = portrait(from, name);
+  return <span className="chat-av" style={{ background: p.color }} aria-hidden>{p.letter}</span>;
+}
 
 function useHistory() {
   const [log, setLog] = useState<ChatMessage[]>(() => game.chat.history());
   useEffect(() => game.chat.subscribe(setLog), []);
   return log;
 }
-
 function useOpaque() {
-  const [opaque, setOpaque] = useState(() => chatGlassFallback({
-    quality: QUALITY, search: typeof location !== 'undefined' ? location.search : '', win: typeof window !== 'undefined' ? window : null,
-  }));
+  const [opaque, setOpaque] = useState(() => chatGlassFallback({ quality: QUALITY, search: typeof location !== 'undefined' ? location.search : '', win: typeof window !== 'undefined' ? window : null }));
   useEffect(() => {
-    const apply = () => setOpaque(chatGlassFallback({
-      quality: QUALITY, search: location.search, win: window,
-    }));
+    const apply = () => setOpaque(chatGlassFallback({ quality: QUALITY, search: location.search, win: window }));
     const mq = window.matchMedia?.('(prefers-reduced-transparency: reduce)');
     mq?.addEventListener?.('change', apply);
     const w = window as unknown as { __setChatGlassFallback: typeof setChatGlassFallback };
@@ -62,26 +67,132 @@ function useOpaque() {
   return opaque;
 }
 
-function ChatPortrait({ from, name }: { from: string; name: string }) {
-  const p = portrait(from, name);
-  return <span className="chat-av" style={{ background: p.color }} aria-hidden>{p.letter}</span>;
+interface Vp extends PanelViewport { kb: boolean; vvH: number; vvTop: number }
+/** Controls the panel must never cover (BUG-V1/V2): measured from the live DOM, visible ones only. */
+const CONTROL_SEL = '.joy, .run-btn, .dock, .mood-wrap, .hud-top > *';
+function controlZones(): Zone[] {
+  const out: Zone[] = [];
+  document.querySelectorAll<HTMLElement>(CONTROL_SEL).forEach((e) => {
+    if (e.closest('.chat-sheet')) return;
+    const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return;
+    const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity < 0.05) return;
+    out.push({ l: Math.floor(r.left), t: Math.floor(r.top), r: Math.ceil(r.right), b: Math.ceil(r.bottom) });
+  });
+  return out;
 }
+/** Player-avatar safe area (feet to head + name tag), projected from the 3D position. Snapshotted when the panel is
+ *  placed (open, drag, resize, viewport change), not every frame: the panel never chases the walking avatar. */
+const _pv = new Vector3();
+const _cam = new PerspectiveCamera();
+function avatarZone(): Zone | null {
+  const c = world.chars[game.s.activeChar]; let cam = (window as unknown as { __cam?: Camera }).__cam;
+  if (!c || !cam) return null;
+  // right after a resize / rotation the renderer has not updated the camera aspect yet (slow frames): project with the
+  // current one so the snapshot is not taken from the old screen shape (BUG-V2b)
+  const aspect = innerWidth / Math.max(1, innerHeight);
+  if (cam instanceof PerspectiveCamera && Math.abs(cam.aspect - aspect) > 0.01) { _cam.copy(cam); _cam.aspect = aspect; _cam.updateProjectionMatrix(); cam = _cam; }
+  let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+  for (const [dx, y, dz] of [[-0.45, 0, -0.45], [0.45, 0, 0.45], [-0.45, 0, 0.45], [0.45, 0, -0.45], [-0.45, 1.35, 0], [0.45, 1.35, 0]] as const) {
+    _pv.set(c.pos.x + dx, y, c.pos.z + dz).project(cam); if (_pv.z > 1) return null;
+    const x = (_pv.x + 1) / 2 * innerWidth, yy = (1 - _pv.y) / 2 * innerHeight;
+    l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, yy); b = Math.max(b, yy);
+  }
+  const tag = document.querySelector(`.tagwrap[data-char="${game.s.activeChar}"] .nametag`)?.getBoundingClientRect();
+  if (tag && tag.width) { l = Math.min(l, tag.left); r = Math.max(r, tag.right); t = Math.min(t, tag.top); b = Math.max(b, tag.bottom); }
+  if (r < 0 || b < 0 || l > innerWidth || t > innerHeight) return null;
+  return { l: Math.floor(l - 8), t: Math.floor(t - 8), r: Math.ceil(r + 8), b: Math.ceil(b + 8), soft: true };
+}
+const withAvatar = (v: PanelViewport): PanelViewport => { const a = avatarZone(); return a ? { ...v, avoid: [...(v.avoid ?? []), a] } : v; };
+const zonesKey = (z?: Zone[]) => (z ?? []).map((q) => `${q.l},${q.t},${q.r},${q.b}`).join(';');
+const typingNow = () => { const a = document.activeElement as HTMLElement | null; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
+function measureVp(): Vp {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let topMin = 8;
+  document.querySelectorAll<HTMLElement>('.hud-top > *').forEach((e) => {
+    const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+    if (r.width > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0) topMin = Math.max(topMin, Math.ceil(r.bottom) + 6);
+  });
+  const d = document.querySelector('.dock')?.getBoundingClientRect();
+  const sar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sar')) || 0;
+  const kb = keyboardInsetNow(typingNow());
+  return { vw, vh, topMin, dock: d && d.width ? { l: d.left, r: d.right, t: d.top } : null, sar, kb: kb.open, vvH: kb.vh, vvTop: kb.open ? Math.round(window.visualViewport?.offsetTop ?? 0) : 0, avoid: kb.open ? [] : controlZones() };
+}
+const sameVp = (a: Vp, b: Vp) => a.vw === b.vw && a.vh === b.vh && a.topMin === b.topMin && a.kb === b.kb && a.vvH === b.vvH && a.vvTop === b.vvTop && zonesKey(a.avoid) === zonesKey(b.avoid) && (a.dock?.t ?? 0) === (b.dock?.t ?? 0) && (a.dock?.l ?? 0) === (b.dock?.l ?? 0);
+/** Re-measured on resize / orientation / visual viewport / keyboard / focus and every 400 ms (state only changes when a
+ *  value changed; viewport events commit synchronously, see `now`). BUG-V2b: after a viewport change the controls and the camera (hence the avatar safe area) keep moving
+ *  for a while, so every viewport event also schedules settle passes (next frame, +250 ms, +700 ms, +1400 ms, +2400 ms) that bump
+ *  `settle` -> the panel is re-placed against fresh zones + a fresh avatar snapshot even when nothing in `vp` changed.
+ *  A ResizeObserver on the controls does the same when one of them changes size (wrap, font settle). */
+const SETTLE_MS = [250, 700, 1400, 2400];
+function useViewport(active: boolean) {
+  const [vp, setVp] = useState<Vp | null>(null);
+  const [settle, setSettle] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    let raf = 0, sraf = 0; let timers: number[] = [];
+    const run = () => { raf = 0; const n = measureVp(); setVp((o) => (o && sameVp(o, n) ? o : n)); };
+    const on = () => { if (!raf) raf = requestAnimationFrame(run); };
+    const pass = () => { const n = measureVp(); setVp((o) => (o && sameVp(o, n) ? o : n)); setSettle((k) => k + 1); };
+    // V2b (residual): a viewport event is handled in the frame's rendering steps; going through rAF + a default-priority
+    // React update painted the panel at its old rect on the new screen for one more frame (~200-400 ms on a starved phone).
+    // Measure and commit synchronously so the frame that first shows the new size already shows the re-placed panel.
+    const now = () => { if (raf) { cancelAnimationFrame(raf); raf = 0; } const n = measureVp(); flushSync(() => setVp((o) => (o && sameVp(o, n) ? o : n))); };
+    const onViewport = () => {
+      now();
+      if (!sraf) sraf = requestAnimationFrame(() => { sraf = 0; pass(); });
+      timers.forEach(clearTimeout); timers = SETTLE_MS.map((ms) => window.setTimeout(pass, ms));
+    };
+    run();
+    const t = setInterval(on, 400);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => onViewport()) : null;
+    if (ro) document.querySelectorAll<HTMLElement>(CONTROL_SEL + ', .hud-top').forEach((e) => { if (!e.closest('.chat-sheet')) ro.observe(e); });
+    const vv = window.visualViewport;
+    addEventListener('resize', onViewport); addEventListener('orientationchange', onViewport);
+    vv?.addEventListener('resize', onViewport); vv?.addEventListener('scroll', onViewport);
+    document.addEventListener('focusin', on); document.addEventListener('focusout', on);
+    // V4b (intermittent): the first tap on a phone enters fullscreen (RotateOverlay), and the HUD then drops its ⛶ chip
+    // on its next render -> the top chips get 10 px shorter and the default panel (top = topMin) moves up. The 400 ms
+    // poll let that move land up to 400 ms late, i.e. at a random moment, possibly right under a finger. Re-measure
+    // as soon as fullscreen changes or a top chip is added / removed.
+    document.addEventListener('fullscreenchange', onViewport);
+    const hudTop = document.querySelector('.hud-top');
+    const mo = hudTop && typeof MutationObserver !== 'undefined' ? new MutationObserver(() => onViewport()) : null;
+    if (mo && hudTop) mo.observe(hudTop, { childList: true });
+    return () => {
+      clearInterval(t); if (raf) cancelAnimationFrame(raf); if (sraf) cancelAnimationFrame(sraf); timers.forEach(clearTimeout); ro?.disconnect();
+      document.removeEventListener('fullscreenchange', onViewport); mo?.disconnect();
+      removeEventListener('resize', onViewport); removeEventListener('orientationchange', onViewport);
+      vv?.removeEventListener('resize', onViewport); vv?.removeEventListener('scroll', onViewport);
+      document.removeEventListener('focusin', on); document.removeEventListener('focusout', on);
+    };
+  }, [active]);
+  return { vp, settle };
+}
+/** Header bar rect + its ✕ column (excluded from the drag handle). */
+interface HeaderBand { l: number; t: number; r: number; b: number; xl: number; xr: number; until?: number }
+/** a tap there within this window starts a drag instead of toggling the 📍 note (harmless); long enough for a finger
+ *  already on its way when the header moved a few px */
+const HEAD_GHOST_MS = 1000;
+function headerBand(h: HTMLElement): HeaderBand {
+  const r = h.getBoundingClientRect(); const x = h.querySelector('.x')?.getBoundingClientRect();
+  return { l: r.left, t: r.top, r: r.right, b: r.bottom, xl: x ? x.left : Infinity, xr: x ? x.right : -Infinity };
+}
+const inHeaderBand = (b: HeaderBand, cx: number, cy: number) =>
+  cx >= b.l && cx <= b.r && cy >= b.t && cy <= b.b && !(cx >= b.xl && cx <= b.xr);
+const sameRect = (a: Rect | null, b: Rect | null) => !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
-function ChatPreview({ opaque, unread, last }: { opaque: boolean; unread: number; last: ChatMessage | undefined }) {
-  const name = last ? (world.chars[last.from]?.name ?? last.from) : '';
+function ChatButton({ opaque, unread, last }: { opaque: boolean; unread: number; last: ChatMessage | undefined }) {
+  const name = last ? speakerName(last.from) : '';
   return (
-    <button type="button" className={'chat-preview' + (opaque ? ' chat-opaque' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
-      aria-label={last ? `Ouvrir le chat. Dernier message de ${name} : ${last.text}${unread ? `. ${unread} non lus` : ''}` : 'Ouvrir le chat'}
+    <button type="button" className={'chat-preview chat-fab' + (opaque ? ' chat-opaque' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
+      aria-label={`Ouvrir le chat${last ? `. Dernier message de ${name} : ${last.text}` : ''}${unread ? `. ${unread} non lus` : ''}`}
       onClick={() => game.setPanel('chat')}>
-      {last ? <>
-        <ChatPortrait from={last.from} name={name} />
-        <span className="chat-preview-line"><b>{name}</b> · {last.text}</span>
-      </> : <span className="chat-preview-line">💬 Chat</span>}
-      {unread > 0 && <span className="chat-unread">{unread > 99 ? '99+' : unread}</span>}
+      <span className="chat-fab-ico" aria-hidden>💬</span>
+      <span className="chat-preview-line">Chat</span>
+      {unread > 0 && <span className="chat-unread" data-unread={unread}>{unread > 99 ? '99+' : unread}</span>}
     </button>
   );
 }
-
 function EmptyTab({ title, body }: { title: string; body: string }) {
   return <div className="chat-empty"><b>{title}</b><p>{body}</p></div>;
 }
@@ -94,64 +205,182 @@ export function ChatHud() {
   const active = useStore(game.store, (s) => s.activeChar);
   const history = useHistory();
   const opaque = useOpaque();
+  const open = panel === 'chat';
+  const { vp, settle } = useViewport(open && ready && mode === 'play');
   const [unread, setUnread] = useState(0);
+  const [missedFrom, setMissedFrom] = useState<{ id: string; n: number } | null>(null);
   const [msg, setMsg] = useState('');
   const [tab, setTab] = useState<Tab>('room');
   const [noteOpen, setNoteOpen] = useState(false);
-  const [stickers, setStickers] = useState(false);
-  const [freshAt, setFreshAt] = useState(0);
-  const open = panel === 'chat';
+  const [tray, setTray] = useState(false);
+  const [freshId, setFreshId] = useState('');
+  const [prefs, setPrefs] = useState<PanelPrefs | null>(() => readPrefs());
+  const [drag, setDrag] = useState<Rect | null>(null);
   const openRef = useRef(open); openRef.current = open;
+  const unreadRef = useRef(0); unreadRef.current = unread;
   const log = useRef<HTMLDivElement>(null);
+  const sheet = useRef<HTMLDivElement>(null);
+  const head = useRef<HTMLHeadingElement>(null);
   const pinned = useRef(true);
-  const inputRef = useRef<HTMLInputElement>(null);
+  // `last` = the latest rect of this gesture, kept in the ref (not only in the `drag` state): see endGesture
+  const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number; vp: PanelViewport; pending: boolean; el: HTMLElement; last: Rect | null } | null>(null);
+  const eatClick = useRef(false);
+  const swallowUntil = useRef(0);
+  const [placed, setPlaced] = useState<Rect | null>(null);
+  const [regest, setRegest] = useState(0); // bumped when a gesture ends -> re-place against the current zones
+  // header rects painted during the last HEAD_GHOST_MS (see routeHeader / BUG-V4b intermittent)
+  const lastHead = useRef<HeaderBand | null>(null);
+  const ghosts = useRef<HeaderBand[]>([]);
 
+  // speech bubbles keep working whatever the panel does (director tick + de-overlap, ~8 Hz)
+  useEffect(() => installBubbleLayer(), []);
+  // reception never depends on the panel: count what arrives while it is closed
   useEffect(() => game.chat.onMessage((m) => {
-    if (!openRef.current) setUnread((n) => n + 1);
-    if (m.at) setFreshAt(m.at);
+    if (!openRef.current && !m.local) setUnread((n) => n + 1);
+    setFreshId(m.id);
   }), []);
-
   useEffect(() => {
-    if (open) { setUnread(0); writeCollapsed(false); setTab('room'); }
-    else writeCollapsed(true);
+    if (open) {
+      const n = unreadRef.current; const h = game.chat.history();
+      setMissedFrom(n > 0 && h.length ? { id: h[Math.max(0, h.length - n)].id, n } : null);
+      setUnread(0); setTab('room'); pinned.current = true;
+    } else { setTray(false); setDrag(null); }
   }, [open]);
-
-  useEffect(() => { const el = log.current; if (el && pinned.current) el.scrollTop = el.scrollHeight; });
+  useLayoutEffect(() => {
+    const el = log.current; if (!el || !pinned.current) return;
+    const mark = missedFrom && el.querySelector<HTMLElement>('.chat-missed');
+    el.scrollTop = el.scrollHeight;
+    if (mark && open && unread === 0 && el.dataset.missedShown !== missedFrom.id) { el.dataset.missedShown = missedFrom.id; el.scrollTop = Math.max(0, mark.offsetTop - 4); pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8; }
+  });
+  // keyboard opens / closes: the card changes height -> keep the newest message in view
+  useEffect(() => { const el = log.current; if (el && vp) { pinned.current = true; el.scrollTop = el.scrollHeight; } }, [vp?.kb]);
   useEffect(() => {
     const el = log.current; if (!el || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(() => { if (pinned.current) el.scrollTop = el.scrollHeight; });
     ro.observe(el); return () => ro.disconnect();
   }, [open]);
 
+  // (re)place on open, load, resize / rotation, control changes and after each saved gesture (BUG-V2): the saved rect is
+  // re-clamped against the current viewport and forbidden zones (incl. the avatar at that moment); never saved here
+  useLayoutEffect(() => {
+    if (!open || !vp || vp.kb) { if (!open) setPlaced(null); return; }
+    // never yank the panel from under the finger, including a finger still resting on ▾ Chat / − / + before the 6 px
+    // threshold (BUG-V7: a settle pass moved the panel +20,+32 under a pending gesture, which then started from a stale
+    // rect / the finger was no longer on the header): the skipped pass is replayed when the gesture ends (`regest`)
+    if (gesture.current) return;
+    const r = rectFromPrefs(prefs, withAvatar(vp)); setPlaced((o) => (sameRect(o, r) ? o : r));
+  }, [open, vp, prefs, settle, regest]);
+
+  // remember where the header was painted: a finger aimed at it may be hit-tested after the panel moved (re-place
+  // after a HUD / viewport change, a few px), so for a short while the previous header band still starts a drag
+  useLayoutEffect(() => {
+    const h = head.current; const now = performance.now();
+    ghosts.current = ghosts.current.filter((g) => (g.until ?? 0) > now);
+    if (!h) { lastHead.current = null; return; }
+    const cur = headerBand(h);
+    const o = lastHead.current;
+    if (o && (Math.abs(o.l - cur.l) > 0.5 || Math.abs(o.t - cur.t) > 0.5 || Math.abs(o.r - cur.r) > 0.5 || Math.abs(o.b - cur.b) > 0.5)) {
+      // the old band stays on screen until the move is painted: start the window at that paint (next frame), not at
+      // the commit (on a loaded phone commit -> paint can take a few hundred ms)
+      const g: HeaderBand = { ...o, until: now + HEAD_GHOST_MS }; ghosts.current.push(g);
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => { g.until = Math.max(g.until ?? 0, performance.now() + HEAD_GHOST_MS); });
+    }
+    lastHead.current = cur;
+  });
+
   if (!ready || mode !== 'play') return null;
+  if (!open) return <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
 
   const local = netBadge(game.net.status).tone === 'local';
+  const sim = (game.net as { simulated?: boolean }).simulated === true;
   const note = chatScopeNote(game.net.status);
   const place = locationById(loc)?.name ?? loc;
-  const who = localCount();
+  const who = Object.keys(world.chars).length;
   const skin = opaque ? ' chat-opaque' : '';
-
-  if (!open) return <ChatPreview opaque={opaque} unread={unread} last={history[history.length - 1]} />;
-
   const close = () => game.setPanel(null);
-  const send = (text: string) => { const t = text.trim(); if (!t) return; game.sendChat(t); setMsg(''); setStickers(false); };
-  const roomLog = history.slice(-40);
+  const send = (text: string) => { const t = text.trim(); if (!t) return; game.sendChat(t); setMsg(''); setTray(false); pinned.current = true; };
+  const roomLog = history;
+
+  // geometry: user rect (persisted) clamped to the viewport and kept off the controls + avatar; keyboard: docked above it
+  const base: Rect | null = vp ? (drag ?? placed ?? rectFromPrefs(prefs, vp)) : null;
+  const rect: Rect | null = base && vp ? (vp.kb ? keyboardPanel(base, vp, vp.vvH, 150, vp.vvTop) : base) : null;
+  const style = rect ? { left: rect.x, top: rect.y, width: rect.w, height: rect.h, right: 'auto', bottom: 'auto', maxHeight: 'none', margin: 0 } : { visibility: 'hidden' as const };
+  // drag handle = the whole header bar except ✕ (BUG-V4); on its buttons (▾ Chat, − +) a drag starts after 6 px, a
+  // plain tap stays a tap. Every intermediate and final rect goes through fitPanel (never over a control / avatar).
+  const startGesture = (kind: 'move' | 'size') => (e: RPointerEvent<HTMLElement>) => {
+    if (!base || !vp || vp.kb || gesture.current) return;
+    const t = e.target as HTMLElement;
+    if (kind === 'move' && t.closest('.x')) return;
+    const onButton = kind === 'move' && !!t.closest('button');
+    if (!onButton) { e.preventDefault(); try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* pointer already gone */ } }
+    e.stopPropagation();
+    gesture.current = { kind, x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: onButton, el: e.currentTarget as HTMLElement, last: null };
+  };
+  // BUG-V4b: with touch, the bottom ~4 px of the 44 px header is retargeted (touch adjustment) to the 📍 line under
+  // it, so the header's own handler never sees it. Route every pointerdown that lands geometrically inside the header
+  // (except ✕ and the resize grip) to the move gesture, whatever element the browser picked as the target.
+  // Intermittent V4b: the panel can be re-placed a few px between the frame the finger aimed at and the hit test
+  // (the HUD drops its ⛶ chip after the first tap enters fullscreen) -> the header painted in the last
+  // HEAD_GHOST_MS also counts.
+  const routeHeader = (e: RPointerEvent<HTMLElement>) => {
+    const h = head.current; const t = e.target as HTMLElement;
+    if (!h || h.contains(t) || t.closest('.chat-grip')) return;
+    const now = performance.now();
+    const bands = [headerBand(h), ...ghosts.current.filter((g) => (g.until ?? 0) > now)];
+    if (!bands.some((b) => inHeaderBand(b, e.clientX, e.clientY))) return;
+    if (!base || !vp || vp.kb || gesture.current) return;
+    e.preventDefault(); e.stopPropagation();
+    try { h.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
+    eatClick.current = true; // the retargeted element (📍 line toggles the note) must not get the click
+    gesture.current = { kind: 'move', x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: false, el: h, last: null };
+  };
+  /** the gesture's rect for a pointer position (null while a button press is still under the 6 px threshold) */
+  const gestureRect = (g: NonNullable<typeof gesture.current>, cx: number, cy: number, capture: boolean): Rect | null => {
+    const dx = cx - g.x, dy = cy - g.y;
+    if (g.pending) { if (dx * dx + dy * dy < 36) return null; g.pending = false; eatClick.current = true; if (capture) { try { g.el.setPointerCapture?.(g.id); } catch { /* touch: implicit capture */ } } }
+    g.last = g.kind === 'move' ? movePanel(g.start, dx, dy, g.vp) : resizePanel(g.start, dx, dy, g.vp);
+    return g.last;
+  };
+  const onGesture = (e: RPointerEvent<HTMLElement>) => {
+    const g = gesture.current; if (!g || g.id !== e.pointerId) return;
+    const r = gestureRect(g, e.clientX, e.clientY, true); if (r) setDrag(r);
+  };
+  // BUG-V4b residual (first drag after entering fullscreen): touch moves are frame-aligned, pointerup is not. On a slow
+  // frame (the one right after fullscreen, a loaded phone) the moves AND the pointerup can all be dispatched before
+  // React re-renders, so this handler's `drag` (render-time state) was still null -> the drop was not saved and the
+  // panel snapped back as if the finger never dragged. The drop is now taken from the gesture itself (ref + the
+  // pointerup position), never from the render closure.
+  const endGesture = (e: RPointerEvent<HTMLElement>) => {
+    const g = gesture.current; if (!g || g.id !== e.pointerId) return;
+    gesture.current = null;
+    const end = e.type === 'pointerup' ? gestureRect(g, e.clientX, e.clientY, false) ?? g.last : g.last;
+    if (!g.pending && end && vp) { const p = prefsFromRect(end, vp); setPrefs(p); setPlaced(end); writePrefs(p); }
+    setDrag(null); setRegest((k) => k + 1);
+    // the click that follows a drag / a retargeted header tap can come well after pointerup on slow touch devices (a
+    // fixed 60 ms timer let it through): swallow the next click for 400 ms instead
+    if (eatClick.current) { eatClick.current = false; swallowUntil.current = performance.now() + 400; }
+  };
+  const swallowDragClick = (e: RMouseEvent<HTMLElement>) => { if (eatClick.current || performance.now() < swallowUntil.current) { eatClick.current = false; swallowUntil.current = 0; e.preventDefault(); e.stopPropagation(); } };
+  const step = (dir: -1 | 1) => { if (!base || !vp) return; const r = stepPanel(base, dir, withAvatar(vp)); const p = prefsFromRect(r, vp); setPrefs(p); setPlaced(r); writePrefs(p); };
+  const resetPos = () => { setPrefs(null); writePrefs(null); };
+  const gestureProps = { onPointerMove: onGesture, onPointerUp: endGesture, onPointerCancel: endGesture };
 
   return (
-    <div className={'sheet chat-sheet chat-glass' + skin} data-chat-glass={opaque ? 'opaque' : 'filter'}>
-      <h3>
+    <div ref={sheet} className={'sheet chat-sheet chat-glass chat-vertical' + skin + (drag ? ' dragging' : '')} data-chat-glass={opaque ? 'opaque' : 'filter'}
+      data-kb={vp?.kb ? '1' : '0'} style={style} role="dialog" aria-label="Chat" onPointerDownCapture={routeHeader} onClickCapture={swallowDragClick}>
+      <span className="chat-grip" role="separator" aria-label="Redimensionner le chat (glisser)" title="Glisser pour agrandir ou réduire"
+        onPointerDown={startGesture('size')} {...gestureProps} />
+      <h3 ref={head} className="chat-drag" onPointerDown={startGesture('move')} {...gestureProps} onDoubleClick={resetPos} title="Glisser pour déplacer · double-clic : position d’origine">
         <button type="button" className="chat-fold" onClick={close} aria-expanded="true" aria-label="Réduire le chat">▾ Chat</button>
-        <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? 'Mode local · hors ligne' : netBadge(game.net.status).short}</span>
-        <button className="x" onClick={close}>✕</button>
+        <span className={'chat-mode net-' + netBadge(game.net.status).tone}>{local ? (sim ? 'Mode local · simulation' : 'Mode local · hors ligne') : netBadge(game.net.status).short}</span>
+        <button type="button" className="chat-size" aria-label="Réduire la taille du chat" onClick={() => step(-1)}>−</button>
+        <button type="button" className="chat-size" aria-label="Agrandir le chat" onClick={() => step(1)}>+</button>
+        <button type="button" className="x" onClick={close} aria-label="Fermer le chat">✕</button>
       </h3>
-      <div className="chat-head">
-        <div className="chat-loc">📍 {place}</div>
-        <div className="chat-players" title={local ? 'Avatars locaux sur cet appareil (pas de joueurs en ligne)' : 'Joueurs présents'}>
-          👥 {who}{local ? ' avatars' : ' joueurs'}
-        </div>
-      </div>
       <p className={'chat-scope' + (noteOpen ? ' open' : '')} onClick={() => setNoteOpen(!noteOpen)}>
-        {local && !noteOpen ? 'Visible seulement sur cet appareil.' : note}
+        <span className="chat-loc">📍 {place}</span>
+        <span className="chat-players" title={local ? 'Avatars locaux sur cet appareil (pas de joueurs en ligne)' : 'Joueurs présents'}>👥 {who}{local ? ' avatars' : ''}</span>
+        <span className="chat-note">{local && !noteOpen ? 'Visible seulement sur cet appareil.' : note}</span>
         {local && <span className="more">{noteOpen ? ' ▴' : ' ⓘ'}</span>}
       </p>
       <div className="chat-tabs" role="tablist" aria-label="Filtrer le chat">
@@ -159,44 +388,36 @@ export function ChatHud() {
         <button type="button" role="tab" aria-selected={tab === 'nearby'} className={'chat-tab' + (tab === 'nearby' ? ' on' : '')} onClick={() => setTab('nearby')}>Proches</button>
         <button type="button" role="tab" aria-selected={tab === 'friends'} className={'chat-tab' + (tab === 'friends' ? ' on' : '')} onClick={() => setTab('friends')}>Amis</button>
       </div>
-      <div className="chatlog" ref={log} onScroll={(e) => { const el = e.currentTarget; pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8; }}>
+      <div className="chatlog" ref={log} aria-live="polite" onScroll={(e) => { const el = e.currentTarget; pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 8; }}>
         {tab === 'nearby' && <EmptyTab title="Aucun joueur à proximité" body="Le mode local n’affiche que tes avatars sur cet appareil. Les proches arriveront avec le multijoueur." />}
         {tab === 'friends' && <EmptyTab title="Aucun ami pour l’instant" body="La liste d’amis n’est pas encore branchée. Rien n’est inventé." />}
-        {tab === 'room' && roomLog.map((m, i) => {
-          const name = world.chars[m.from]?.name ?? m.from;
-          const mine = m.from === active;
-          const fresh = m.at === freshAt && i === roomLog.length - 1;
+        {tab === 'room' && roomLog.length === 0 && <EmptyTab title="Pas encore de message" body="Écris un mot : il s’affiche au-dessus de ton avatar." />}
+        {tab === 'room' && roomLog.map((m) => {
+          const name = speakerName(m.from);
+          const mine = m.local && m.from === active;
           return (
-            <div key={(m.at || i) + '-' + i} className={'chat-msg c-' + candyOf(m.from) + (mine ? ' mine' : '') + (fresh ? ' new' : '')} dir="auto">
-              <ChatPortrait from={m.from} name={name} />
-              <div className="chat-col">
-                <div className="chat-nm">{name}</div>
-                <div className="chat-bub"><bdi>{m.text}</bdi></div>
+            <div key={m.id} data-id={m.id} className="chat-row">
+              {missedFrom?.id === m.id && <div className="chat-missed" role="note">{missedFrom.n} message{missedFrom.n > 1 ? 's' : ''} manqué{missedFrom.n > 1 ? 's' : ''}</div>}
+              <div className={'chat-msg c-' + candyOf(m.from) + (mine ? ' mine' : '') + (m.id === freshId ? ' new' : '')} dir="auto">
+                <ChatPortrait from={m.from} name={name} />
+                <div className="chat-col">
+                  <div className="chat-nm">{name}</div>
+                  <div className="chat-bub"><bdi>{m.text}</bdi></div>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
-      <div className="quick chat-emoji">
-        {EMOJIS.map((e) => <button type="button" key={e} aria-label={`Emoji ${e}`} onClick={() => setMsg((t) => (t + e).slice(0, 200))}>{e}</button>)}
-        <button type="button" className="chat-sticker-btn" aria-expanded={stickers} aria-label="Stickers" onClick={() => setStickers((v) => !v)}>
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-            <rect x="1" y="1.5" width="10.5" height="10.5" rx="2.2" fill="#ffb4e0" stroke="#6a2070" strokeWidth="1.1" />
-            <circle cx="5" cy="6.2" r=".8" fill="#6a2070" />
-            <circle cx="8.2" cy="6.2" r=".8" fill="#6a2070" />
-            <path d="M4.6 8.6c1 1.2 2.8 1.2 3.8 0" fill="none" stroke="#6a2070" strokeWidth="1" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-      {stickers && (
-        <div className="chat-stickers" role="menu" aria-label="Stickers">
-          {STICKERS.map((s) => (
-            <button type="button" key={s.id} role="menuitem" aria-label={s.label} onClick={() => { send(s.glyph); }}>{s.glyph}</button>
-          ))}
+      {tray && (
+        <div className="chat-tray" role="menu" aria-label="Emojis et stickers">
+          {EMOJIS.map((e) => <button type="button" key={e} role="menuitem" aria-label={`Emoji ${e}`} onClick={() => setMsg((t) => (t + e).slice(0, 200))}>{e}</button>)}
+          {STICKERS.map((s) => <button type="button" key={s.id} role="menuitem" className="sticker" aria-label={s.label} onClick={() => send(s.glyph)}>{s.glyph}</button>)}
         </div>
       )}
       <form className="chatbar" onSubmit={(e) => { e.preventDefault(); send(msg); }}>
-        <input ref={inputRef} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Écrire un message…" maxLength={200} dir="auto" />
+        <button type="button" className="chat-tray-btn" aria-expanded={tray} aria-label="Emojis et stickers" onClick={() => setTray((v) => !v)}>😊</button>
+        <input value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Écrire…" maxLength={200} dir="auto" enterKeyHint="send" />
         <button className="btn primary" type="submit">Envoyer</button>
       </form>
     </div>

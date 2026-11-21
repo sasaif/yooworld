@@ -178,7 +178,8 @@ for (const d of DEVS) {
   ok(histComp.input.ok && histComp.send.ok, `${d.name} history: input + Envoyer 100 % visible (in viewport, not covered)`, histComp);
   if (d.name === 'iphoneSE') {
     const lines = await headerLines(p);
-    ok(lines.h3 === 1 && lines.mode === 1 && lines.fold === 1 && lines.h <= 34, 'iphoneSE history: header is 1 line', lines);
+    // one line of text; the bar itself is the 44 px drag handle since BUG-V4 (was ≤ 34 px before the handle)
+    ok(lines.h3 === 1 && lines.mode === 1 && lines.fold === 1 && lines.h <= 46, 'iphoneSE history: header is 1 line (44 px drag-handle bar)', lines);
   }
   if (d.name === 'iphone15') drawsHistory = histSheet.calls;
   if (d.name === 'iphone15') ok(histSheet.vis.run === true, 'iphone15 history: Run stays visible while compact chat is open');

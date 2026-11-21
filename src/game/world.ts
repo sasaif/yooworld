@@ -33,7 +33,11 @@ export function goTo(id: string, p: THREE.Vector3, opts: { seat?: Seat; run?: bo
   if (c.mode === 'sitting') c.mode = 'standing';
   return true;
 }
-export function say(id: string, text: string, ms = 6000) { const c = world.chars[id]; if (c) c.say = { text, until: performance.now() + ms }; }
+/** Speech bubbles: when a gate is installed (GameController -> BubbleDirector) every say() goes through the bubble cap
+ *  and the neutral display policy (game/social/bubblePolicy.ts); without one (unit tests) it writes the slot directly. */
+let sayGate: ((id: string, text: string, ms: number) => void) | null = null;
+export function setSayGate(gate: ((id: string, text: string, ms: number) => void) | null) { sayGate = gate; }
+export function say(id: string, text: string, ms = 6000) { if (sayGate) { sayGate(id, text, ms); return; } const c = world.chars[id]; if (c) c.say = { text, until: performance.now() + ms }; }
 /** Put a character down at a spot (travel / spawn): stops any walk, sit or dance. */
 export function placeChar(id: string, p: THREE.Vector3, yaw: number) {
   const c = world.chars[id]; if (!c) return;

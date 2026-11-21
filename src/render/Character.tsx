@@ -183,7 +183,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       const next = F.shift + (want - F.shift) * Math.min(1, dt * 14);
       if (Math.abs(next - F.shift) > 0.3 || (want === 0 && F.shift !== 0 && Math.abs(next) < 0.3)) { F.shift = Math.abs(next) < 0.3 ? 0 : next; el.style.transform = F.shift ? `translateY(${F.shift.toFixed(1)}px)` : ''; }
     }
-    if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on) bubble.current.textContent = s.say!.text; }
+    if (bubble.current) { const on = !!s.say && s.say.until > performance.now(); bubble.current.style.opacity = on ? '1' : '0'; if (on && bubble.current.textContent !== s.say!.text) bubble.current.textContent = s.say!.text; }
   });
 
   return (
@@ -194,7 +194,7 @@ export function Character({ c, def, look, selected, onSelect, controlled = false
       {selected && <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={0.012}><ringGeometry args={[0.24, 0.29, 40]} /><meshBasicMaterial color={def.tagColor} transparent opacity={0.85} depthWrite={false} /></mesh>}
       <group ref={tag} position-y={1.12}>
         <Html center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="tagwrap">
+          <div className="tagwrap" data-char={c.id}>
             <div ref={badge} className="expr-badge" aria-hidden="true" />
             <div ref={bubble} className="bubble" />
             <div ref={nameEl} className={'nametag' + (tagClass ? ' ' + tagClass : '')} style={{ background: def.tagColor }}>{c.name}{!controlled && <span className="npc" title="Personnage local de test (pas un joueur en ligne)">{npcLabel}</span>}</div>

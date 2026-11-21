@@ -21,11 +21,25 @@ export function appViewport(win: Pick<Window, 'innerWidth' | 'innerHeight'> & { 
  * focus and the visual viewport is clearly shorter than the window, report how far the keyboard covers the bottom of the
  * stage (`off`) and the visible height (`vh`), so the chat card can sit right above the keyboard.
  */
-export function keyboardInset(win: Pick<Window, 'innerHeight'> & { visualViewport?: { height: number; offsetTop?: number; scale?: number } | null }, typing: boolean) {
+export function keyboardInset(win: Pick<Window, 'innerHeight'> & { visualViewport?: { height: number; offsetTop?: number; scale?: number } | null }, typing: boolean, restH = 0): { open: boolean; off: number; vh: number; resized?: true } {
   const vv = win.visualViewport; if (!typing || !vv || Math.abs((vv.scale ?? 1) - 1) > 0.01) return { open: false, off: 0, vh: win.innerHeight };
   const off = Math.max(0, Math.round(win.innerHeight - (vv.offsetTop ?? 0) - vv.height));
-  return off > 80 ? { open: true, off, vh: Math.round(vv.height) } : { open: false, off: 0, vh: win.innerHeight };
+  if (off > 80) return { open: true, off, vh: Math.round(vv.height) };
+  // Android 'resizes-content': the keyboard shrinks the LAYOUT viewport (innerHeight drops, visualViewport.height ≈
+  // innerHeight, so `off` ≈ 0). Detected against the height measured before the field got the focus (`restH`).
+  if (restH - win.innerHeight > 80) return { open: true, off: 0, vh: Math.round(Math.min(vv.height, win.innerHeight)), resized: true };
+  return { open: false, off: 0, vh: win.innerHeight };
 }
+/** Layout height while no field has the focus (per width = per orientation), for the resizes-content check above.
+ *  Touch devices only (a desktop window resized while typing is not a keyboard). iOS never shrinks innerHeight for the
+ *  keyboard, so its path is unchanged. */
+let rest = { w: 0, h: 0 };
+const coarse = () => { try { return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; } catch { return false; } };
+export function keyboardInsetNow(typing: boolean) {
+  if (!typing || rest.w !== window.innerWidth) rest = { w: window.innerWidth, h: window.innerHeight };
+  return keyboardInset(window, typing, coarse() ? rest.h : 0);
+}
+
 /** Chat card layout while the keyboard is up, from the visible height (px): 'normal' = header + recent messages + input,
  *  'tight' (< 125 px) = recent message line + input (header hidden until the keyboard closes), 'min' (< 90 px) = input only. */
 export function keyboardLayout(open: boolean, vh: number): 'none' | 'normal' | 'tight' | 'min' { return !open ? 'none' : vh < 90 ? 'min' : vh < 125 ? 'tight' : 'normal'; }
@@ -36,7 +50,7 @@ export function installViewportFill() {
   const root = document.documentElement; let raf = 0; const timers: ReturnType<typeof setTimeout>[] = [];
   const apply = () => {
     raf = 0; const { w, h } = appViewport(window);
-    const kb = keyboardInset(window, typingNow());
+    const kb = keyboardInsetNow(typingNow());
     root.classList.toggle('kb-open', kb.open); const lay = keyboardLayout(kb.open, kb.vh); root.classList.toggle('kb-tight', lay === 'tight' || lay === 'min'); root.classList.toggle('kb-min', lay === 'min'); root.style.setProperty('--kb-off', kb.off + 'px'); root.style.setProperty('--vv-h', kb.vh + 'px');
     // while the keyboard is up, the stage keeps its full height (the card moves above the keyboard instead) and Safari's
     // own scroll to the focused field is left alone

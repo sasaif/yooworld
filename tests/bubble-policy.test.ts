@@ -1,55 +1,60 @@
 import { describe, expect, it } from 'vitest';
-import { BUBBLE_CAP, bubblePriority, pickSpeechBubbles, type BubbleCandidate } from '../src/game/social/bubblePolicy';
+import { BUBBLE_CAP, pickSpeechBubbles, type BubbleCandidate } from '../src/game/social/bubblePolicy';
+import { CHAT_CONFIG, bubbleCapFromSearch, bubbleDurationMs } from '../src/game/social/chatConfig';
 
-const c = (id: string, priority: BubbleCandidate['priority'], at: number, text = id): BubbleCandidate => ({ id, text, at, priority });
+const c = (id: string, seq: number, dist: number, extra: Partial<BubbleCandidate> = {}): BubbleCandidate => ({ id, text: id, seq, dist, ...extra });
+const ids = (l: BubbleCandidate[]) => l.map((x) => x.id);
 
-describe('speech-bubble cap (~20 users)', () => {
-  it('keeps the cap at 6 and prefers self > nearby > friends > others', () => {
-    expect(BUBBLE_CAP).toBe(6);
-    const many: BubbleCandidate[] = [
-      c('me', 'self', 1),
-      ...[1, 2, 3, 4].map((i) => c('n' + i, 'nearby', i)),
-      ...[1, 2, 3].map((i) => c('f' + i, 'friends', i)),
-      ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => c('o' + i, 'other', i)),
-    ];
-    const { shown, collapsedIds } = pickSpeechBubbles(many, 6);
-    expect(shown.map((s) => s.id)).toEqual(['me', 'n4', 'n3', 'n2', 'n1', 'f3']);
-    expect(shown).toHaveLength(6);
-    // leftover friends simply do not get a bubble; leftover "others" collapse to "…"
-    expect(collapsedIds.sort()).toEqual(['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7', 'o8']);
+describe('neutral speech-bubble policy (no friend priority)', () => {
+  it('cap comes from the single chat config (default 6)', () => {
+    expect(BUBBLE_CAP).toBe(CHAT_CONFIG.maxVisibleBubbles);
+    expect(CHAT_CONFIG.maxVisibleBubbles).toBe(6);
+    const many = Array.from({ length: 20 }, (_, i) => c('p' + i, i, 1));
+    expect(pickSpeechBubbles(many).shown).toHaveLength(6);
+    expect(pickSpeechBubbles(many, { cap: 3 }).shown).toHaveLength(3);
   });
 
-  it('one bubble per avatar (latest text wins)', () => {
-    const { shown, collapsedIds } = pickSpeechBubbles([
-      c('me', 'self', 1, 'old'),
-      c('me', 'self', 5, 'new'),
-      c('n1', 'nearby', 2, 'hi'),
-    ], 6);
-    expect(shown).toHaveLength(2);
-    expect(shown.find((s) => s.id === 'me')?.text).toBe('new');
-    expect(collapsedIds).toEqual([]);
+  it('has no friend input at all: same id set, same geometry => same result whoever is a friend', () => {
+    const a = [c('friend', 2, 3), c('stranger', 1, 3), c('newbie', 3, 3)];
+    const r = pickSpeechBubbles(a, { cap: 2 });
+    // same band: arrival order decides (first come, first shown); the newcomer waits, it is not dropped
+    expect(ids(r.shown)).toEqual(['stranger', 'friend']);
+    expect(ids(r.queued)).toEqual(['newbie']);
+    // swapping names changes nothing: only seq / dist matter
+    const b = pickSpeechBubbles([c('stranger', 2, 3), c('friend', 1, 3), c('newbie', 3, 3)], { cap: 2 });
+    expect(ids(b.shown)).toEqual(['friend', 'stranger']);
   });
 
-  it('collapses leftover others into collapsedIds and reserves a slot when others overflow the remainder', () => {
-    const { shown, collapsedIds } = pickSpeechBubbles([
-      c('me', 'self', 9),
-      c('n1', 'nearby', 8),
-      ...[1, 2, 3, 4, 5, 6, 7].map((i) => c('o' + i, 'other', i)),
-    ], 6);
-    // self + nearby + 3 others + collapse (ids of the leftover others)
-    expect(shown.map((s) => s.id)).toEqual(['me', 'n1', 'o7', 'o6', 'o5']);
-    expect(shown).toHaveLength(5);
-    expect(collapsedIds.sort()).toEqual(['o1', 'o2', 'o3', 'o4'].sort());
+  it('nearer proximity band goes first, then arrival order', () => {
+    const r = pickSpeechBubbles([c('far1', 1, 9), c('near2', 3, 0.5), c('near1', 2, 1.2), c('mid', 4, 3)], { cap: 3, bandM: 2 });
+    expect(ids(r.shown)).toEqual(['near1', 'near2', 'mid']);
+    expect(ids(r.queued)).toEqual(['far1']);
   });
 
-  it('shows all others when they fit, and bubblePriority matches the local relation lists', () => {
-    const { shown, collapsedIds } = pickSpeechBubbles([
-      c('me', 'self', 1), c('a', 'other', 2), c('b', 'other', 3),
-    ], 6);
-    expect(shown).toHaveLength(3); expect(collapsedIds).toEqual([]);
-    expect(bubblePriority('me', 'me', ['n'], ['f'])).toBe('self');
-    expect(bubblePriority('n', 'me', ['n'], ['f'])).toBe('nearby');
-    expect(bubblePriority('f', 'me', ['n'], ['f'])).toBe('friends');
-    expect(bubblePriority('x', 'me', ['n'], ['f'])).toBe('other');
+  it('own message always shows; a full screen gives up its farthest bubble (kept waiting, not lost)', () => {
+    const visible = [1, 2, 3].map((i) => c('o' + i, i, i * 3, { visible: true }));
+    const r = pickSpeechBubbles([...visible, c('me', 9, 0)], { cap: 3, selfId: 'me', bandM: 2 });
+    expect(ids(r.shown)).toEqual(['me', 'o1', 'o2']);
+    expect(ids(r.queued)).toEqual(['o3']);
+  });
+
+  it('bubbles already on screen keep their slot (no flicker) even if a nearer one arrives', () => {
+    const r = pickSpeechBubbles([c('far', 1, 8, { visible: true }), c('near', 2, 0.3)], { cap: 1, selfId: 'me' });
+    expect(ids(r.shown)).toEqual(['far']); expect(ids(r.queued)).toEqual(['near']);
+  });
+
+  it('one bubble per avatar (latest text wins) and off-screen speakers take no slot', () => {
+    const r = pickSpeechBubbles([c('a', 1, 1, { text: 'old' }), c('a', 5, 1, { text: 'new' }), c('gone', 2, 1, { onScreen: false }), c('b', 3, 1)], { cap: 2 });
+    expect(r.shown.map((x) => x.text)).toEqual(['b', 'new']); // same band: arrival order
+    expect(ids(r.offscreen)).toEqual(['gone']);
+  });
+
+  it('bubble duration scales with text length and is clamped; ?bubbles=n parses 1..20 only', () => {
+    expect(bubbleDurationMs('ok')).toBe(CHAT_CONFIG.bubbleMinMs + 2 * CHAT_CONFIG.bubblePerCharMs);
+    expect(bubbleDurationMs('x'.repeat(140))).toBe(CHAT_CONFIG.bubbleMaxMs);
+    expect(bubbleDurationMs('court')).toBeLessThan(bubbleDurationMs('un message nettement plus long'));
+    expect(bubbleCapFromSearch('?bubbles=3')).toBe(3);
+    expect(bubbleCapFromSearch('?bubbles=0')).toBeNull();
+    expect(bubbleCapFromSearch('?x=1')).toBeNull();
   });
 });
