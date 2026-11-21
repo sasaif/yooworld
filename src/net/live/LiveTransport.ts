@@ -1,7 +1,10 @@
-/** NetworkTransport for the `?net=1` dev mode: local wrangler dev only (see netFlag.ts). Created by the
- *  composition root ONLY when the flag is on; with the flag off this module is never instantiated.
+/** NetworkTransport for the `?net=1` dev mode: local wrangler dev or the allowlisted uat API (see netFlag.ts). Created
+ *  by the composition root ONLY when the flag is on; with the flag off this module is never instantiated.
  *  It reads the local avatar position through an injected sampler and never writes game state or local saves
- *  (no localStorage use at all: the session lives in the server's httpOnly cookie). */
+ *  (no localStorage / sessionStorage use at all). Session: the server's httpOnly cookie (credentials: 'include') AND,
+ *  when the server has the bearer fallback (uat, AUTH_BEARER=on), the signed token from `set-auth-token`, kept IN
+ *  MEMORY ONLY and sent back as Authorization: Bearer — for browsers that block third-party cookies (Safari/iOS ITP).
+ *  A reload forgets it (sign in again); a revoked/expired session clears it. */
 import type { NetMessage, NetStatus, NetworkTransport } from '../NetworkTransport';
 import type { LiveNetConfig } from './netFlag';
 import { NetSync, SEND_MS, type ServerMsg, type Vec2 } from './NetSync';
@@ -15,6 +18,7 @@ export class LiveTransport implements NetworkTransport {
   private subs = new Set<(m: NetMessage) => void>();
   private rc: Reconnector; private timer: ReturnType<typeof setInterval> | null = null;
   private hooks: LiveHooks | null = null; private pendingChat: string[] = []; private login: HTMLElement | null = null;
+  private bearer: string | null = null;
   constructor(readonly cfg: LiveNetConfig, private fetchFn: typeof fetch = (...a) => fetch(...a), private mkWs: (url: string) => WsLike = (u) => new WebSocket(u) as unknown as WsLike) {
     this.sync = new NetSync((c) => this.subs.forEach((f) => f({ t: 'chat', playerId: c.from, text: c.text, at: c.at })));
     this.rc = new Reconnector({
@@ -61,8 +65,12 @@ export class LiveTransport implements NetworkTransport {
   }
   private stopTick() { if (this.timer) clearInterval(this.timer); this.timer = null; }
   private async api(path: string, init: RequestInit = {}) {
-    const r = await this.fetchFn(this.cfg.server + path, { ...init, credentials: 'include', headers: { 'content-type': 'application/json', ...(init.headers ?? {}) } });
+    const auth: Record<string, string> = this.bearer ? { authorization: `Bearer ${this.bearer}` } : {};
+    const r = await this.fetchFn(this.cfg.server + path, { ...init, credentials: 'include', headers: { 'content-type': 'application/json', ...auth, ...(init.headers ?? {}) } });
+    const t = r.headers?.get?.('set-auth-token'); if (t) this.bearer = t;
     let j: any = null; try { j = await r.json(); } catch { /* */ }
+    if (path === '/api/auth/get-session' && r.status === 200 && !j?.user?.id) this.bearer = null;   // session gone
+    if (r.status === 401) this.bearer = null;
     return { status: r.status, json: j };
   }
   /** One attempt: session check -> single-use ticket for a beach shard -> WebSocket. */

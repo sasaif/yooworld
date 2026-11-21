@@ -16,8 +16,9 @@ export const backups = new SaveBackups(storage.data, storage.env.id, storage.env
 /** DEV economy: local TEST balances only (5 000 Or / 100 Diamants), never real money. */
 export const economy = new LocalDevEconomy(storage.data, 'eco:dev', Date.now, backups);
 export const fashion = new FashionController(economy);
-/** `?net=1` (dev, OFF by default): LiveTransport to a LOCAL wrangler dev. Flag off = OfflineTransport, as before. */
-const NET_CFG = liveNetConfig(location.search);
+/** `?net=1` (dev, OFF by default): LiveTransport to a local wrangler dev, or to the allowlisted API given at build time
+ *  (VITE_YW_API_URL, e.g. the uat Worker; see netFlag.ts). Flag off = OfflineTransport, as before. */
+const NET_CFG = liveNetConfig(location.search, import.meta.env.VITE_YW_API_URL as string | undefined);
 export const live = NET_CFG ? new LiveTransport(NET_CFG) : null;
 export const game = new GameController(new LocalStorageRepository(storage.data, '', backups, { env: storage.env.id, buildId: storage.env.buildId }), live ?? new OfflineTransport(),
   { balance: () => economy.goldBalance(), spend: (amount, memo) => { try { economy.spendGoldSync(amount, memo, newTxId('furniture')); return true; } catch { return false; } } },

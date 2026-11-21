@@ -53,14 +53,16 @@ app.use('*', async (c, next) => {
   c.set('cfg', r.cfg);
   await next();
 });
-// CORS: the browser client (APP_ORIGIN only, exact match) may call the API with its session cookie. No wildcard.
+// CORS: the browser clients (APP_ORIGIN + APP_ORIGINS, exact match) may call the API with their session cookie or
+// (AUTH_BEARER=on) a bearer token. No wildcard.
 app.use('/api/*', async (c, next) => cors({
-  origin: (o) => (o === c.var.cfg.appOrigin ? o : null), credentials: true, maxAge: 600,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['content-type', 'idempotency-key', 'x-turnstile-token'],
+  origin: (o) => (c.var.cfg.appOrigins.includes(o) ? o : null), credentials: true, maxAge: 600,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['content-type', 'idempotency-key', 'x-turnstile-token', 'authorization'],
+  exposeHeaders: ['set-auth-token', 'x-ws-revoked'],
 })(c, next));
 // CSRF: state-changing API calls must come from the app origin (Better Auth checks its own routes too).
 app.use('/api/*', async (c, next) => {
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) && c.req.header('origin') !== c.var.cfg.appOrigin)
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) && !c.var.cfg.appOrigins.includes(c.req.header('origin') ?? ''))
     return c.json({ ok: false, code: 'bad_origin' }, 403);
   await next();
 });
@@ -137,7 +139,7 @@ app.get('/api/auth/verify-email', async (c, next) => {
     (await cl.query('select "emailVerified" v, id from auth."user" where email = $1', [claims.email])).rows[0] as { v: boolean; id: string } | undefined);
   if (!verified?.v || (claims.userId && claims.userId !== verified.id)) return next();
   c.header('cache-control', 'no-store');
-  return c.redirect(alreadyVerifiedRedirect(c.req.query('callbackURL'), [c.var.cfg.appOrigin, new URL(c.var.cfg.authUrl).origin]), 302);
+  return c.redirect(alreadyVerifiedRedirect(c.req.query('callbackURL'), [...c.var.cfg.appOrigins, new URL(c.var.cfg.authUrl).origin]), 302);
 });
 app.all('/api/auth/*', async (c) => {
   const stats: KickStats = { calls: 0, rooms: 0, closed: 0, ms: 0 };
@@ -450,6 +452,10 @@ app.route('/api', api);
 // ---------- WebSocket: verify the ticket BEFORE waking the room ----------
 app.get('/ws/:room', async (c) => {
   if (c.req.header('upgrade')?.toLowerCase() !== 'websocket') return c.json({ ok: false, code: 'upgrade_required' }, 426);
+  // browsers always send Origin on a WebSocket handshake: only the allowed app origins (or the API itself) may open
+  // one. Non-browser clients send none and are gated by the signed single-use ticket alone.
+  const origin = c.req.header('origin');
+  if (origin && !c.var.cfg.appOrigins.includes(origin) && origin !== new URL(c.var.cfg.authUrl).origin) return c.json({ ok: false, code: 'bad_origin' }, 403);
   const room = c.req.param('room');
   const r = parseRoom(room); if (!r) return c.json({ ok: false, code: 'bad_room' }, 400);
   const t = await verifyTicket(c.var.cfg.ticketSecret, c.req.query('ticket') ?? '', room, c.var.cfg.env);

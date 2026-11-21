@@ -1,6 +1,6 @@
 /** Better Auth on workerd: one instance PER REQUEST (no shared pool), Postgres schema auth (role app_auth). */
 import { betterAuth } from 'better-auth';
-import { twoFactor } from 'better-auth/plugins';
+import { twoFactor, bearer } from 'better-auth/plugins';
 import pg from 'pg';
 import type { AppConfig } from '../core/envSchema';
 import { DB_TIMEOUT_MS } from './db';
@@ -22,7 +22,7 @@ export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted, capt
     secret: cfg.authSecret,
     baseURL: cfg.authUrl,
     basePath: '/api/auth',
-    trustedOrigins: [cfg.appOrigin],
+    trustedOrigins: cfg.appOrigins,
     emailAndPassword: {
       enabled: true, requireEmailVerification: true, minPasswordLength: 10, maxPasswordLength: 128, autoSignIn: false,
       revokeSessionsOnPasswordReset: true, resetPasswordTokenExpiresIn: 60 * 30,
@@ -42,8 +42,12 @@ export function makeAuth(cfg: AppConfig, onSessionDeleted?: SessionDeleted, capt
       enabled: true, storage: 'database', window: 60, max: 100,
       customRules: { ...AUTH_RATE_RULES },
     },
-    advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] }, useSecureCookies: true, database: { generateId: 'uuid' } },
-    plugins: [twoFactor({ issuer: 'YoLand' })],
+    // cross-site front (e.g. vercel.app -> workers.dev): the cookie must be SameSite=None; Secure, and Partitioned (CHIPS)
+    // so browsers that phase out third-party cookies keep it per top-level site. Same-site setups keep the defaults.
+    advanced: { ipAddress: { ipAddressHeaders: ['cf-connecting-ip'] }, useSecureCookies: true, database: { generateId: 'uuid' },
+      ...(cfg.crossSiteCookies ? { defaultCookieAttributes: { sameSite: 'none' as const, secure: true, partitioned: true } } : {}) },
+    // AUTH_BEARER=on (local/uat): signed session token in `set-auth-token`, accepted back as Authorization: Bearer (signed only)
+    plugins: [twoFactor({ issuer: 'YoLand' }), ...(cfg.authBearer ? [bearer({ requireSignature: true })] : [])],
     databaseHooks: onSessionDeleted ? { session: { delete: { after: async (sess: { id: string; userId: string }) => {
       try { await onSessionDeleted(sess.userId, sess.id); } catch (e) { console.error('ws revoke failed', e); }
     } } } } : undefined,

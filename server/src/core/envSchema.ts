@@ -12,12 +12,24 @@
  * user is not the origin role. /api/health/db reports the effective database role.
  * uat only: TURNSTILE_MODE=fake and EMAIL_MODE=disabled|capture are allowed (no domain/Turnstile/e-mail yet); prod never.
  * EMAIL_MODE=capture also requires QA_OUTBOX_TOKEN (>= 32 chars, not a placeholder): see core/qaOutbox.ts.
+ * Browser origins: APP_ORIGIN plus the optional APP_ORIGINS (comma-separated EXACT origins, no wildcard, https outside
+ * local) are the only origins allowed by CORS, the CSRF check, Better Auth trustedOrigins and the WebSocket upgrade.
+ * When one of them is on another host than BETTER_AUTH_URL (e.g. the Vercel front vs workers.dev = cross-site), the
+ * session cookie is SameSite=None; Secure; Partitioned. AUTH_BEARER=on (local/uat only, refused in prod) also enables
+ * the Better Auth bearer plugin (signed token in `set-auth-token`, sent back as Authorization: Bearer) for browsers that
+ * block third-party cookies (Safari/iOS ITP).
  */
 export type EnvTag = 'local' | 'uat' | 'prod';
 export interface RawEnv { [k: string]: unknown }
 export interface AppConfig {
   env: EnvTag; databaseUrl: string; authDatabaseUrl: string; adminDatabaseUrl?: string;
   authSecret: string; ticketSecret: string; resultSecret: string; authUrl: string; appOrigin: string;
+  /** APP_ORIGIN + APP_ORIGINS: every browser origin allowed (exact match). */
+  appOrigins: string[];
+  /** an allowed origin is on another host than the API: session cookie SameSite=None; Secure; Partitioned. */
+  crossSiteCookies: boolean;
+  /** Better Auth bearer plugin (local/uat only). */
+  authBearer: boolean;
   humanMode: 'off' | 'fake' | 'turnstile'; turnstileSecret?: string;
   /** WebSocket lifetime cap (ms): sockets older than this are closed (4402) and the client reconnects with a fresh ticket. */
   wsMaxLifetimeMs: number;
@@ -70,6 +82,17 @@ export function validateEnv(e: RawEnv): { ok: true; cfg: AppConfig } | { ok: fal
     try { const u = new URL(s(k)); if (env !== 'local' && u.protocol !== 'https:') errors.push(`${k} must be https in ${env}`); }
     catch { errors.push(`${k} is not a URL`); }
   }
+  const extraOrigins = s('APP_ORIGINS').split(',').map((x) => x.trim()).filter(Boolean);
+  for (const o of extraOrigins) {
+    try {
+      const u = new URL(o);
+      if (o.includes('*') || u.origin !== o) errors.push(`APP_ORIGINS: '${o}' must be an exact origin (scheme://host[:port], no path, no wildcard)`);
+      else if (env !== 'local' && u.protocol !== 'https:') errors.push(`APP_ORIGINS: '${o}' must be https in ${env}`);
+    } catch { errors.push(`APP_ORIGINS: '${o}' is not a URL`); }
+  }
+  const bearerMode = s('AUTH_BEARER');
+  if (bearerMode && bearerMode !== 'on') errors.push('AUTH_BEARER must be empty or on');
+  if (bearerMode === 'on' && env === 'prod') errors.push('AUTH_BEARER=on is local/uat only');
   const hm = s('TURNSTILE_MODE') || (env === 'local' ? 'off' : '');
   if (!['off', 'fake', 'turnstile'].includes(hm)) errors.push('TURNSTILE_MODE must be off|fake|turnstile (required outside local)');
   if (env === 'prod' && hm !== 'turnstile') errors.push('TURNSTILE_MODE must be turnstile in prod');
@@ -88,8 +111,10 @@ export function validateEnv(e: RawEnv): { ok: true; cfg: AppConfig } | { ok: fal
   const wsMin = env === 'local' ? 2 : 3_600;
   if (!Number.isInteger(wsMax) || wsMax < wsMin || wsMax > 604_800) errors.push(`WS_MAX_LIFETIME_S must be an integer in [${wsMin}, 604800]`);
   if (errors.length) return { ok: false, errors };
+  const appOrigins = [...new Set([new URL(s('APP_ORIGIN')).origin, ...extraOrigins])];
   return { ok: true, cfg: { env, databaseUrl: dbUrl.DATABASE_URL, authDatabaseUrl: dbUrl.AUTH_DATABASE_URL, adminDatabaseUrl: dbUrl.ADMIN_DATABASE_URL || undefined,
     authSecret: s('BETTER_AUTH_SECRET'), ticketSecret: s('TICKET_SECRET'), resultSecret: s('RESULT_SECRET'), authUrl: s('BETTER_AUTH_URL'), appOrigin: s('APP_ORIGIN'),
+    appOrigins, crossSiteCookies: appOrigins.some((o) => new URL(o).hostname !== new URL(s('BETTER_AUTH_URL')).hostname), authBearer: bearerMode === 'on',
     humanMode: hm as AppConfig['humanMode'], turnstileSecret: s('TURNSTILE_SECRET') || undefined, wsMaxLifetimeMs: wsMax * 1000, emailMode: em as AppConfig['emailMode'],
     qaOutboxToken: em === 'capture' ? qt : undefined, gitSha: sha || 'unknown' } };
 }

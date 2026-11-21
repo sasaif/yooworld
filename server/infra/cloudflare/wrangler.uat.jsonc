@@ -3,7 +3,9 @@
 // Database access goes through the three Hyperdrive bindings (one per role); they override *_DATABASE_URL.
 // uat relaxations (envSchema refuses them in prod): TURNSTILE_MODE=fake (public fake token: NOT bot-protected) and
 // EMAIL_MODE=capture (verification/reset mails kept 15 min in the OUTBOX DO, read by QA at GET /qa/outbox with the
-// QA_OUTBOX_TOKEN secret). No custom domain yet: workers.dev. Deploy with `--var GIT_SHA:$(git rev-parse HEAD)`.
+// QA_OUTBOX_TOKEN secret). APP_ORIGINS = the Vercel uat front (branch alias of project yooworld, exact origin,
+// cross-site -> SameSite=None; Secure; Partitioned cookie) + AUTH_BEARER=on (bearer fallback for Safari/iOS ITP);
+// both are refused/absent in prod. No custom domain yet: workers.dev. Deploy with `--var GIT_SHA:$(git rev-parse HEAD)`.
 {
   "name": "yoland-api-uat",
   "main": "../../src/cf/worker.ts",
@@ -13,6 +15,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "vars": { "ENV_TAG": "uat", "BETTER_AUTH_URL": "https://yoland-api-uat.yoland.workers.dev", "APP_ORIGIN": "https://yoland-api-uat.yoland.workers.dev",
+            "APP_ORIGINS": "https://yooworld-git-uat-saifeddine1.vercel.app", "AUTH_BEARER": "on",
             "TURNSTILE_MODE": "fake", "EMAIL_MODE": "capture", "WS_MAX_LIFETIME_S": "86400" },
   "hyperdrive": [
     { "binding": "HD_API", "id": "963510e5f39c4e20a4df414383fe6183" },
