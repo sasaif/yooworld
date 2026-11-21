@@ -210,7 +210,11 @@ for (const d of want('main') ? DEVS : []) {
 if (want('burst')) {
   const d = DEVS[0];
   const { ctx, p } = await boot(d, 'fresh=1&lieu=appart&q=low&chatSim=1');
-  const pre = await p.evaluate(() => window.__info?.calls);
+  // the renderer counters (window.__info) are a sampled snapshot: right after boot under heavy CPU load the first sample
+  // can still read 0 draws (no frame measured yet) -> wait for a real sample (> 0) before taking the reference
+  // (same for the post sample below; chat code never touches the renderer, so a 0 here is a missed sample, not 0 draws)
+  const drawSample = () => p.waitForFunction(() => (window.__info?.calls ?? 0) > 0 && window.__info.calls, null, { timeout: 20000, polling: 100 }).then((h) => h.jsonValue(), () => p.evaluate(() => window.__info?.calls));
+  const pre = await drawSample();
   const r = await p.evaluate(async () => {
     const sim = window.__chatSim; sim.players(20);
     const out = { maxVisible: 0, maxDom: 0 };
@@ -229,7 +233,7 @@ if (want('burst')) {
   await openPanel(p);
   const rows = await p.evaluate(() => document.querySelectorAll('.chatlog .chat-row').length);
   ok(rows === 122, `burst: the history panel lists all ${rows} messages`, rows);
-  const post = await p.evaluate(() => window.__info?.calls);
+  const post = await drawSample();
   ok(pre === post, `burst + panel open: 0 extra 3D draws (${pre} -> ${post})`, { pre, post });
   draws.burst = { pre, post };
   await ctx.close();
