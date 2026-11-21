@@ -1,6 +1,7 @@
 import type { Features } from './parts';
 import type { RenderSpec } from './spec';
 import { paintSmile, paintSparkleEyes } from '../../../avatar/face/faceV2';
+import { paintWingLiner } from '../../../avatar/face/eyeLook';
 /** Face decals (makeup, freckles, blush, stickers, lips, stubble) and T-shirt prints, painted with Canvas 2D
  *  in atlas space on top of the recoloured texture. Positions come from the face UV landmarks of build_parts.py. */
 const PRINT_AT = { x: 262, y: 207, s: 1 }; // where the original cheese print sits on the tee island (px @1024)
@@ -50,6 +51,7 @@ export function paintDecals(x: CanvasRenderingContext2D, spec: RenderSpec, f: Fe
     if (spec.liner) { x.globalAlpha = 0.95; x.strokeStyle = spec.liner; x.lineWidth = 3 * k; x.lineCap = 'round'; x.beginPath(); x.ellipse(ex, ey + 1 * k, 25 * k, 17 * k, 0, Math.PI * 1.05, Math.PI * 1.95); x.stroke();
       x.beginPath(); x.moveTo(ex + e.out * 23 * k, ey - 5 * k); x.lineTo(ex + e.out * 33 * k, ey - 11 * k); x.stroke(); }
   }
+  if (spec.wing) paintWingLiner(x, eyes, spec.liner ?? '#0c0810', size);
   // lips (shape from the mouth option, colour from lipstick or a natural tint)
   const L = spec.lips; const w = 12 * L.w * k, h = 4.2 * L.h * k, bow = L.bow;
   const lipCol = L.color ?? mix(spec.skin, '#b8506a', 0.55);

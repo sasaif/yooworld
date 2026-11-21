@@ -1,3 +1,6 @@
+import * as THREE from 'three';
+import { LIVE_AVATARS } from '../render/avatar/custom/CustomAvatar';
+import { TEMPLE_FITS } from '../render/avatar/custom/glamGlasses';
 import { equip } from '../fashion/look';
 import { world } from '../game/world';
 import { GameController } from '../game/GameController';
@@ -22,6 +25,11 @@ let bootSnap = false;
 game.store.subscribe(() => { if (game.s.ready && !game.s.temporary && !bootSnap) { bootSnap = true; if (!economy.problem) backups.snapshot('boot'); } });
 Object.assign(window as unknown as Record<string, unknown>, { game, __world: world, economy, fashion, __saveEnv: storage.env, __backups: backups }); // debug / e2e handles
 
+/** PERF probes only: per live avatar, meshes (= draw calls in the main pass) and triangles (outline hulls included). */
+(window as unknown as Record<string, unknown>).__avatarStats = () => [...LIVE_AVATARS].map((a) => { let calls = 0, tris = 0; const names: string[] = [];
+  a.holder.traverse((o) => { const m = o as THREE.Mesh; if (!m.isMesh || !m.visible) return; calls++; const g = m.geometry; tris += (g.index ? g.index.count : g.getAttribute('position').count) / 3; if (m.name) names.push(m.name); });
+  const bb = new THREE.Box3().setFromObject(a.holder); return { body: a.spec()?.body, top: a.spec()?.dress?.id ?? null, hair: a.spec()?.hair, calls, tris: Math.round(tris), names, min: bb.min.toArray(), max: bb.max.toArray() }; });
+(window as unknown as Record<string, unknown>).__glam = { TEMPLE_FITS };
 /** PERF / screenshots only: renders both avatars fully dressed (not saved, ignores ownership). */
 (window as unknown as Record<string, unknown>).__dressAll = () => {
   const dress = (b: 'f' | 'm', ids: string[]) => ids.reduce((l, id) => equip(l, id), fashion.s.looks[b]);

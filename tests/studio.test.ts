@@ -6,6 +6,8 @@ import { resolveLook, hasHat } from '../src/render/avatar/custom/spec';
 import { compositePixels, computeStats, patternAt } from '../src/render/avatar/custom/composite';
 import { PART } from '../src/render/avatar/custom/parts';
 import { ITEMS } from '../src/fashion/catalogue';
+import { initialState, newAccount, TEST_PLAYER, TEST_TOPUP } from '../src/economy/bank';
+import { post } from '../src/economy/ledger';
 
 const kv = () => { const m = new Map<string, string>(); return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }; };
 
@@ -17,7 +19,7 @@ describe('studio flow (controller + local dev economy)', () => {
     expect(fc.cart().map((i) => i.id).sort()).toEqual(['acc_glasses_heart', 'jacket_denim', 'tee_stripes']);
     const t = fc.totals(); expect(t.gold).toBe(ITEMS.tee_stripes.price!.amount + ITEMS.jacket_denim.price!.amount); expect(t.diamond).toBe(15);
     expect(await fc.buyCart()).toBe(true);
-    const a = eco.snapshot().account; expect(a.gold.balance).toBe(5000 - t.gold); expect(a.diamond.balance).toBe(100 - 15);
+    const a = eco.snapshot().account; expect(a.gold.balance).toBe(5000 - t.gold); expect(a.diamond.balance).toBe(100000 - 15);
     expect(fc.cart()).toEqual([]); expect(fc.s.looks.f.slots.top).toBe('tee_stripes');
     // re-buying is refused and charges nothing
     expect(await fc.buy(['tee_stripes'])).toBe(false); expect(eco.snapshot().account.gold.balance).toBe(5000 - t.gold);
@@ -28,14 +30,17 @@ describe('studio flow (controller + local dev economy)', () => {
     const eco = new LocalDevEconomy(kv()); const fc = new FashionController(eco); fc.open('m', 'hair'); const before = fc.s.looks.m.slots.hair;
     fc.tap('hair_afro'); await fc.close(); expect(fc.s.studio?.leaving).toBe(true);
     fc.clearCart(); await fc.close('keep-owned'); expect(fc.s.studio).toBeNull(); expect(fc.s.looks.m.slots.hair).toBe(before);
-    expect(eco.snapshot().account.diamond.balance).toBe(100);
+    expect(eco.snapshot().account.diamond.balance).toBe(100000);
   });
   it('switching avatar with try-ons remembers the target body', () => {
     const fc = new FashionController(new LocalDevEconomy(kv())); fc.open('f', 'pants'); fc.tap('pants_jeans'); fc.switchBody('m');
     expect(fc.s.studio).toMatchObject({ body: 'f', leaving: true, pending: 'm' }); fc.clearCart(); fc.switchBody('m'); expect(fc.s.studio?.body).toBe('m');
   });
   it('cannot afford beyond the test balances', async () => {
-    const fc = new FashionController(new LocalDevEconomy(kv())); fc.open('f', 'jacket');
+    // a save whose one-shot 100 000 💎 top-up was already applied, then spent down to 100 💎
+    const st = initialState(Date.now()); const low = newAccount(TEST_PLAYER, 'Joueur test (toi)', 5000, 50, Date.now()); low.diamond = post(low.diamond, 'test_grant', 50, TEST_TOPUP.txId, Date.now());
+    const store = kv(); store.setItem('eco:dev', JSON.stringify({ ...st, accounts: { ...st.accounts, [TEST_PLAYER]: low } }));
+    const fc = new FashionController(new LocalDevEconomy(store)); fc.open('f', 'jacket'); expect(fc.eco.snapshot().account.diamond.balance).toBe(100);
     for (const id of ['jacket_bomber_gold', 'hair_afro', 'acc_crown']) fc.tap(id); // 45+35+60 = 140 💎 > 100
     expect(fc.canAfford(fc.totals())).toBe(false); expect(await fc.buyCart()).toBe(false);
   });

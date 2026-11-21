@@ -58,15 +58,30 @@ export function compositePixels(base: Uint8ClampedArray | Uint8Array, mask: Uint
     out[i] = clamp8((c[0] + (c2[0] - c[0]) * m) * f + 255 * sp); out[i + 1] = clamp8((c[1] + (c2[1] - c[1]) * m) * f + 255 * sp); out[i + 2] = clamp8((c[2] + (c2[2] - c[2]) * m) * f + 255 * sp);
   };
   const skinFlat = (i: number, L: number, avgL: number) => { const sh = Math.pow(Math.min(1.4, Math.max(0.6, L / avgL)), 0.35); out[i] = clamp8(skin[0] * sh); out[i + 1] = clamp8(skin[1] * sh); out[i + 2] = clamp8(skin[2] * sh); };
+  // glam dress: arms / chest / legs become skin (or gloves / tights); the garment itself is a separate mesh
+  const dress = spec.dress; const gloves = dress?.gloves ? hex(dress.gloves) : null; const legs = dress?.legs ? hex(dress.legs) : null;
+  const tint = (i: number, c: RGB, L: number, avgL: number, lo: number, hi: number) => { const f = Math.min(hi, Math.max(lo, L / avgL)); out[i] = clamp8(c[0] * f); out[i + 1] = clamp8(c[1] * f); out[i + 2] = clamp8(c[2] * f); };
+  const dressPaint = (l: number, i: number, r: number, g: number, b: number, L: number, aL: number) => {
+    switch (l) {
+      case PART.SKIN_HAND: if (!gloves) return false; tint(i, gloves, L, aL, 0.7, 1.3); return true;
+      case PART.TOP_FORE: case PART.TOP_CUFF: if (gloves) tint(i, gloves, L, aL, 0.7, 1.3); else skinFlat(i, L, aL); return true;
+      case PART.TOP_UPPER: case PART.TOP_TORSO: case PART.TOP_COLLAR: case PART.TEE: skinFlat(i, L, aL); return true;
+      case PART.LEG: case PART.SHORTS: case PART.TOP_HEM:
+        if (legs) tint(i, legs, L, aL, 0.7, 1.4); else if (l === PART.LEG) { out[i] = clamp8(r * skinMul[0]); out[i + 1] = clamp8(g * skinMul[1]); out[i + 2] = clamp8(b * skinMul[2]); } else skinFlat(i, L, aL); return true;
+      default: return false;
+    }
+  };
+  const brow = spec.browColor ? hex(spec.browColor) : null;
   for (let p = 0; p < mask.length; p++) {
     const l = mask[p]; if (!l) continue; const i = p * 4; const r = base[i], g = base[i + 1], b = base[i + 2]; const L = lumOf(r, g, b); const aL = st.lum[l];
     const x = p % size, y = (p / size) | 0;
+    if (dress && dressPaint(l, i, r, g, b, L, aL)) continue;
     switch (l) {
       case PART.SKIN_HEAD: case PART.SKIN_HAND: out[i] = clamp8(r * skinMul[0]); out[i + 1] = clamp8(g * skinMul[1]); out[i + 2] = clamp8(b * skinMul[2]); break;
       case PART.LEG: if (spec.pants.length === 'short') { out[i] = clamp8(r * skinMul[0]); out[i + 1] = clamp8(g * skinMul[1]); out[i + 2] = clamp8(b * skinMul[2]); } else cloth(i, pants.c, pants.c2, pants.p, L, aL, x, y, 0.5); break;
       case PART.SHORTS: cloth(i, pants.c, pants.c2, pants.p, L, aL, x, y); break;
       case PART.HAIR: case PART.HAIR_BUN: case PART.BROW: {
-        let c = hair; if (hair2 && l !== PART.BROW) { const t = smooth(st.hairY[0], st.hairY[1], y); c = [hair[0] + (hair2[0] - hair[0]) * t, hair[1] + (hair2[1] - hair[1]) * t, hair[2] + (hair2[2] - hair[2]) * t]; }
+        let c = l === PART.BROW && brow ? brow : hair; if (hair2 && l !== PART.BROW) { const t = smooth(st.hairY[0], st.hairY[1], y); c = [hair[0] + (hair2[0] - hair[0]) * t, hair[1] + (hair2[1] - hair[1]) * t, hair[2] + (hair2[2] - hair[2]) * t]; }
         const sh = Math.pow(Math.min(1.7, Math.max(0.35, L / aL)), 1.1) * (l === PART.BROW ? 0.78 : 1);
         out[i] = clamp8(c[0] * sh); out[i + 1] = clamp8(c[1] * sh); out[i + 2] = clamp8(c[2] * sh); break;
       }

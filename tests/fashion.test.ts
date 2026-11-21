@@ -14,7 +14,8 @@ describe('catalogue', () => {
   });
   it('every shop category has items, and mixes gold and diamond prices overall', () => {
     for (const c of CATEGORIES) expect(CATALOGUE.some((i) => i.category === c.id)).toBe(true);
-    const cur = (c: string) => CATALOGUE.filter((i) => i.price?.currency === c).length;
+    // the Glam collection (2026-11-21) is Diamonds-only by request; the rule "Gold stays the main currency" applies to the base catalogue
+    const cur = (c: string) => CATALOGUE.filter((i) => i.price?.currency === c && !i.tags?.includes('glam')).length;
     expect(cur('gold')).toBeGreaterThan(cur('diamond')); expect(cur('diamond')).toBeGreaterThan(5);
     // gold stays useful: each clothing/hair/accessory category has at least 2 gold items
     for (const c of ['hair', 'tshirt', 'jacket', 'pants', 'shoes', 'accessory', 'eyes', 'nose', 'mouth']) expect(CATALOGUE.filter((i) => i.category === c && i.price?.currency === 'gold').length).toBeGreaterThanOrEqual(2);

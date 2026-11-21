@@ -1,5 +1,6 @@
 import type { Body, ItemDef, Rarity, ShopCategory, Slot } from './types';
 import { FACE_V2_ITEMS } from '../avatar/face/items';
+import { GLAM_ITEMS } from './glam';
 /** Initial YooWorld fashion catalogue (data only). Prices: Gold 80–650, Diamonds 10–60.
  *  Rule of thumb: every category has free basics + several Gold items; Diamonds are reserved for a few
  *  premium/legendary pieces — a player can build an attractive look with Gold only. */
@@ -140,6 +141,8 @@ export const CATALOGUE: I[] = [
   it('acc_beltbag', 'Sac banane', 'accessory', 'acc.bag', { acc: 'beltbag', color: '#ff5f8f', color2: '#2a2230' }, G(200)),
   it('acc_tote', 'Sac à main', 'accessory', 'acc.bag', { acc: 'tote', color: '#f4e1c1', color2: '#b8743a' }, G(320), 'rare'),
   it('acc_watch', 'Montre', 'accessory', 'acc.wrist', { acc: 'watch', color: '#2a2230', color2: '#7fe0ff' }, G(150)),
+  // ---------- Collection Glam (robes, gothique, lunettes rétro) : Diamants uniquement ----------
+  ...GLAM_ITEMS,
 ];
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(CATALOGUE.map((i) => [i.id, i]));
 export const itemById = (id: string | undefined) => (id ? ITEMS[id] : undefined);
@@ -151,7 +154,7 @@ export const CATEGORIES: { id: ShopCategory; label: string; icon: string; cam: '
   { id: 'face', label: 'Visage', icon: '🙂', cam: 'face' }, { id: 'eyes', label: 'Yeux', icon: '👁️', cam: 'face' }, { id: 'brows', label: 'Sourcils', icon: '〰️', cam: 'face' },
   { id: 'nose', label: 'Nez', icon: '👃', cam: 'face' }, { id: 'mouth', label: 'Bouche', icon: '👄', cam: 'face' }, { id: 'hair', label: 'Cheveux', icon: '💇', cam: 'head' },
   { id: 'beard', label: 'Barbe', icon: '🧔', cam: 'face' }, { id: 'tshirt', label: 'T-shirts', icon: '👕', cam: 'body' }, { id: 'jacket', label: 'Vestes', icon: '🧥', cam: 'body' },
-  { id: 'pants', label: 'Pantalons', icon: '👖', cam: 'legs' }, { id: 'shoes', label: 'Chaussures', icon: '👟', cam: 'feet' }, { id: 'accessory', label: 'Accessoires', icon: '🕶️', cam: 'body' },
+  { id: 'dress', label: 'Robes', icon: '👗', cam: 'body' }, { id: 'pants', label: 'Pantalons', icon: '👖', cam: 'legs' }, { id: 'shoes', label: 'Chaussures', icon: '👟', cam: 'feet' }, { id: 'accessory', label: 'Accessoires', icon: '🕶️', cam: 'body' },
 ];
 export const RARITY: Record<Rarity, { label: string; color: string }> = {
   common: { label: 'Commun', color: '#8c84a3' }, rare: { label: 'Rare', color: '#3f8cff' }, epic: { label: 'Épique', color: '#b04fe0' }, legendary: { label: 'Légendaire', color: '#f0a000' },

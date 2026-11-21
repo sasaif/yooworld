@@ -3,7 +3,7 @@ import { CATEGORIES } from './catalogue';
 /** Catalogue validation (run in tests and at dev start): catches typos in data-only item additions. */
 const SLOT_CATEGORY: Record<string, string[]> = {
   face: ['faceShape', 'skin', 'details.freckles', 'details.mole', 'details.blush', 'details.sticker', 'makeup.lips', 'makeup.eyes', 'makeup.liner'],
-  eyes: ['eyes', 'eyeColor'], brows: ['brows'], nose: ['nose'], mouth: ['mouth'], hair: ['hair', 'hairColor'], beard: ['beard'], tshirt: ['top'], jacket: ['jacket'], pants: ['pants'], shoes: ['shoes'],
+  eyes: ['eyes', 'eyeColor', 'makeup.eyes'], brows: ['brows'], nose: ['nose'], mouth: ['mouth'], hair: ['hair', 'hairColor'], beard: ['beard'], tshirt: ['top'], dress: ['top'], jacket: ['jacket'], pants: ['pants'], shoes: ['shoes'],
   accessory: ['acc.glasses', 'acc.earrings', 'acc.necklace', 'acc.hat', 'acc.bag', 'acc.wrist', 'acc.neck2', 'acc.head2'],
 };
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -26,6 +26,8 @@ export function validateCatalogue(items: ItemDef[]): string[] {
     if (i.slot === 'beard' && !i.render.beard) e('style de barbe manquant');
     if (i.slot.startsWith('acc.') && !i.render.acc) e('modèle d’accessoire manquant');
     if (i.category === 'beard' && i.body !== 'm') e('barbe = homme uniquement');
+    if (i.category === 'dress' && (!i.render.dress || i.body !== 'f')) e('robe = recette dress + corps femme');
+    for (const k of ['lacing', 'gloves', 'legs', 'shoe', 'lens2'] as const) { const c = i.render[k]; if (c !== undefined && !HEX.test(c)) e(`${k} invalide`); }
   }
   return errs;
 }
