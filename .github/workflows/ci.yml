@@ -10,7 +10,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -82,9 +82,11 @@ jobs:
         if: ${{ always() && steps.preview.outcome == 'success' }}
         timeout-minutes: 20
         run: DEV=iphone15 PLAYERS=4 node tools/e2e-club.mjs http://127.0.0.1:5230/
+      # Step time only: under SwiftShader the 12 fresh runs (2 scenes x 2 devices x RUNS=3) take ~3.5-4.2 min on a busy
+      # runner (run 75: 3m32 pass, then 4m13 timed out). Same RUNS / FRAMES, same --check (+20 % guard, apartment < 120).
       - name: Perf baseline (draw calls)
         if: ${{ always() && steps.preview.outcome == 'success' }}
-        timeout-minutes: 4
+        timeout-minutes: 10
         run: node tools/perf-baseline.mjs http://127.0.0.1:5230/ --check
       - uses: actions/upload-artifact@v5
         if: always()
