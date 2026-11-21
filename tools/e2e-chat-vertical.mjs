@@ -93,6 +93,10 @@ const openPanel = async (p) => {
   await p.waitForTimeout(300);
 };
 const inside = (r, d) => !!r && r.l >= -0.5 && r.t >= -0.5 && r.r <= d.w + 0.5 && r.b <= d.h + 0.5;
+// CPU-starved runner: bubbles (120 ms director tick + per-frame tag) and control fade-ins can land after a fixed wait.
+// waitFor() only waits (max +3 s, never throws); every assertion stays exactly as before.
+const waitFor = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: 3000, polling: 100 }).catch(() => {});
+const bubbleOn = (ids) => ids.every((id) => { const e = document.querySelector(`.tagwrap[data-char="${id}"] .bubble`); return e && e.style.opacity === '1' && !!e.textContent; });
 
 const draws = {};
 for (const d of want('main') ? DEVS : []) {
@@ -104,12 +108,14 @@ for (const d of want('main') ? DEVS : []) {
   ok(fab && fab.w <= 110 && fab.h <= 40, `${d.name}: Chat button is compact (${fab && Math.round(fab.w)}x${fab && Math.round(fab.h)} px)`, fab);
   await p.evaluate(() => { window.__chatSim.receive('m', 'Coucou ! Tu viens à la plage ?'); });
   await p.waitForTimeout(900);
+  await waitFor(p, bubbleOn, ['m']);
   s = await state(p);
   draws[d.name] = { closed: s.calls };
   ok(s.bubbles.some((x) => x.id === 'm' && /plage/.test(x.text)), `${d.name}: panel closed -> bubble shown above the sender (Juan)`, s.bubbles);
   ok(s.unread === 1, `${d.name}: unread badge = 1 while closed`, s.unread);
   await p.evaluate(() => { window.game.sendChat('Oui, j’arrive !'); window.__chatSim.receive('m', 'Super 🎉'); window.__chatSim.receive('sim_x', 'Message d’un joueur simulé sans avatar ici'); });
   await p.waitForTimeout(1500);
+  await waitFor(p, bubbleOn, ['f', 'm']);
   s = await state(p);
   ok(s.unread === 3, `${d.name}: unread counts received messages (own excluded), incl. history-only ones`, s.unread);
   ok(s.bubbles.some((x) => x.id === 'f') && s.bubbles.some((x) => x.id === 'm'), `${d.name}: own + Juan bubbles both visible`, s.bubbles.map((x) => x.id));
@@ -195,8 +201,9 @@ for (const d of want('main') ? DEVS : []) {
   await p.screenshot({ path: `${SHOTS}/${d.name}_5_keyboard.png` });
   await kbClose(p);
   await p.evaluate(() => window.game.setPanel(null)); await p.waitForTimeout(500);
-  s = await state(p);
   const expect = d.touch ? ['joy', 'run', 'dock'] : ['dock'];
+  await waitFor(p, (sels) => !document.querySelector('.chat-sheet') && sels.every((sel) => { const e = document.querySelector(sel); if (!e) return false; const cs = getComputedStyle(e); return cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity !== 0; }), expect.map((k) => ({ joy: '.joy', run: '.run-btn', dock: '.dock' })[k]));
+  s = await state(p);
   ok(!s.open && !s.kb && expect.every((k) => s.vis[k]) && s.fab, `${d.name}: panel closed again -> ${expect.join(' / ')} + Chat button restored`, s.vis);
   // reception continues while closed
   await p.evaluate(() => window.__chatSim.receive('m', 'Toujours là ?')); await p.waitForTimeout(400);
