@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PANEL_MIN, clampPanel, defaultPanel, fitPanel, keyboardPanel, movePanel, panelFree, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
+  PANEL_KB_ROOM_H, PANEL_MIN, clampPanel, defaultPanel, fitPanel, keyboardPanel, movePanel, panelFree, parsePrefs, prefsFromRect, rectFromPrefs, resizePanel, stepPanel,
   type PanelViewport, type Rect, type Zone,
 } from '../src/ui/chat/panelLayout';
 import { CHAT_UI_PREFIX, chatUi, chatUiKey } from '../src/persistence/storage';
@@ -56,7 +56,13 @@ describe('vertical chat panel layout', () => {
     for (const [vp, vvH] of [[IP15, 203], [SE, 195], [IP15, 140], [IP15, 100], [DESK, 620]] as const) {
       const k = keyboardPanel(defaultPanel(vp), vp, vvH, 150);
       expect(k.y).toBeGreaterThanOrEqual(0); expect(k.y + k.h).toBeLessThanOrEqual(vvH);
-      if (vvH - 4 - vp.topMin >= 96) expect(k.y).toBeGreaterThanOrEqual(vp.topMin);
+      if (vvH - 4 - vp.topMin >= PANEL_KB_ROOM_H) expect(k.y).toBeGreaterThanOrEqual(vp.topMin);
+    }
+  });
+  it('keyboard: never squeezes the card under the HUD below header + one message line + composer (CI 140 px case)', () => {
+    for (let vvH = 100; vvH <= 260; vvH += 2) {
+      const k = keyboardPanel(defaultPanel(IP15), IP15, vvH, 150);
+      expect(k.h).toBeGreaterThanOrEqual(Math.min(PANEL_KB_ROOM_H, vvH - 8)); expect(k.y + k.h).toBeLessThanOrEqual(vvH);
     }
   });
 

@@ -19,6 +19,12 @@ export const PANEL_MARGIN = 6;
 export const PANEL_MIN = { w: 208, h: 168 };
 /** keyboard open: smallest card (one message line + composer) */
 export const PANEL_KB_MIN_H = 96;
+/** keyboard open, normal layout (header 26 + one 23 px message line + 38 px composer + paddings/margins ≈ 100 px):
+ *  the card only stays under the top HUD when it has at least this much room there; with less it would keep its header
+ *  but squeeze the message log to a few px (CI uat@6d524ad, e2e-gameplay "visible 140 px: newest message visible":
+ *  96 px under the HUD -> 14 px log for a 23 px line), so it uses the whole visible band instead (as it already did
+ *  at 130 px and below). */
+export const PANEL_KB_ROOM_H = 104;
 /** Landscape phones keep the open panel at ≤ 22 % of the screen by default (it can be enlarged by the user). */
 export const PHONE_AREA = 0.215;
 export const isPhone = (vp: Pick<PanelViewport, 'vh'>) => vp.vh < 500;
@@ -135,7 +141,7 @@ export function keyboardPanel(r: Rect, vp: Pick<PanelViewport, 'vw' | 'topMin'>,
   const m = 4; const bottom = vvTop + vvH - m;
   let h = Math.min(r.h, contentH > 0 ? contentH : r.h, vvH - 2 * m);
   const roomUnderHud = bottom - Math.max(vp.topMin, vvTop + m);
-  if (roomUnderHud >= PANEL_KB_MIN_H) h = Math.min(h, roomUnderHud);
+  if (roomUnderHud >= PANEL_KB_ROOM_H) h = Math.min(h, roomUnderHud);
   h = Math.max(Math.min(PANEL_KB_MIN_H, vvH - 2 * m), Math.round(h));
   const x = Math.round(Math.min(Math.max(r.x, m), vp.vw - r.w - m));
   return { x, y: Math.round(bottom - h), w: r.w, h };
