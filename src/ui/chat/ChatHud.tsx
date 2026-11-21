@@ -217,7 +217,8 @@ export function ChatHud() {
   const sheet = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLHeadingElement>(null);
   const pinned = useRef(true);
-  const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number; vp: PanelViewport; pending: boolean; el: HTMLElement } | null>(null);
+  // `last` = the latest rect of this gesture, kept in the ref (not only in the `drag` state): see endGesture
+  const gesture = useRef<{ kind: 'move' | 'size'; x: number; y: number; start: Rect; id: number; vp: PanelViewport; pending: boolean; el: HTMLElement; last: Rect | null } | null>(null);
   const eatClick = useRef(false);
   const swallowUntil = useRef(0);
   const [placed, setPlaced] = useState<Rect | null>(null);
@@ -306,9 +307,9 @@ export function ChatHud() {
     const t = e.target as HTMLElement;
     if (kind === 'move' && t.closest('.x')) return;
     const onButton = kind === 'move' && !!t.closest('button');
-    if (!onButton) { e.preventDefault(); (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); }
+    if (!onButton) { e.preventDefault(); try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* pointer already gone */ } }
     e.stopPropagation();
-    gesture.current = { kind, x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: onButton, el: e.currentTarget as HTMLElement };
+    gesture.current = { kind, x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: onButton, el: e.currentTarget as HTMLElement, last: null };
   };
   // BUG-V4b: with touch, the bottom ~4 px of the 44 px header is retargeted (touch adjustment) to the 📍 line under
   // it, so the header's own handler never sees it. Route every pointerdown that lands geometrically inside the header
@@ -326,18 +327,29 @@ export function ChatHud() {
     e.preventDefault(); e.stopPropagation();
     try { h.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
     eatClick.current = true; // the retargeted element (📍 line toggles the note) must not get the click
-    gesture.current = { kind: 'move', x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: false, el: h };
+    gesture.current = { kind: 'move', x: e.clientX, y: e.clientY, start: base, id: e.pointerId, vp: withAvatar(vp), pending: false, el: h, last: null };
+  };
+  /** the gesture's rect for a pointer position (null while a button press is still under the 6 px threshold) */
+  const gestureRect = (g: NonNullable<typeof gesture.current>, cx: number, cy: number, capture: boolean): Rect | null => {
+    const dx = cx - g.x, dy = cy - g.y;
+    if (g.pending) { if (dx * dx + dy * dy < 36) return null; g.pending = false; eatClick.current = true; if (capture) { try { g.el.setPointerCapture?.(g.id); } catch { /* touch: implicit capture */ } } }
+    g.last = g.kind === 'move' ? movePanel(g.start, dx, dy, g.vp) : resizePanel(g.start, dx, dy, g.vp);
+    return g.last;
   };
   const onGesture = (e: RPointerEvent<HTMLElement>) => {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
-    const dx = e.clientX - g.x, dy = e.clientY - g.y;
-    if (g.pending) { if (dx * dx + dy * dy < 36) return; g.pending = false; eatClick.current = true; try { g.el.setPointerCapture?.(e.pointerId); } catch { /* touch: implicit capture */ } }
-    setDrag(g.kind === 'move' ? movePanel(g.start, dx, dy, g.vp) : resizePanel(g.start, dx, dy, g.vp));
+    const r = gestureRect(g, e.clientX, e.clientY, true); if (r) setDrag(r);
   };
+  // BUG-V4b residual (first drag after entering fullscreen): touch moves are frame-aligned, pointerup is not. On a slow
+  // frame (the one right after fullscreen, a loaded phone) the moves AND the pointerup can all be dispatched before
+  // React re-renders, so this handler's `drag` (render-time state) was still null -> the drop was not saved and the
+  // panel snapped back as if the finger never dragged. The drop is now taken from the gesture itself (ref + the
+  // pointerup position), never from the render closure.
   const endGesture = (e: RPointerEvent<HTMLElement>) => {
     const g = gesture.current; if (!g || g.id !== e.pointerId) return;
     gesture.current = null;
-    if (!g.pending && drag && vp) { const p = prefsFromRect(drag, vp); setPrefs(p); setPlaced(drag); writePrefs(p); }
+    const end = e.type === 'pointerup' ? gestureRect(g, e.clientX, e.clientY, false) ?? g.last : g.last;
+    if (!g.pending && end && vp) { const p = prefsFromRect(end, vp); setPrefs(p); setPlaced(end); writePrefs(p); }
     setDrag(null); setRegest((k) => k + 1);
     // the click that follows a drag / a retargeted header tap can come well after pointerup on slow touch devices (a
     // fixed 60 ms timer let it through): swallow the next click for 400 ms instead

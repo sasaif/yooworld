@@ -369,11 +369,15 @@ async function headerGesture(p, cdp, touch, x, y, dx, dy, steps = 8) {
   const c0 = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); return [s.left, s.top]; });
   const isDragging = () => p.evaluate(() => !!document.querySelector('.chat-sheet.dragging'));
   let dragging = false;
+  // '.dragging' seen at any moment of the gesture (a slow frame can paint it after the probe below), recorded in-page
+  await p.evaluate(() => { window.__dragSeen = false; window.__dragMo?.disconnect(); const e = document.querySelector('.chat-sheet'); const chk = () => { if (document.querySelector('.chat-sheet.dragging')) window.__dragSeen = true; }; window.__dragMo = new MutationObserver(chk); if (e) window.__dragMo.observe(e, { attributes: true, attributeFilter: ['class'] }); chk(); });
   if (touch) { const T = (type, xx, yy) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(xx), y: Math.round(yy), id: 1 }] }); await T('touchStart', x, y); for (let i = 1; i <= steps; i++) { await T('touchMove', x + dx * i / steps, y + dy * i / steps); await p.waitForTimeout(16); } dragging = await isDragging(); await T('touchEnd'); }
   else { await p.mouse.move(x, y); await p.mouse.down(); await p.mouse.move(x + dx, y + dy, { steps }); dragging = await isDragging(); await p.mouse.up(); }
   await p.waitForTimeout(350);
-  // 'dragging' = the move gesture started (the drop spot itself may be snapped back by the forbidden zones)
-  return p.evaluate(([c0, dragging]) => { const e = document.querySelector('.chat-sheet'); if (!e) return { dragging, moved: false, closed: true }; const s = e.getBoundingClientRect(); return { dragging, moved: Math.abs(s.left - c0[0]) > 4 || Math.abs(s.top - c0[1]) > 4, note: !!e.querySelector('.chat-scope.open') }; }, [c0, dragging]);
+  // 'dragging' = the move gesture started: '.dragging' painted during the gesture, or (slow frame: moves + pointerup
+  // handled before any render) the drop was applied = the panel moved. The drop spot itself may be snapped back by the
+  // forbidden zones, so 'moved' alone is not required.
+  return p.evaluate(([c0, dragging]) => { window.__dragMo?.disconnect(); const seen = !!window.__dragSeen; const e = document.querySelector('.chat-sheet'); if (!e) return { dragging: dragging || seen, moved: false, closed: true }; const s = e.getBoundingClientRect(); const moved = Math.abs(s.left - c0[0]) > 4 || Math.abs(s.top - c0[1]) > 4; return { dragging: dragging || seen || moved, probe: dragging, seen, moved, note: !!e.querySelector('.chat-scope.open') }; }, [c0, dragging]);
 }
 if (want('drag')) for (const d of DRAG_DEVS) {
   const ctx = await b.newContext({ viewport: { width: d.w, height: d.h }, deviceScaleFactor: d.dpr, isMobile: d.touch, hasTouch: d.touch });
@@ -437,6 +441,28 @@ if (want('drag')) for (const d of DRAG_DEVS) {
       await resetPos(); await waitStable(p, 3000);
     }
   }
+  // BUG-V4b residual (run3: first drag after the fullscreen tap, iphone15 [20,40] = '▾ Chat'): on a slow frame the
+  // touch moves AND the pointerup are handled before React renders, and the drop used to be read from the render-time
+  // state (still null) -> nothing saved, panel snapped back. Deterministic: down + 8 moves + up in ONE task (no
+  // render in between) on '▾ Chat' (button path) and on the mode label (bar path) -> the drop must be applied + saved.
+  for (const sel of ['.chat-sheet h3 .chat-fold', '.chat-sheet h3 .chat-mode']) {
+    await p.evaluate(() => document.querySelector('.chat-sheet h3.chat-drag').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))); await waitStable(p, 3000);
+    const r = await p.evaluate(async ([sel, touch]) => {
+      const sh = document.querySelector('.chat-sheet'); const s0 = sh.getBoundingClientRect(); const t = document.querySelector(sel); const b = t.getBoundingClientRect();
+      const keys = () => Object.keys(localStorage).filter((k) => /^ywchatui\..*\.panel$/.test(k)).map((k) => localStorage.getItem(k)).join('|');
+      const before = keys();
+      const x = b.left + b.width / 2, y = b.top + b.height / 2, o = { bubbles: true, cancelable: true, composed: true, pointerId: 77, pointerType: touch ? 'touch' : 'mouse', isPrimary: true, button: 0, buttons: 1 };
+      t.dispatchEvent(new PointerEvent('pointerdown', { ...o, clientX: x, clientY: y }));
+      for (let i = 1; i <= 8; i++) t.dispatchEvent(new PointerEvent('pointermove', { ...o, button: -1, clientX: x - 60 * i / 8, clientY: y + 40 * i / 8 }));
+      t.dispatchEvent(new PointerEvent('pointerup', { ...o, buttons: 0, clientX: x - 60, clientY: y + 40 }));
+      await new Promise((res) => setTimeout(res, 500));
+      const e = document.querySelector('.chat-sheet'); if (!e) return { closed: true };
+      const s = e.getBoundingClientRect(); return { dx: Math.round(s.left - s0.left), dy: Math.round(s.top - s0.top), saved: keys() !== before && keys() !== '' };
+    }, [sel, d.touch]);
+    if (r.closed) await openChat(p);
+    ok(!r.closed && (Math.abs(r.dx) > 4 || Math.abs(r.dy) > 4) && r.saved, `${d.name}: header drag on ${sel.split(' .')[1]} whose moves + pointerup are all handled before a render -> drop applied + saved (BUG-V4b residual, slow frame)`, r);
+  }
+  await p.evaluate(() => document.querySelector('.chat-sheet h3.chat-drag').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))); await waitStable(p, 3000);
   const targets = await controlsAt(p);
   let worst = [], midBad = [];
   for (const t of targets) {
