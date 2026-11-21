@@ -145,8 +145,17 @@ function useViewport(active: boolean) {
     addEventListener('resize', onViewport); addEventListener('orientationchange', onViewport);
     vv?.addEventListener('resize', onViewport); vv?.addEventListener('scroll', onViewport);
     document.addEventListener('focusin', on); document.addEventListener('focusout', on);
+    // V4b (intermittent): the first tap on a phone enters fullscreen (RotateOverlay), and the HUD then drops its ⛶ chip
+    // on its next render -> the top chips get 10 px shorter and the default panel (top = topMin) moves up. The 400 ms
+    // poll let that move land up to 400 ms late, i.e. at a random moment, possibly right under a finger. Re-measure
+    // as soon as fullscreen changes or a top chip is added / removed.
+    document.addEventListener('fullscreenchange', onViewport);
+    const hudTop = document.querySelector('.hud-top');
+    const mo = hudTop && typeof MutationObserver !== 'undefined' ? new MutationObserver(() => onViewport()) : null;
+    if (mo && hudTop) mo.observe(hudTop, { childList: true });
     return () => {
       clearInterval(t); if (raf) cancelAnimationFrame(raf); if (sraf) cancelAnimationFrame(sraf); timers.forEach(clearTimeout); ro?.disconnect();
+      document.removeEventListener('fullscreenchange', onViewport); mo?.disconnect();
       removeEventListener('resize', onViewport); removeEventListener('orientationchange', onViewport);
       vv?.removeEventListener('resize', onViewport); vv?.removeEventListener('scroll', onViewport);
       document.removeEventListener('focusin', on); document.removeEventListener('focusout', on);
@@ -154,6 +163,17 @@ function useViewport(active: boolean) {
   }, [active]);
   return { vp, settle };
 }
+/** Header bar rect + its ✕ column (excluded from the drag handle). */
+interface HeaderBand { l: number; t: number; r: number; b: number; xl: number; xr: number; until?: number }
+/** a tap there within this window starts a drag instead of toggling the 📍 note (harmless); long enough for a finger
+ *  already on its way when the header moved a few px */
+const HEAD_GHOST_MS = 1000;
+function headerBand(h: HTMLElement): HeaderBand {
+  const r = h.getBoundingClientRect(); const x = h.querySelector('.x')?.getBoundingClientRect();
+  return { l: r.left, t: r.top, r: r.right, b: r.bottom, xl: x ? x.left : Infinity, xr: x ? x.right : -Infinity };
+}
+const inHeaderBand = (b: HeaderBand, cx: number, cy: number) =>
+  cx >= b.l && cx <= b.r && cy >= b.t && cy <= b.b && !(cx >= b.xl && cx <= b.xr);
 const sameRect = (a: Rect | null, b: Rect | null) => !!a && !!b && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 
 function ChatButton({ opaque, unread, last }: { opaque: boolean; unread: number; last: ChatMessage | undefined }) {
@@ -202,6 +222,9 @@ export function ChatHud() {
   const swallowUntil = useRef(0);
   const [placed, setPlaced] = useState<Rect | null>(null);
   const [regest, setRegest] = useState(0); // bumped when a gesture ends -> re-place against the current zones
+  // header rects painted during the last HEAD_GHOST_MS (see routeHeader / BUG-V4b intermittent)
+  const lastHead = useRef<HeaderBand | null>(null);
+  const ghosts = useRef<HeaderBand[]>([]);
 
   // speech bubbles keep working whatever the panel does (director tick + de-overlap, ~8 Hz)
   useEffect(() => installBubbleLayer(), []);
@@ -242,6 +265,18 @@ export function ChatHud() {
     const r = rectFromPrefs(prefs, withAvatar(vp)); setPlaced((o) => (sameRect(o, r) ? o : r));
   }, [open, vp, prefs, settle, regest]);
 
+  // remember where the header was painted: a finger aimed at it may be hit-tested after the panel moved (re-place
+  // after a HUD / viewport change, a few px), so for a short while the previous header band still starts a drag
+  useLayoutEffect(() => {
+    const h = head.current; const now = performance.now();
+    ghosts.current = ghosts.current.filter((g) => (g.until ?? 0) > now);
+    if (!h) { lastHead.current = null; return; }
+    const cur = headerBand(h);
+    const o = lastHead.current;
+    if (o && (Math.abs(o.l - cur.l) > 0.5 || Math.abs(o.t - cur.t) > 0.5 || Math.abs(o.r - cur.r) > 0.5 || Math.abs(o.b - cur.b) > 0.5)) ghosts.current.push({ ...o, until: now + HEAD_GHOST_MS });
+    lastHead.current = cur;
+  });
+
   if (!ready || mode !== 'play') return null;
   if (!open) return <ChatButton opaque={opaque} unread={unread} last={history[history.length - 1]} />;
 
@@ -273,12 +308,15 @@ export function ChatHud() {
   // BUG-V4b: with touch, the bottom ~4 px of the 44 px header is retargeted (touch adjustment) to the 📍 line under
   // it, so the header's own handler never sees it. Route every pointerdown that lands geometrically inside the header
   // (except ✕ and the resize grip) to the move gesture, whatever element the browser picked as the target.
+  // Intermittent V4b: the panel can be re-placed a few px between the frame the finger aimed at and the hit test
+  // (the HUD drops its ⛶ chip after the first tap enters fullscreen) -> the header painted in the last
+  // HEAD_GHOST_MS also counts.
   const routeHeader = (e: RPointerEvent<HTMLElement>) => {
     const h = head.current; const t = e.target as HTMLElement;
     if (!h || h.contains(t) || t.closest('.chat-grip')) return;
-    const r = h.getBoundingClientRect(); const x = h.querySelector('.x')?.getBoundingClientRect();
-    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
-    if (x && e.clientX >= x.left && e.clientX <= x.right) return;
+    const now = performance.now();
+    const bands = [headerBand(h), ...ghosts.current.filter((g) => (g.until ?? 0) > now)];
+    if (!bands.some((b) => inHeaderBand(b, e.clientX, e.clientY))) return;
     if (!base || !vp || vp.kb || gesture.current) return;
     e.preventDefault(); e.stopPropagation();
     try { h.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }

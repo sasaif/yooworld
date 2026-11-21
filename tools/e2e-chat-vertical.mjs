@@ -397,6 +397,30 @@ if (want('drag')) for (const d of DRAG_DEVS) {
     ok(!note, `${d.name}: a tap on the header bottom band does not toggle the 📍 note`, { note });
     if (note) await p.evaluate(() => document.querySelector('.chat-sheet .chat-scope').click());
     await resetPos();
+    // BUG-V4b intermittent (run2 on the bundle): the first tap enters fullscreen, the HUD drops its ⛶ chip a moment
+    // later, the default panel (top = topMin) moves up 10 px and a finger aimed at the header bottom band was hit-tested
+    // below the moved header -> no drag. Reproduced deterministically: push the lowest top chip 10 px down (transform), let the panel
+    // settle lower, shrink it back, wait until the panel has moved up, then touch where the header band WAS painted.
+    {
+      const grow = (on) => p.evaluate((on) => { const els = [...document.querySelectorAll('.hud-top > *')]; let best = null, bb = -1; for (const e of els) { const r = e.getBoundingClientRect(); if (r.width > 0 && r.bottom > bb) { bb = r.bottom; best = e; } } if (on) { best.dataset.e2eGrow = '1'; best.style.transform = 'translateY(10px)'; } else document.querySelectorAll('[data-e2e-grow]').forEach((e) => { e.style.transform = ''; delete e.dataset.e2eGrow; }); }, on);
+      // the band painted before the move counts for 1000 ms (HEAD_GHOST_MS); CDP round trips under heavy CPU load can
+      // make the touch arrive later than that -> retried (max 3), checked on the first attempt that arrived in time
+      let movedUp = false, late = -1, r = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await grow(true); await p.waitForTimeout(300); await resetPos(); await waitStable(p, 3000);
+        const old = await p.evaluate(() => { const h = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect(); return { l: h.left, t: h.top, h: h.height }; });
+        await p.evaluate(() => { window.__v4bDown = 0; document.addEventListener('pointerdown', () => { window.__v4bDown = performance.now(); }, { capture: true, once: true }); });
+        await grow(false);
+        movedUp = await p.waitForFunction((t) => { const y = document.querySelector('.chat-sheet h3.chat-drag').getBoundingClientRect().top; if (y < t - 4) { window.__v4bMoved = performance.now(); return true; } return false; }, old.t, { timeout: 1500, polling: 'raf' }).then(() => true, () => false);
+        r = await headerGesture(p, cdp, d.touch, old.l + 20, old.t + old.h - 4, -40, 30);
+        late = Math.round(await p.evaluate(() => window.__v4bDown - window.__v4bMoved));
+        if (r.closed) await openChat(p);
+        if (!movedUp || late < 850) break;
+        await resetPos(); await waitStable(p, 3000);
+      }
+      ok(!movedUp || (late < 850 && r.dragging && !r.note), `${d.name}: header re-placed up under the finger (HUD chip change) -> a touch on the band painted ${movedUp ? late + ' ms' : ''} before still drags (BUG-V4b intermittent)${movedUp ? '' : ' [panel did not move: n/a]'}`, { movedUp, late, ...r });
+      await resetPos(); await waitStable(p, 3000);
+    }
   }
   const targets = await controlsAt(p);
   let worst = [], midBad = [];
@@ -437,7 +461,15 @@ if (want('drag')) for (const d of DRAG_DEVS) {
     ok(r.open && r.covered.length === 0 && r.onScreen, `${d.name}: forbidden saved position, reload at ${w}x${h} -> re-clamped, covers none`, r);
   }
   // taps on the header buttons still work (a tap is not a drag)
-  await p.setViewportSize({ width: d.w, height: d.h }); await p.waitForTimeout(300);
+  {
+    // wait for the first re-place after the resize (under CPU load it can come > 300 ms late: the panel then jumped
+    // ~160 px between reading f0 and touchStart and the finger landed off the panel); the settle passes that follow
+    // (+700 / +1400 / +2400 ms) still fall inside the 2.7 s hold below
+    const pre = await p.evaluate(() => { const s = document.querySelector('.chat-sheet').getBoundingClientRect(); return [s.left, s.top, s.width, s.height].map(Math.round).join(','); });
+    await p.setViewportSize({ width: d.w, height: d.h });
+    await p.waitForFunction((pre) => { const s = document.querySelector('.chat-sheet')?.getBoundingClientRect(); return !!s && [s.left, s.top, s.width, s.height].map(Math.round).join(',') !== pre; }, pre, { timeout: 3000, polling: 'raf' }).catch(() => {});
+    await p.waitForTimeout(150);
+  }
   // BUG-V7 root cause: a settle pass re-placed the panel while a finger was still resting on '▾ Chat' (gesture pending,
   // below the 6 px threshold). Press-and-hold '▾ Chat' right inside the settle window: the panel must not move under the
   // held finger, the move must then start (dragging), and after release it is re-placed off every control.
