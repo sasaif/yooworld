@@ -19,7 +19,11 @@ export const camViewZoomMul = (v: CamView, variantMul: number) => (v === 'avatar
 export const camViewFollow = (v: CamView, variantFollow: number) => (v === 'avatar' ? 0 : variantFollow);
 
 const ls = (): KV | null => storage.prefs;
-export const camStore = new Store<{ view: CamView }>({ view: loadCamView(ls()) });
+/** Every launch opens in 'Vue appartement' (owner decision, Alessandro 21/11/2026: "quand j ouvre le jeux la camera s ouvre
+ *  en mode perso et normalement sa doit ouvrir en vu appart"). The 🔍 toggle is still saved under the same key
+ *  (yw.camView / yw:e:<env>:camView) but no longer restored at launch: no save-format change, no migration. */
+export const LAUNCH_CAM_VIEW: CamView = 'room';
+export const camStore = new Store<{ view: CamView }>({ view: LAUNCH_CAM_VIEW });
 export function toggleCamView() {
   const view = nextCamView(camStore.get().view); camStore.set({ view }); saveCamView(ls(), view);
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('yw:follow')); // re-centre on the avatar / room

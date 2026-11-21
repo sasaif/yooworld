@@ -22,12 +22,14 @@ for (const q of urls) {
     await p.waitForTimeout(1500); const z1 = await p.evaluate(() => window.__cam.zoom);
     const mids = samples.filter((z) => z > z0 + 1 && z < z1 - 1);
     ok(mids.length >= 2 && z1 > z0 * 1.5, `🔍 Vue perso: smooth zoom ${z0} → [${mids.slice(0, 4).map((z) => z.toFixed(0)).join(', ')}…] → ${z1.toFixed(1)}`);
-    ok(await p.evaluate(() => localStorage.getItem('yw.camView')) === 'avatar', 'Vue perso persisted');
+    // the pref key depends on the build env (prod yw.camView, else yw:e:<env>:camView)
+    const camKey = () => p.evaluate(() => { const k = Object.keys(localStorage).find((x) => /(^yw\.|:)camView$/.test(x)); return k ? [k, localStorage.getItem(k)] : null; });
+    ok((await camKey())?.[1] === 'avatar', 'Vue perso saved');
     await p.reload(); await p.waitForFunction(() => window.game?.s.ready, null, { timeout: 180000 }); await p.waitForTimeout(3000);
-    ok(Math.abs(await p.evaluate(() => window.__cam.zoom) - z1) < 2, 'Vue perso restored after reload');
-    await p.locator('.chip.cam').tap(); await p.waitForTimeout(2200);
-    ok(Math.abs(await p.evaluate(() => window.__cam.zoom) - z0) < 2, 'back to Vue appartement');
-    await p.evaluate(() => localStorage.removeItem('yw.camView'));
+    // owner decision 21/11: every launch opens in Vue appartement (the saved toggle is not restored)
+    ok(Math.abs(await p.evaluate(() => window.__cam.zoom) - z0) < 2 && /Vue perso/.test(await p.locator('.chip.cam').getAttribute('aria-label') ?? ''), 'reload -> opens in Vue appartement (saved Vue perso not restored)');
+    ok((await camKey())?.[1] === 'avatar', 'saved pref untouched by the launch (same key, no migration)');
+    await p.evaluate(() => { for (const k of Object.keys(localStorage)) if (/(^yw\.|:)camView$/.test(k)) localStorage.removeItem(k); });
   }
   await ctx.close();
 }

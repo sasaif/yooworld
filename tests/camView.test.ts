@@ -57,3 +57,10 @@ describe('start location (Task A: /plage/ must open on the beach)', () => {
     expect(startLocation('?v=2', 'beach', false)).toBe('home'); expect(startLocation('?v=3&lieu=plage', 'beach', false)).toBe('beach');
   });
 });
+
+import { LAUNCH_CAM_VIEW, camStore } from '../src/app/camView';
+describe('launch framing (owner decision 21/11/2026)', () => {
+  it('every launch opens in Vue appartement, whatever was saved', () => {
+    expect(LAUNCH_CAM_VIEW).toBe('room'); expect(camStore.get().view).toBe('room');
+  });
+});
