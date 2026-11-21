@@ -19,12 +19,20 @@ export class LiveTransport implements NetworkTransport {
     this.sync = new NetSync((c) => this.subs.forEach((f) => f({ t: 'chat', playerId: c.from, text: c.text, at: c.at })));
     this.rc = new Reconnector({
       open: () => this.open(),
-      onMessage: (d) => { let m: ServerMsg; try { m = JSON.parse(d); } catch { return; } this.sync.handle(m); if (m.t === 'welcome') this.flushChat(); this.hooks?.changed(); },
+      onMessage: (d) => {
+        let m: ServerMsg; try { m = JSON.parse(d); } catch { return; }
+        // U5: the server sends 'session_revoked' / 'ws_lifetime' just before closing (4401 / 4402); browsers fire
+        // onclose seconds later, so act on the message: immediate disconnect (state -> offline, remotes purged).
+        if (m.t === 'error' && (m.code === 'session_revoked' || m.code === 'ws_lifetime')) { this.rc.abort(m.code === 'session_revoked' ? 'revoked' : 'lifetime'); return; }
+        this.sync.handle(m); if (m.t === 'welcome') this.flushChat(); this.hooks?.changed();
+      },
       onState: (s, why) => {
         this.status = s === 'open' ? 'online' : s === 'stopped' ? 'offline' : 'connecting';
         if (s !== 'open') this.sync.reset();
         if (why) this.lastError = why;
         if (why === 'not_signed_in') this.showLogin();
+        if (s === 'stopped') this.stopTick();                               // no presence/movement sending while stopped
+        if (why === 'revoked') this.afterRevoked();
         this.hooks?.changed();
       },
     });
@@ -42,6 +50,10 @@ export class LiveTransport implements NetworkTransport {
   }
   onMessage(cb: (msg: NetMessage) => void) { this.subs.add(cb); return () => { this.subs.delete(cb); }; }
 
+  /** After a revocation: no reconnect; if the session is really gone, offer the sign-in form again. */
+  private afterRevoked() {
+    this.api('/api/auth/get-session').then((s) => { if (!s.json?.user?.id && this.rc.state === 'stopped') this.showLogin(); }, () => {});
+  }
   private flushChat() { const q = this.pendingChat; this.pendingChat = []; for (const p of q) if (!this.rc.send(p)) this.pendingChat.push(p); }
   private startTick() {
     if (this.timer) return;

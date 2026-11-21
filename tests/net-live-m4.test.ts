@@ -14,7 +14,7 @@ class FakeWs implements WsLike {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe('Reconnector and server-side closes (M4)', () => {
-  it('4402 lifetime: reconnects promptly with a FRESH open() (new ticket); 4401 revoked + signed out: stops', async () => {
+  it('4402 lifetime: reconnects promptly with a FRESH open() (new ticket); 4401 revoked: stops without reconnecting', async () => {
     const timers: { fn: () => void; ms: number }[] = []; const sockets: FakeWs[] = []; let signedIn = true; let opens = 0;
     const rc = new Reconnector({
       open: async () => { opens++; if (!signedIn) throw new FatalOpenError('not_signed_in'); const w = new FakeWs(); sockets.push(w); return w; },
@@ -26,10 +26,10 @@ describe('Reconnector and server-side closes (M4)', () => {
     expect(timers.at(-1)!.ms).toBe(500);                           // first retry: base delay, not a long backoff
     timers.at(-1)!.fn(); await flush(); sockets[1].open();
     expect(opens).toBe(2); expect(sockets).toHaveLength(2); expect(rc.state).toBe('open');
-    signedIn = false; sockets[1].drop(4401);                       // session revoked: the next open() finds no session
-    expect(rc.why).toBe('closed_4401');
-    timers.at(-1)!.fn(); await flush();
-    expect(rc.state).toBe('stopped'); expect(rc.why).toBe('not_signed_in'); expect(opens).toBe(3);
+    signedIn = false; sockets[1].drop(4401);                       // session revoked (U5): stop, no auto-reconnect
+    expect(rc.state).toBe('stopped'); expect(rc.why).toBe('revoked');
+    const pending = timers.length; await flush();
+    expect(timers.length).toBe(pending); expect(opens).toBe(2);   // no retry scheduled, no new open()
   });
 });
 describe('HUD count + remote avatars (pure helpers)', () => {
