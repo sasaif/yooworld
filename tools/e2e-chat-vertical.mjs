@@ -99,6 +99,9 @@ const waitFor = (p, fn, arg) => p.waitForFunction(fn, arg, { timeout: 3000, poll
 const bubbleOn = (ids) => ids.every((id) => { const e = document.querySelector(`.tagwrap[data-char="${id}"] .bubble`); return e && e.style.opacity === '1' && !!e.textContent; });
 
 const draws = {};
+// window.__info is a sampled snapshot (Stats, 500 ms) that can read 0 when taken at a frame with no counted draws on a
+// CPU-starved runner: wait for a real (> 0) sample, max 20 s, for BOTH readings (same as drawSample below)
+const drawCalls = (p) => p.waitForFunction(() => (window.__info?.calls ?? 0) > 0 && window.__info.calls, null, { timeout: 20000, polling: 100 }).then((h) => h.jsonValue(), () => p.evaluate(() => window.__info?.calls ?? null));
 for (const d of want('main') ? DEVS : []) {
   const { ctx, p } = await boot(d);
   // ---- 1. closed by default, compact Chat button, bubbles while closed, unread ----
@@ -110,7 +113,7 @@ for (const d of want('main') ? DEVS : []) {
   await p.waitForTimeout(900);
   await waitFor(p, bubbleOn, ['m']);
   s = await state(p);
-  draws[d.name] = { closed: s.calls };
+  draws[d.name] = { closed: await drawCalls(p) };
   ok(s.bubbles.some((x) => x.id === 'm' && /plage/.test(x.text)), `${d.name}: panel closed -> bubble shown above the sender (Juan)`, s.bubbles);
   ok(s.unread === 1, `${d.name}: unread badge = 1 while closed`, s.unread);
   await p.evaluate(() => { window.game.sendChat('Oui, j’arrive !'); window.__chatSim.receive('m', 'Super 🎉'); window.__chatSim.receive('sim_x', 'Message d’un joueur simulé sans avatar ici'); });
@@ -136,7 +139,7 @@ for (const d of want('main') ? DEVS : []) {
   ok(!ov(s.avatar, s.sheet), `${d.name}: default panel does not cover the player's avatar`, { sheet: s.sheet, avatar: s.avatar });
   ok(!['joy', 'run', 'dock', 'mood'].some((k) => s.vis[k] && false), `${d.name}: controls still present with history open`, s.vis);
   const c1 = await composer(p); ok(fullyVisible(c1), `${d.name}: history open -> input + Envoyer 100 % visible`, c1);
-  draws[d.name].open = s.calls;
+  draws[d.name].open = await drawCalls(p);
   await p.screenshot({ path: `${SHOTS}/${d.name}_2_open.png` });
 
   // ---- 3. idle: no DOM churn inside the panel (no per-frame React re-render) ----
